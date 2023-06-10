@@ -26,19 +26,30 @@ from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.trainer impor
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Distributed training with PyTorch.')
 
-    parser.add_argument('--objects-path', type=str, required=True,
+    parser.add_argument('--objects-path', '--objects_path',
+                        type=str, required=True,
                         help='The shared data path to load data and model objects.')
-    parser.add_argument('--category', type=str, required=True,
+    parser.add_argument('--category',
+                        type=str, required=True,
                         help='Model category (image_classification|text_classification)')
-    parser.add_argument('--epochs', type=int, required=False, default=1, help='Total epochs to train the model')
-    parser.add_argument('--batch-size', type=int, required=False, default=128,
+    parser.add_argument('--epochs',
+                        type=int, required=False, default=1,
+                        help='Total epochs to train the model')
+    parser.add_argument('--batch-size', '--batch_size',
+                        type=int, required=False, default=128,
                         help='Global batch size to distribute data (default: 128)')
-    parser.add_argument('--ipex', action='store_true', required=False, default=False,
+    parser.add_argument('--ipex',
+                        action='store_true', required=False, default=False,
                         help="Enable IPEX optimization to the model")
-    parser.add_argument('--backend', type=str, required=False, default='gloo',
+    parser.add_argument('--backend',
+                        type=str, required=False, default='gloo',
                         help='Type of backend to use (default: gloo)')
-    parser.add_argument('--master-addr', type=str, required=False, default='', help="Master node to run this script")
-    parser.add_argument('--master-port', type=str, required=False, default='', help='Master port')
+    parser.add_argument('--master-addr', '--master_addr',
+                        type=str, required=False, default='',
+                        help="Master node to run this script")
+    parser.add_argument('--master-port', '--master_port',
+                        type=str, required=False, default='',
+                        help='Master port')
 
     args = parser.parse_args()
 

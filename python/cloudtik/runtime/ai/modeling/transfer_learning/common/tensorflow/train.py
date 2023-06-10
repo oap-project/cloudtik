@@ -27,17 +27,26 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Distributed training with TensorFlow.')
 
-    parser.add_argument('--objects-path', type=str, required=True,
+    parser.add_argument('--objects-path', '--objects_path',
+                        type=str, required=True,
                         help='The shared data path to load data and model objects.')
-    parser.add_argument('--category', type=str, required=True,
+    parser.add_argument('--category',
+                        type=str, required=True,
                         help='Model category (image_classification|text_classification)')
-    parser.add_argument('--epochs', type=int, required=False, default=1, help='Total epochs to train the model')
-    parser.add_argument('--batch_size', type=int, required=False, default=128,
+    parser.add_argument('--epochs',
+                        type=int, required=False, default=1,
+                        help='Total epochs to train the model')
+    parser.add_argument('--batch-size', '--batch_size',
+                        type=int, required=False, default=128,
                         help='Global batch size to distribute data (default: 128)')
-    parser.add_argument("--batch_denom", type=int, required=False, default=1,
+    parser.add_argument("--batch-denom", "--batch_denom",
+                        type=int, required=False, default=1,
                         help="Batch denominator to be used to divide global batch size (default: 1)")
-    parser.add_argument('--shuffle', action='store_true', required=False, help="Shuffle dataset while training")
-    parser.add_argument('--scaling', type=str, required=False, default='weak',
+    parser.add_argument('--shuffle',
+                        action='store_true', required=False,
+                        help="Shuffle dataset while training")
+    parser.add_argument('--scaling',
+                        type=str, required=False, default='weak',
                         help='Weak or Strong scaling. For weak scaling, lr is scaled by a factor of '
                         'sqrt(batch_size/batch_denom) and uses global batch size for all the processes. For '
                         'strong scaling, lr is scaled by world size and divides global batch size by world size '

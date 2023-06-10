@@ -77,7 +77,51 @@ def _get_num_parts(hosts):
     return len(host_list)
 
 
+def _build_graph(args):
+    if not args.input_file:
+        raise ValueError(
+            "Must specify the input file which contains the processed data.")
+    if not args.temp_dir:
+        raise ValueError(
+            "Must specify the temp dir which is used to store intermediate data.")
+
+    dataset_output_dir = _get_dataset_output_dir(args.temp_dir)
+    build_graph(
+        input_file=args.input_file,
+        output_dir=dataset_output_dir,
+        dataset_name=args.dataset_name,
+        tabular2graph=args.tabular2graph
+    )
+
+
+def _partition_graph(args):
+    if not args.temp_dir:
+        raise ValueError(
+            "Must specify the temp dir which stored the intermediate data.")
+    partition_dir = _get_partition_dir(args.temp_dir)
+    dataset_dir = _get_dataset_dir(
+        args.temp_dir, args.dataset_name)
+    if not args.num_parts:
+        args.num_parts = _get_num_parts(args.hosts)
+    partition_graph(
+        dataset_dir=dataset_dir,
+        output_dir=partition_dir,
+        graph_name=args.graph_name,
+        num_parts=args.num_parts,
+        num_hops=args.num_hops
+    )
+
+
 def _train(args):
+    if not args.temp_dir:
+        raise ValueError(
+            "Must specify the temp dir which stored the intermediate data.")
+    # make sure the output dir exists
+    if not args.output_dir:
+        raise ValueError(
+            "Must specify the output dir for storing results.")
+    os.makedirs(args.output_dir, exist_ok=True)
+
     # Call launch which run a single local training processes
     model_file = _get_model_file(args.output_dir)
     node_embeddings_file = _get_node_embeddings_file(
@@ -128,6 +172,17 @@ def _train(args):
 
 
 def _train_distributed(args):
+    # For distributed training, the temp_dir and the output_dir must be shared
+    # directory being able to accessed by the nodes.
+    if not args.temp_dir:
+        raise ValueError(
+            "Must specify the temp dir which stored the intermediate data.")
+    # make sure the output dir exists
+    if not args.output_dir:
+        raise ValueError(
+            "Must specify the output dir for storing results.")
+    os.makedirs(args.output_dir, exist_ok=True)
+
     # Call launch which run the distributed training processes
     model_file = _get_model_file(args.output_dir)
     node_embeddings_file = _get_node_embeddings_file(
@@ -194,6 +249,13 @@ def _train_distributed(args):
 
 
 def _map_and_save_embeddings(args):
+    if not args.input_file:
+        raise ValueError(
+            "Must specify the input file which contains the processed data.")
+    if not args.output_dir:
+        raise ValueError(
+            "Must specify the output dir which stored the node embeddings.")
+
     mapped_output_file = _get_mapped_output_file(args.output_dir)
     node_embeddings_dir = _get_node_embeddings_dir(args.output_dir)
     if args.single_node:
@@ -205,6 +267,9 @@ def _map_and_save_embeddings(args):
             tabular2graph=args.tabular2graph
         )
     else:
+        if not args.temp_dir:
+            raise ValueError(
+                "Must specify the temp dir which stored the intermediate data.")
         partition_dir = _get_partition_dir(args.temp_dir)
         map_embeddings_distributed(
             processed_data_file=args.input_file,
@@ -219,27 +284,10 @@ def _map_and_save_embeddings(args):
 def run(args):
     # run build the graph
     if not args.no_build_graph:
-        dataset_output_dir = _get_dataset_output_dir(args.temp_dir)
-        build_graph(
-            input_file=args.input_file,
-            output_dir=dataset_output_dir,
-            dataset_name=args.dataset_name,
-            tabular2graph=args.tabular2graph
-        )
+        _build_graph(args)
 
     if not args.single_node and not args.no_partition_graph:
-        partition_dir = _get_partition_dir(args.temp_dir)
-        dataset_dir = _get_dataset_dir(
-            args.temp_dir, args.dataset_name)
-        if not args.num_parts:
-            args.num_parts = _get_num_parts(args.hosts)
-        partition_graph(
-            dataset_dir=dataset_dir,
-            output_dir=partition_dir,
-            graph_name=args.graph_name,
-            num_parts=args.num_parts,
-            num_hops=args.num_hops
-        )
+        _partition_graph(args)
 
     if not args.no_train_graph:
         if args.single_node:
@@ -254,103 +302,125 @@ def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run GNN Training")
     parser.add_argument(
-        "--single_node", default=False, action="store_true",
+        "--single-node", "--single_node",
+        default=False, action="store_true",
         help="To do single node training")
     parser.add_argument(
-        "--no_build_graph", default=False, action="store_true",
+        "--no_build_graph", "--no_build_graph",
+        default=False, action="store_true",
         help="whether to build graph")
     parser.add_argument(
-        "--no_partition_graph", default=False, action="store_true",
+        "--no-partition-graph", "--no_partition_graph",
+        default=False, action="store_true",
         help="whether to partition graph")
     parser.add_argument(
-        "--no_train_graph", default=False, action="store_true",
+        "--no-train-graph", "--no_train_graph",
+        default=False, action="store_true",
         help="whether to train graph")
     parser.add_argument(
-        "--no_map_embeddings", default=False, action="store_true",
+        "--no-map-embeddings", "--no_map_embeddings",
+        default=False, action="store_true",
         help="whether to map embeddings")
 
     parser.add_argument(
-        "--input_file",
+        "--input-file", "--input_file",
         type=existing_file,
-        default="",
         help="Input file with path of the processed data in csv) ")
     parser.add_argument(
-        "--temp_dir", default="", help="The path to the intermediate data")
+        "--temp-dir", "--temp_dir",
+        type=str,
+        help="The path to the intermediate data")
     parser.add_argument(
-        "--output_dir", default="", help="The path to the output")
+        "--output-dir", "--output_dir",
+        type=str,
+        help="The path to the output")
     parser.add_argument(
-        "--dataset_name", default="tabformer_hetero", type=str, help="The dataset name")
+        "--dataset-name", "--dataset_name",
+        type=str, default="tabformer_hetero",
+        help="The dataset name")
     parser.add_argument(
-        "--tabular2graph", required=True, help="The path to the tabular2graph.yaml")
+        "--tabular2graph",
+        type=str, required=True,
+        help="The path to the tabular2graph.yaml")
 
     # Train
     parser.add_argument(
-        "--node_embeddings_name",
-        type=str,
-        default="node_emb",
+        "--node-embeddings-name", "--node_embeddings_name",
+        type=str, default="node_emb",
         help="The path to the node embedding file")
 
     # Distributed training
-    parser.add_argument("--hosts", default="", type=str,
-                        help="List of hosts separated with comma for launching tasks. ")
+    parser.add_argument(
+        "--hosts",
+        type=str,
+        help="List of hosts separated with comma for launching tasks. ")
     # Partition graph parameters
     parser.add_argument(
-        "--graph_name",
-        type=str,
-        default="tabformer_full_homo",
+        "--graph_name", "--graph_name",
+        type=str, default="tabformer_full_homo",
         help="The graph name")
     parser.add_argument(
-        "--num_parts", type=int, default=0, help="number of partitions")
+        "--num-parts", "--num_parts",
+        type=int, default=0,
+        help="number of partitions")
     parser.add_argument(
-        "--num_hops", type=int, default=1,
+        "--num-hops", "--num_hops",
+        type=int, default=1,
         help="number of hops of nodes we include in a partition as HALO nodes")
 
     parser.add_argument(
-        "--num_trainers",
-        type=int,
-        default=1,
+        "--num-trainers", "--num_trainers",
+        type=int, default=1,
         help="The number of trainer processes per machine",
     )
     parser.add_argument(
-        "--num_samplers",
-        type=int,
-        default=2,
+        "--num-samplers", "--num_samplers",
+        type=int, default=2,
         help="The number of sampler processes per trainer process",
     )
     parser.add_argument(
-        "--num_servers",
-        type=int,
-        default=1,
+        "--num-servers", "--num_servers",
+        type=int, default=1,
         help="The number of server processes per machine",
     )
     parser.add_argument(
-        "--num_server_threads",
-        type=int,
-        default=1,
-        help="The number of OMP threads in the server process. \
-                                It should be small if server processes and trainer processes run on \
-                                the same machine. By default, it is 1.",
+        "--num-server-threads", "--num_server_threads",
+        type=int, default=1,
+        help="The number of OMP threads in the server process. "
+             "It should be small if server processes and trainer processes run "
+             "on the same machine. By default, it is 1.",
     )
     parser.add_argument(
-        "--num_omp_threads",
+        "--num-omp-threads", "--num_omp_threads",
         type=int,
         help="The number of OMP threads per trainer",
     )
 
-    parser.add_argument("--num_epochs", type=int, default=10)
-    parser.add_argument("--num_hidden", type=int, default=64)
-    parser.add_argument("--num_layers", type=int, default=2)
-    parser.add_argument("--fan_out", type=str, default="55,65")
-    parser.add_argument("--batch_size", type=int, default=2048)
-    parser.add_argument("--batch_size_eval", type=int, default=1000000)
-    parser.add_argument("--eval_every", type=int, default=1)
-    parser.add_argument("--lr", type=float, default=0.0005)
+    # These defaults are set for distributed training
+    parser.add_argument("--num-epochs", "--num_epochs",
+                        type=int, default=10)
+    parser.add_argument("--num-hidden", "--num_hidden",
+                        type=int, default=64)
+    parser.add_argument("--num-layers", "--num_layers",
+                        type=int, default=2)
+    parser.add_argument("--fan-out", "--fan_out",
+                        type=str, default="55,65")
+    parser.add_argument("--batch-size", "--batch_size",
+                        type=int, default=2048)
+    parser.add_argument("--batch-size-eval", "--batch_size_eval",
+                        type=int, default=1000000)
+    parser.add_argument("--eval-every", "--eval_every",
+                        type=int, default=1)
+    parser.add_argument("--lr",
+                        type=float, default=0.0005)
 
     # distributed only
-    parser.add_argument("--log_every", type=int, default=20)
+    parser.add_argument("--log-every", "--log_every",
+                        type=int, default=20)
 
     # single only
-    parser.add_argument("--num_dl_workers", type=int, default=4)
+    parser.add_argument("--num-dl-workers", "--num_dl_workers",
+                        type=int, default=4)
 
     args = parser.parse_args()
     print(args)

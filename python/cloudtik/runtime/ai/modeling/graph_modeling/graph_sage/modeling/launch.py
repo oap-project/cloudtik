@@ -817,9 +817,11 @@ def launch_local(
 
 def main():
     parser = argparse.ArgumentParser(description="Launch a distributed job")
-    parser.add_argument("--ssh_port", type=int, default=22, help="SSH Port.")
     parser.add_argument(
-        "--ssh_username",
+        "--ssh-port", "--ssh_port",
+        type=int, default=22, help="SSH Port.")
+    parser.add_argument(
+        "--ssh-username", "--ssh_username",
         default="",
         help="Optional. When issuing commands (via ssh) to cluster, use the provided username in the ssh cmd. "
         "Example: If you provide --ssh_username=bob, then the ssh command will be like: 'ssh bob@1.2.3.4 CMD' "
@@ -833,68 +835,64 @@ def main():
                         the contents of current directory will be rsyncd",
     )
     parser.add_argument(
-        "--num_trainers",
+        "--num-trainers", "--num_trainers",
         type=int,
         help="The number of trainer processes per machine",
     )
     parser.add_argument(
-        "--num_omp_threads",
+        "--num-omp-threads", "--num_omp_threads",
         type=int,
         help="The number of OMP threads per trainer",
     )
     parser.add_argument(
-        "--num_samplers",
+        "--num-samplers", "--num_samplers",
         type=int,
         default=0,
         help="The number of sampler processes per trainer process",
     )
     parser.add_argument(
-        "--num_servers",
+        "--num-servers", "--num_servers",
         type=int,
         help="The number of server processes per machine",
     )
     parser.add_argument(
-        "--num_server_threads",
-        type=int,
-        default=1,
+        "--num-server-threads", "--num_server_threads",
+        type=int, default=1,
         help="The number of OMP threads in the server process. \
                             It should be small if server processes and trainer processes run on \
                             the same machine. By default, it is 1.",
     )
     parser.add_argument(
-        "--part_config",
+        "--part-config", "--part_config",
         type=str,
         help="The file (in workspace) of the partition config",
     )
     parser.add_argument(
-        "--ip_config",
+        "--ip-config", "--ip_config",
         type=str,
         help="The file (in workspace) of IP configuration for server processes",
     )
     parser.add_argument(
-        "--graph_format",
-        type=str,
-        default="csc",
+        "--graph-format", "--graph_format",
+        type=str, default="csc",
         help='The format of the graph structure of each partition. \
                         The allowed formats are csr, csc and coo. A user can specify multiple \
                         formats, separated by ",". For example, the graph format is "csr,csc".',
     )
     parser.add_argument(
-        "--extra_envs",
-        nargs="+",
-        type=str,
-        default=[],
+        "--extra-envs", "--extra_envs",
+        nargs="+", type=str, default=[],
         help="Extra environment parameters need to be set. For example, \
                         you can set the LD_LIBRARY_PATH and NCCL_DEBUG by adding: \
                         --extra_envs LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH NCCL_DEBUG=INFO ",
     )
     parser.add_argument(
-        "--keep_alive",
+        "--keep-alive", "--keep_alive",
         action="store_true",
         help="Servers keep alive when clients exit",
     )
     parser.add_argument(
-        "--server_name",
+        "--server-name", "--server_name",
         type=str,
         help="Used to check whether there exist alive servers",
     )

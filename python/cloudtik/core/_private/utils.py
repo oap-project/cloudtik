@@ -3174,6 +3174,5 @@ def parse_resources(resources_str: str, ) -> Dict[str, int]:
 def with_verbose_option(cmds, call_context):
     _cli_logger = call_context.cli_logger
     if _cli_logger.verbosity_overriden:
-        cmds += ["--verbose={}".format(_cli_logger.verbosity)]
-        return True
-    return False
+        if _cli_logger.verbosity > 0:
+            cmds += ["--verbose"]

@@ -10,7 +10,7 @@ from cloudtik.core._private.workspace import workspace_operator
 from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.event_system import (
     global_event_system)
-from cloudtik.core._private.cli_logger import cli_logger
+from cloudtik.core._private.cli_logger import cli_logger, CliLogger
 from cloudtik.core._private import utils
 from cloudtik.core.workspace_provider import Existence
 
@@ -57,12 +57,17 @@ class Workspace:
 
 
 class Cluster:
-    def __init__(self, cluster_config: Union[dict, str], should_bootstrap: bool = True, no_config_cache: bool = True) -> None:
+    def __init__(
+            self, cluster_config: Union[dict, str],
+            should_bootstrap: bool = True,
+            no_config_cache: bool = True,
+            verbosity: Optional[int] = None) -> None:
         """Create a cluster object to operate on with this API.
 
         Args:
             cluster_config (Union[str, dict]): Either the config dict of the
                 cluster, or a path pointing to a file containing the config.
+            verbosity: If verbosity > 0, print more detailed messages.
         """
         self.cluster_config = cluster_config
         if isinstance(cluster_config, dict):
@@ -78,7 +83,11 @@ class Cluster:
                 cluster_config, should_bootstrap=should_bootstrap, no_config_cache=no_config_cache)
 
         # TODO: Each call may need its own call context
-        self.call_context = CallContext()
+        _cli_logger = cli_logger
+        if verbosity is not None:
+            _cli_logger = CliLogger()
+            _cli_logger.set_verbosity(verbosity)
+        self.call_context = CallContext(_cli_logger=_cli_logger)
         self.call_context.set_call_from_api(True)
 
     def start(self,
@@ -456,12 +465,16 @@ class Cluster:
 
 
 class ThisCluster:
-    def __init__(self) -> None:
+    def __init__(self, verbosity: Optional[int] = None) -> None:
         """Create a cluster object to operate on from head with this API."""
         self.config = load_head_cluster_config()
 
         # TODO: Each call may need its own call context
-        self.call_context = CallContext()
+        _cli_logger = cli_logger
+        if verbosity is not None:
+            _cli_logger = CliLogger()
+            _cli_logger.set_verbosity(verbosity)
+        self.call_context = CallContext(_cli_logger=_cli_logger)
         self.call_context.set_call_from_api(True)
 
     def exec(self,

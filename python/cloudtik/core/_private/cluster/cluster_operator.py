@@ -856,7 +856,7 @@ def get_or_create_head_node(config: Dict[str, Any],
                 while True:
                     if time.time() - start > 50:
                         _cli_logger.abort("Head node fetch timed out. "
-                                         "Failed to create head node.")
+                                          "Failed to create head node.")
                     nodes = provider.non_terminated_nodes(head_node_tags)
                     if len(nodes) == 1:
                         head_node = nodes[0]

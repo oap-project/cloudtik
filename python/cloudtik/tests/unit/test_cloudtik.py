@@ -999,7 +999,7 @@ class CloudTikTest(unittest.TestCase):
 
         docker_mount_prefix_for_object = get_docker_host_mount_location_for_object(
             SMALL_CLUSTER["cluster_name"],
-            "~/cloudtik_bootstrap_config.pem"
+            "~/cloudtik_bootstrap_key.pem"
         )
         pattern = f"-v {docker_mount_prefix_for_object}/~/cloudtik_bootstrap_config"
         runner.assert_not_has_call(
@@ -1044,7 +1044,7 @@ class CloudTikTest(unittest.TestCase):
 
         docker_mount_prefix_for_object = get_docker_host_mount_location_for_object(
             SMALL_CLUSTER["cluster_name"],
-            "~/cloudtik_bootstrap_config.pem"
+            "~/cloudtik_bootstrap_key.pem"
         )
         pattern = f"-v {docker_mount_prefix_for_object}/~/cloudtik_bootstrap_config"
         runner.assert_not_has_call(
@@ -1220,7 +1220,7 @@ class CloudTikTest(unittest.TestCase):
 
         docker_mount_prefix_for_object = get_docker_host_mount_location_for_object(
             SMALL_CLUSTER["cluster_name"],
-            "~/cloudtik_bootstrap_config.pem"
+            "~/cloudtik_bootstrap_key.pem"
         )
         pattern = f"-v {docker_mount_prefix_for_object}/~/cloudtik_bootstrap_config"
         runner.assert_not_has_call(

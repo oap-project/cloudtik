@@ -20,12 +20,17 @@ def get_docker_host_mount_location(cluster_name: str) -> str:
 
 
 def get_docker_host_mount_location_for_object(
-        cluster_name: str, object_uri: str) -> str:
+        cluster_name: str, object_path: str, identical=True) -> str:
     """Return the docker host mount directory location for a specific target"""
     docker_mount_prefix = get_docker_host_mount_location(cluster_name)
-    normalized_object_uri = object_uri.rstrip("/")
-    object_identifier = str(uuid.uuid3(uuid.NAMESPACE_OID, normalized_object_uri))
-    return os.path.join(docker_mount_prefix, object_identifier)
+    normalized_object_path = object_path.rstrip("/")
+    object_identifier = str(uuid.uuid3(uuid.NAMESPACE_OID, normalized_object_path))
+    object_root = os.path.join(docker_mount_prefix, object_identifier)
+    if identical:
+        return os.path.join(object_root, object_path.lstrip("/"))
+    else:
+        # using a unique uuid instead
+        return os.path.join(object_root, str(uuid.uuid4()))
 
 
 def _check_docker_file_mounts(file_mounts: Dict[str, str]) -> None:

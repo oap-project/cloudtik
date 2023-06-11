@@ -191,7 +191,7 @@ class ClusterScaler:
 
         # Setup verbosity based on logging level
         if logger.isEnabledFor(logging.DEBUG):
-            self.call_context.cli_logger.set_verbosity(1)
+            self.call_context.cli_logger.set_verbosity(2)
         else:
             self.call_context.cli_logger.set_verbosity(0)
 

@@ -1,3 +1,5 @@
+import os
+import uuid
 from pathlib import Path
 from typing import Any, Dict
 
@@ -9,6 +11,21 @@ except ImportError:  # py2
     from pipes import quote
 
 from cloudtik.core._private.cli_logger import cli_logger
+
+
+def get_docker_host_mount_location(cluster_name: str) -> str:
+    """Return host path that Docker mounts attach to."""
+    docker_mount_prefix = "/tmp/cloudtik/mounts/{cluster_name}"
+    return docker_mount_prefix.format(cluster_name=cluster_name)
+
+
+def get_docker_host_mount_location_for_object(
+        cluster_name: str, object_uri: str) -> str:
+    """Return the docker host mount directory location for a specific target"""
+    docker_mount_prefix = get_docker_host_mount_location(cluster_name)
+    normalized_object_uri = object_uri.rstrip("/")
+    object_identifier = str(uuid.uuid3(uuid.NAMESPACE_OID, normalized_object_uri))
+    return os.path.join(docker_mount_prefix, object_identifier)
 
 
 def _check_docker_file_mounts(file_mounts: Dict[str, str]) -> None:
@@ -102,10 +119,10 @@ def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_
                       port_mappings=None, mounts_mapping=False):
     mounts = mount_dict
     if mounts_mapping:
-        # Imported here due to circular dependency.
-        from cloudtik.core.api import get_docker_host_mount_location
-        docker_mount_prefix = get_docker_host_mount_location(cluster_name)
-        mounts = {dst: f"{docker_mount_prefix}/{dst}" for dst in mount_dict}
+        mounts = {}
+        for dst in mount_dict:
+            mounts[dst] = get_docker_host_mount_location_for_object(
+                cluster_name, dst)
 
     return _docker_start_cmds(
         user, image, mounts, data_disks, container_name,

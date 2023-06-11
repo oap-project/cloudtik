@@ -29,7 +29,8 @@ from cloudtik.core._private.cluster.cluster_operator import _should_create_new_h
 from cloudtik.core._private.cluster.cluster_scaler import ClusterScaler, NonTerminatedNodes
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
-from cloudtik.core._private.docker import validate_docker_config
+from cloudtik.core._private.docker import validate_docker_config, get_docker_host_mount_location, \
+    get_docker_host_mount_location_for_object
 from cloudtik.core._private.event_system import global_event_system, CreateClusterEvent
 from cloudtik.core._private.node.node_updater import NodeUpdater
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
@@ -43,7 +44,6 @@ from cloudtik.core._private.cluster import cluster_operator
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.providers import _NODE_PROVIDERS, _get_node_provider, _PROVIDER_HOMES, \
     _load_aws_provider_home
-from cloudtik.core.api import get_docker_host_mount_location
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_USER_NODE_TYPE, \
@@ -997,18 +997,26 @@ class CloudTikTest(unittest.TestCase):
         runner.assert_has_call("1.2.3.4", pattern=head_run_option)
         runner.assert_has_call("1.2.3.4", pattern=standard_run_option)
 
-        docker_mount_prefix = get_docker_host_mount_location(
-            SMALL_CLUSTER["cluster_name"]
+        docker_mount_prefix_for_object = get_docker_host_mount_location_for_object(
+            SMALL_CLUSTER["cluster_name"],
+            "~/cloudtik_bootstrap_key.pem"
         )
+        pattern = f"-v {docker_mount_prefix_for_object}/~/cloudtik_bootstrap_config"
         runner.assert_not_has_call(
-            "1.2.3.4", pattern=f"-v {docker_mount_prefix}/~/cloudtik_bootstrap_config"
+            "1.2.3.4", pattern=pattern
         )
-        common_container_copy = f"rsync -e.*docker exec -i.*{docker_mount_prefix}/~/"
+
+        pattern = f"rsync -e.*docker exec -i.*{docker_mount_prefix_for_object}/~/cloudtik_bootstrap_key.pem"
         runner.assert_has_call(
-            "1.2.3.4", pattern=common_container_copy + "cloudtik_bootstrap_key.pem"
+            "1.2.3.4", pattern=pattern
         )
+        docker_mount_prefix_for_object = get_docker_host_mount_location_for_object(
+            SMALL_CLUSTER["cluster_name"],
+            "~/cloudtik_bootstrap_config.yaml"
+        )
+        pattern = f"rsync -e.*docker exec -i.*{docker_mount_prefix_for_object}/~/cloudtik_bootstrap_config.yaml"
         runner.assert_has_call(
-            "1.2.3.4", pattern=common_container_copy + "cloudtik_bootstrap_config.yaml"
+            "1.2.3.4", pattern=pattern
         )
         return config
 
@@ -1034,20 +1042,30 @@ class CloudTikTest(unittest.TestCase):
         runner.assert_has_call("1.2.3.4", "head_start_cmd")
         runner.assert_has_call("1.2.3.4", pattern="docker run")
 
+        docker_mount_prefix_for_object = get_docker_host_mount_location_for_object(
+            SMALL_CLUSTER["cluster_name"],
+            "~/cloudtik_bootstrap_key.pem"
+        )
+        pattern = f"-v {docker_mount_prefix_for_object}/~/cloudtik_bootstrap_config"
+        runner.assert_not_has_call(
+            "1.2.3.4", pattern=pattern
+        )
+        pattern = f"rsync -e.*docker exec -i.*{docker_mount_prefix_for_object}/~/cloudtik_bootstrap_key.pem"
+        runner.assert_has_call(
+            "1.2.3.4", pattern=pattern
+        )
+        docker_mount_prefix_for_object = get_docker_host_mount_location_for_object(
+            SMALL_CLUSTER["cluster_name"],
+            "~/cloudtik_bootstrap_config.yaml"
+        )
+        pattern = f"rsync -e.*docker exec -i.*{docker_mount_prefix_for_object}/~/cloudtik_bootstrap_config.yaml"
+        runner.assert_has_call(
+            "1.2.3.4", pattern=pattern
+        )
+
         docker_mount_prefix = get_docker_host_mount_location(
             SMALL_CLUSTER["cluster_name"]
         )
-        runner.assert_not_has_call(
-            "1.2.3.4", pattern=f"-v {docker_mount_prefix}/~/cloudtik_bootstrap_config"
-        )
-        common_container_copy = f"rsync -e.*docker exec -i.*{docker_mount_prefix}/~/"
-        runner.assert_has_call(
-            "1.2.3.4", pattern=common_container_copy + "cloudtik_bootstrap_key.pem"
-        )
-        runner.assert_has_call(
-            "1.2.3.4", pattern=common_container_copy + "cloudtik_bootstrap_config.yaml"
-        )
-
         # This section of code ensures that the following order of commands are executed:
         # 1. mkdir -p {docker_mount_prefix}
         # 2. rsync bootstrap files (over ssh)
@@ -1200,18 +1218,26 @@ class CloudTikTest(unittest.TestCase):
         runner.assert_has_call("1.2.3.4", pattern="docker stop")
         runner.assert_has_call("1.2.3.4", pattern="docker run")
 
-        docker_mount_prefix = get_docker_host_mount_location(
-            SMALL_CLUSTER["cluster_name"]
+        docker_mount_prefix_for_object = get_docker_host_mount_location_for_object(
+            SMALL_CLUSTER["cluster_name"],
+            "~/cloudtik_bootstrap_key.pem"
         )
+        pattern = f"-v {docker_mount_prefix_for_object}/~/cloudtik_bootstrap_config"
         runner.assert_not_has_call(
-            "1.2.3.4", pattern=f"-v {docker_mount_prefix}/~/cloudtik_bootstrap_config"
+            "1.2.3.4", pattern=pattern
         )
-        common_container_copy = f"rsync -e.*docker exec -i.*{docker_mount_prefix}/~/"
+
+        pattern = f"rsync -e.*docker exec -i.*{docker_mount_prefix_for_object}/~/cloudtik_bootstrap_key.pem"
         runner.assert_has_call(
-            "1.2.3.4", pattern=common_container_copy + "cloudtik_bootstrap_key.pem"
+            "1.2.3.4", pattern=pattern
         )
+        docker_mount_prefix_for_object = get_docker_host_mount_location_for_object(
+            SMALL_CLUSTER["cluster_name"],
+            "~/cloudtik_bootstrap_config.yaml"
+        )
+        pattern = f"rsync -e.*docker exec -i.*{docker_mount_prefix_for_object}/~/cloudtik_bootstrap_config.yaml"
         runner.assert_has_call(
-            "1.2.3.4", pattern=common_container_copy + "cloudtik_bootstrap_config.yaml"
+            "1.2.3.4", pattern=pattern
         )
 
     def testScaleDownMaxWorkers(self):

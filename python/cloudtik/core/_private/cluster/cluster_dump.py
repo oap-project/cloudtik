@@ -432,7 +432,8 @@ def get_archive_from_remote_node(
     with_verbose_option(collect_cmd, call_context)
     cmd = " ".join(collect_cmd)
 
-    cli_logger.print(f"Collecting data from remote node: {remote_node.host}")
+    call_context.cli_logger.print(
+        f"Collecting data from remote node: {remote_node.host}")
 
     # execute the command on head, and it will dump to the output file
     exec_on_head(
@@ -541,13 +542,17 @@ def add_archive_for_remote_nodes(config: Dict[str, Any],
     allow_interactive = call_context.does_allow_interactive()
     call_context.set_allow_interactive(False)
 
+    _cli_logger = call_context.cli_logger
+
+    failures = 0
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_SSH_WORKERS) as executor:
+        futures = {}
         for remote_node in remote_nodes:
             # get node type specific runtimes
             node_parameters = copy.deepcopy(parameters)
             node_runtimes = _get_node_specific_runtime_types(config, remote_node.node_id)
             node_parameters.set_runtimes(node_runtimes)
-            executor.submit(
+            futures[remote_node.host] = executor.submit(
                 add_archive_for_remote_node,
                 config=config,
                 call_context=call_context.new_call_context(),
@@ -555,9 +560,18 @@ def add_archive_for_remote_nodes(config: Dict[str, Any],
                 remote_node=remote_node,
                 parameters=node_parameters)
 
+        for host, future in futures.items():
+            try:
+                result = future.result()
+            except Exception as e:
+                failures += 1
+                _cli_logger.error("Dump task failed on node {}: {}", host, str(e))
+
     call_context.set_output_redirected(output_redir)
     call_context.set_allow_interactive(allow_interactive)
 
+    if failures > 1:
+        _cli_logger.print("Total {} dump tasks failed.", failures)
     return archive
 
 
@@ -605,7 +619,8 @@ def get_archive_from_head_node(
     with_verbose_option(collect_cmd, call_context)
     cmd = " ".join(collect_cmd)
 
-    cli_logger.print(f"Collecting cluster data from head node...")
+    call_context.cli_logger.print(
+        "Collecting cluster data from head node...")
 
     # execute the command on head, and it will dump to the output file
     exec_cluster(

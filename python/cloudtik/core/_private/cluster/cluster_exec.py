@@ -24,8 +24,6 @@ def _exec_on_node(
 ) -> str:
     """Runs a command on a node of a cluster
     """
-    call_context.set_allow_interactive(True)
-
     updater = create_node_updater_for_exec(
         config=config,
         call_context=call_context,

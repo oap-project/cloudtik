@@ -1150,6 +1150,8 @@ def _exec_cluster(config: Dict[str, Any],
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
     assert run_env in RUN_ENV_TYPES, "--run_env must be in {}".format(
         RUN_ENV_TYPES)
+
+    # TODO (haifeng): we may not need to set_allow_interactive explicitly here
     # We default this to True to maintain backwards-compatibility
     # In the future we would want to support disabling login-shells
     # and interactivity.

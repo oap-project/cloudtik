@@ -88,10 +88,12 @@ class DockerCommandExecutor(CommandExecutor):
 
     def run_rsync_up(self, source, target, options=None):
         options = options or {}
-        host_destination = os.path.join(
-            get_docker_host_mount_location_for_object(
-                self.host_command_executor.cluster_name, target),
-            target.lstrip("/"))
+        do_with_rsync = self._check_container_status() and not options.get(
+                "docker_mount_if_possible", False)
+        identical = False if do_with_rsync else True
+        host_destination = get_docker_host_mount_location_for_object(
+            self.host_command_executor.cluster_name, target,
+            identical=identical)
 
         host_mount_location = os.path.dirname(host_destination.rstrip("/"))
         self.host_command_executor.run(
@@ -101,8 +103,7 @@ class DockerCommandExecutor(CommandExecutor):
 
         self.host_command_executor.run_rsync_up(
             source, host_destination, options=options)
-        if self._check_container_status() and not options.get(
-                "docker_mount_if_possible", False):
+        if do_with_rsync:
             if os.path.isdir(source):
                 # Adding a "." means that docker copies the *contents*
                 # Without it, docker copies the source *into* the target
@@ -127,10 +128,11 @@ class DockerCommandExecutor(CommandExecutor):
 
     def run_rsync_down(self, source, target, options=None):
         options = options or {}
-        host_source = os.path.join(
-            get_docker_host_mount_location_for_object(
-                self.host_command_executor.cluster_name, source),
-            source.lstrip("/"))
+        do_with_rsync = not options.get("docker_mount_if_possible", False)
+        identical = False if do_with_rsync else True
+        host_source = get_docker_host_mount_location_for_object(
+            self.host_command_executor.cluster_name, source,
+            identical=identical)
         host_mount_location = os.path.dirname(host_source.rstrip("/"))
         self.host_command_executor.run(
             f"mkdir -p {host_mount_location} && chown -R "
@@ -140,7 +142,7 @@ class DockerCommandExecutor(CommandExecutor):
             source += "."
             # Adding a "." means that docker copies the *contents*
             # Without it, docker copies the source *into* the target
-        if not options.get("docker_mount_if_possible", False):
+        if do_with_rsync:
             # NOTE: `--delete` is okay here because the container is the source
             # of truth.
             self.host_command_executor.run(
@@ -361,10 +363,8 @@ class DockerCommandExecutor(CommandExecutor):
                     "rsync -e '{cmd} exec -i' -avz {src} {container}:{dst}".
                     format(
                         cmd=self.get_docker_cmd(),
-                        src=os.path.join(
-                            get_docker_host_mount_location_for_object(
+                        src=get_docker_host_mount_location_for_object(
                                 self.host_command_executor.cluster_name, mount),
-                            mount),
                         container=self.container_name,
                         dst=self._docker_expand_user(mount)))
                 try:

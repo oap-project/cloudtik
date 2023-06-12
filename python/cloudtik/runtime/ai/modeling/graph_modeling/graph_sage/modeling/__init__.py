@@ -5,12 +5,15 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.run \
 class ModelingArgs(object):
     def __init__(self):
         self.single_node = False
+        self.no_process_data = False
         self.no_build_graph = False
         self.no_partition_graph = False
         self.no_train_graph = False
         self.no_map_embeddings = False
 
-        self.input_file = None
+        self.raw_data_file = None
+        self.processed_data_file = None
+
         self.temp_dir = None
         self.output_dir = None
         self.dataset_name = "tabformer_hetero"

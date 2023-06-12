@@ -3,6 +3,8 @@ import os
 import sys
 import tempfile
 
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.data.process \
+    import process_data
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
     existing_file
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.build_graph import \
@@ -91,15 +93,38 @@ def _check_temp_dir(args):
                 "Must specify the temp-dir for storing the shared intermediate data")
 
 
+def _check_tabular2graph(args):
+    if not args.tabular2graph:
+        # default to the built-in tabular2graph.yaml if not specified
+        args.tabular2graph = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "config/tabular2graph.yaml")
+        print("tabular2graph is not specified. Default to: {}".format(
+            args.tabular2graph))
+
+
+def _process_data(args):
+    if not args.raw_data_file:
+        raise ValueError(
+            "Must specify the raw data file which contains raw data to be processed.")
+    if not args.processed_data_file:
+        raise RuntimeError("Please specify the processed-data-file for storing of processed data.")
+    process_data(
+        raw_data_file=args.raw_data_file,
+        output_file=args.processed_data_file,
+    )
+
+
 def _build_graph(args):
-    if not args.input_file:
+    if not args.processed_data_file:
         raise ValueError(
             "Must specify the input file which contains the processed data.")
     _check_temp_dir(args)
+    _check_tabular2graph(args)
 
     dataset_output_dir = _get_dataset_output_dir(args.temp_dir)
     build_graph(
-        input_file=args.input_file,
+        input_file=args.processed_data_file,
         output_dir=dataset_output_dir,
         dataset_name=args.dataset_name,
         tabular2graph=args.tabular2graph
@@ -261,18 +286,19 @@ def _train_distributed(args):
 
 
 def _map_and_save_embeddings(args):
-    if not args.input_file:
+    if not args.processed_data_file:
         raise ValueError(
-            "Must specify the input file which contains the processed data.")
+            "Must specify the processed data file which contains the processed data.")
     if not args.output_dir:
         raise ValueError(
             "Must specify the output dir which stored the node embeddings.")
+    _check_tabular2graph(args)
 
     mapped_output_file = _get_mapped_output_file(args.output_dir)
     node_embeddings_dir = _get_node_embeddings_dir(args.output_dir)
     if args.single_node:
         map_embeddings(
-            processed_data_file=args.input_file,
+            processed_data_file=args.processed_data_file,
             node_embeddings_dir=node_embeddings_dir,
             node_embeddings_name=args.node_embeddings_name,
             output_file=mapped_output_file,
@@ -284,7 +310,7 @@ def _map_and_save_embeddings(args):
                 "Must specify the temp dir which stored the intermediate data.")
         partition_dir = _get_partition_dir(args.temp_dir)
         map_embeddings_distributed(
-            processed_data_file=args.input_file,
+            processed_data_file=args.processed_data_file,
             partition_dir=partition_dir,
             node_embeddings_dir=node_embeddings_dir,
             node_embeddings_name=args.node_embeddings_name,
@@ -294,13 +320,8 @@ def _map_and_save_embeddings(args):
 
 
 def run(args):
-    if not args.tabular2graph:
-        # default to the built-in tabular2graph.yaml if not specified
-        args.tabular2graph = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "config/tabular2graph.yaml")
-        print("tabular2graph is not specified. Default to: {}".format(
-            args.tabular2graph))
+    if not args.no_process_data:
+        _process_data(args)
 
     # run build the graph
     if not args.no_build_graph:
@@ -326,6 +347,10 @@ if __name__ == "__main__":
         default=False, action="store_true",
         help="To do single node training")
     parser.add_argument(
+        "--no-process-data", "--no_process_data",
+        default=False, action="store_true",
+        help="whether to do data process")
+    parser.add_argument(
         "--no-build-graph", "--no_build_graph",
         default=False, action="store_true",
         help="whether to build graph")
@@ -343,9 +368,14 @@ if __name__ == "__main__":
         help="whether to map embeddings")
 
     parser.add_argument(
-        "--input-file", "--input_file",
+        "--raw-data-file", "--raw_data_file",
         type=existing_file,
-        help="Input file with path of the processed data in csv) ")
+        help="The path to the raw transaction data file")
+    parser.add_argument(
+        "--processed-data-file", "--processed_data_file",
+        type=str,
+        help="The path to the output processed data file")
+
     parser.add_argument(
         "--temp-dir", "--temp_dir",
         type=str,

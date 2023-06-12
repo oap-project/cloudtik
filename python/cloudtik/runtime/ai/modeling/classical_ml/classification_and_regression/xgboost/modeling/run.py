@@ -2,8 +2,8 @@ import argparse
 import os
 import tempfile
 
-from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.process_data import \
-    process_data
+from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.data.process \
+    import process_data
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.utils import \
     existing_file, existing_path, load_config, read_csv_files, DATA_ENGINE_PANDAS, DATA_ENGINE_MODIN
 
@@ -56,8 +56,8 @@ def _train_on_data(
 
     if on_ray:
         ray_params = get_ray_params(args)
-        from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.ray.trainer \
-            import train
+        from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.\
+            xgboost.modeling.model.ray.trainer import train
         train(
             train_data_spec, df,
             train_model_spec, in_memory,
@@ -65,8 +65,8 @@ def _train_on_data(
             hpo_spec=hpo_spec,
             ray_params=ray_params)
     else:
-        from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.trainer \
-            import train
+        from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.\
+            xgboost.modeling.model.trainer import train
         train(
             train_data_spec, df,
             train_model_spec, in_memory,
@@ -149,7 +149,7 @@ def run(args):
         train_data, test_data = _process_data(
             args, data_engine)
 
-    if not args.no_training:
+    if not args.no_train:
         _train(
             args, data_engine, train_data, test_data)
 
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         default=False, action="store_true",
         help="whether to do data process")
     parser.add_argument(
-        "--no-training", "--no_training",
+        "--no-train", "--no_train",
         default=False, action="store_true",
         help="whether to do training")
 

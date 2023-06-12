@@ -16,12 +16,12 @@ limitations under the License.
 
 import glob
 
-from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.ray.model import \
-    XGBoostRay
+from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.model.ray.model \
+    import XGBoostRay
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.utils import \
     partition_data
-from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.trainer import \
-    Trainer as XGBoostTrainer
+from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.model.trainer \
+    import Trainer as XGBoostTrainer
 
 
 class Trainer(XGBoostTrainer):

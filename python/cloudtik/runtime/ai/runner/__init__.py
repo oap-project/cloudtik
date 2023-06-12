@@ -141,7 +141,7 @@ def run(
 
 
 def run_command(
-        command=None,
+        command,
         num_proc=None,
         nnodes=None,
         nproc_per_node=None,

@@ -26,6 +26,14 @@ def existing_file(raw_path):
     return os.path.abspath(raw_path)
 
 
+def existing_path(raw_path):
+    if not os.path.exists(raw_path):
+        raise argparse.ArgumentTypeError(
+            '"{}" is not an existing directory or file'.format(raw_path)
+        )
+    return os.path.abspath(raw_path)
+
+
 def read_csv_file(file, pd, ignore_cols=None):
     csv = pd.read_csv(file)
     if ignore_cols is not None:

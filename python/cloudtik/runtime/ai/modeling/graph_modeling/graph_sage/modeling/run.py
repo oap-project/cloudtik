@@ -282,6 +282,14 @@ def _map_and_save_embeddings(args):
 
 
 def run(args):
+    if not args.tabular2graph:
+        # default to the built-in tabular2graph.yaml if not specified
+        args.tabular2graph = os.path_join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "config/tabular2graph.yaml")
+        print("tabular2graph is not specified. Use the default: {}".format(
+            args.tabular2graph))
+
     # run build the graph
     if not args.no_build_graph:
         _build_graph(args)
@@ -340,7 +348,7 @@ if __name__ == "__main__":
         help="The dataset name")
     parser.add_argument(
         "--tabular2graph",
-        type=str, required=True,
+        type=str,
         help="The path to the tabular2graph.yaml")
 
     # Train

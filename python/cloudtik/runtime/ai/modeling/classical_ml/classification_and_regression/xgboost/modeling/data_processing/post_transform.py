@@ -78,11 +78,11 @@ class PostTransformer:
 
     def transform(self):
         for step in self.steps:
-            match list(step.keys())[0]: 
-                case 'target_encoding': 
-                    self.target_encoding(list(step.values())[0])
-                case 'label_encoding':
-                    self.label_encoding(list(step.values())[0])
+            op = list(step.keys())[0]
+            if op == 'target_encoding':
+                self.target_encoding(list(step.values())[0])
+            elif op == 'label_encoding':
+                self.label_encoding(list(step.values())[0])
         return self.train_data, self.test_data  
 
     def target_encoding(self, params):

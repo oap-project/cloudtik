@@ -1,8 +1,9 @@
 import argparse
+import os
 import time
 
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.utils import \
-    existing_file, existing_directory, read_csv_files, load_config, DATA_ENGINE_PANDAS
+    existing_file, existing_path, read_csv_files, load_config, DATA_ENGINE_PANDAS
 
 
 def read_raw_data(raw_data_path, data_engine):
@@ -57,26 +58,34 @@ def process_data(raw_data_path, data_engine,
     dp_start = time.time()
     start = time.time()
     data = read_raw_data(raw_data_path, data_engine)
-    print("dp read data took %.1f seconds" % (time.time() - start))
+    print("read data took %.1f seconds" % (time.time() - start))
     start = time.time()
     data = transform_data(data, transform_spec, data_engine)
-    print("dp transform data took %.1f seconds" % (time.time() - start))
+    print("transform data took %.1f seconds" % (time.time() - start))
     start = time.time()
     train_data, test_data = split_data(data, split_spec, data_engine)
     data = None
-    print("dp split data took %.1f seconds" % (time.time() - start))
+    print("split data took %.1f seconds" % (time.time() - start))
     start = time.time()
     train_data, test_data = post_transform(train_data, test_data, post_transform_spec, data_engine)
-    print("dp post transform data took %.1f seconds" % (time.time() - start))
+    print("post transform data took %.1f seconds" % (time.time() - start))
     if output_file:
         start = time.time()
         save_processed_data(train_data, test_data, output_file, data_engine)
-        print("dp save data took %.1f seconds" % (time.time() - start))
+        print("save data took %.1f seconds" % (time.time() - start))
     print("data preprocessing took %.1f seconds" % (time.time() - dp_start))
     return train_data, test_data
 
 
 def main(args):
+    if not args.data_processing_config:
+        # default to the built-in data_processing_config.yaml if not specified
+        args.data_processing_config = os.path_join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "config/data-processing-config.yaml")
+        print("data-processing-config is not specified. Use the default: {}".format(
+            args.data_processing_config))
+
     process_data(
         raw_data_path=args.raw_data_path,
         data_engine=args.data_engine,
@@ -88,17 +97,20 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process data")
     parser.add_argument(
-        "--raw_data_path", type=existing_directory, help="The path contains the raw data files")
+        "--raw-data-path", "--raw_data_path",
+        type=existing_path,
+        help="The path contains the raw data files or the file path")
     parser.add_argument(
-        "--data_processing_config", type=existing_file, help="The path to the data processing config file")
+        "--data-processing-config", "--data_processing_config",
+        type=existing_file,
+        help="The path to the data processing config file")
     parser.add_argument(
-        "--output_file",
+        "--output-file", "--output_file",
         type=str,
         help="The path to the output processed data file")
     parser.add_argument(
-        "--data_engine",
-        type=str,
-        default="pandas",
+        "--data-engine", "--data_engine",
+        type=str, default="pandas",
         help="The data engine to use: pandas or modin")
     args = parser.parse_args()
     print(args)

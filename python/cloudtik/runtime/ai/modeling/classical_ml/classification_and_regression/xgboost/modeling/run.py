@@ -10,7 +10,7 @@ from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgb
 def _process_data(args, data_engine):
     if not args.data_processing_config:
         # default to the built-in data_processing_config.yaml if not specified
-        args.data_processing_config = os.path_join(
+        args.data_processing_config = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
             "config/data-processing-config.yaml")
         print("data-processing-config is not specified. Use the default: {}".format(
@@ -31,9 +31,9 @@ def _process_data(args, data_engine):
     return train_data, test_data
 
 
-def train_on_ray(
-        df, training_config, temp_dir, model_file,
-        in_memory, on_ray=False, ray_params=None):
+def train_on_data(
+        df, training_config,
+        temp_dir, model_file, in_memory):
     print('start training models on ray...')
     config = load_config(training_config)
     train_data_spec = config['data_spec']
@@ -47,12 +47,26 @@ def train_on_ray(
     else:
         print("Do training without hyper parameter optimization (HPO).")
 
-    from .train_ray import train_ray
-    train_ray(
-        train_data_spec, df,
-        train_model_spec, in_memory,
-        tmp_path=temp_dir, model_file=model_file,
-        on_ray=on_ray, ray_params=ray_params, hpo_spec=hpo_spec)
+    on_ray = True if not args.single_node else False
+
+    if on_ray:
+        ray_params = get_ray_params(args)
+        from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.ray.trainer \
+            import train
+        train(
+            train_data_spec, df,
+            train_model_spec, in_memory,
+            tmp_path=temp_dir, model_file=model_file,
+            hpo_spec=hpo_spec,
+            ray_params=ray_params)
+    else:
+        from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.trainer \
+            import train
+        train(
+            train_data_spec, df,
+            train_model_spec, in_memory,
+            tmp_path=temp_dir, model_file=model_file,
+            hpo_spec=hpo_spec)
 
 
 def get_ray_params(args):
@@ -77,7 +91,7 @@ def get_ray_params(args):
 def _train(args, data_engine, train_data, test_data):
     if not args.training_config:
         # default to the built-in training_config.yaml if not specified
-        args.training_config = os.path_join(
+        args.training_config = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
             "config/training-config.yaml")
         print("training-config is not specified. Use the default: {}".format(
@@ -93,19 +107,12 @@ def _train(args, data_engine, train_data, test_data):
         data = read_csv_files(
             args.processed_data_file, engine=DATA_ENGINE_PANDAS)
 
-    on_ray = False
-    if not args.single_node:
-        on_ray = True
-
-    ray_params = get_ray_params(args)
-    train_on_ray(
+    _train_on_data(
         data,
         training_config=args.training_config,
         temp_dir=args.temp_dir,
         model_file=args.model_file,
-        in_memory=args.in_memory,
-        on_ray=on_ray,
-        ray_params=ray_params,
+        in_memory=args.in_memory
     )
 
 

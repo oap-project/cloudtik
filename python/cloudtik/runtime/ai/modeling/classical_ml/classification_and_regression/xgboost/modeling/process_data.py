@@ -80,7 +80,7 @@ def process_data(raw_data_path, data_engine,
 def main(args):
     if not args.data_processing_config:
         # default to the built-in data_processing_config.yaml if not specified
-        args.data_processing_config = os.path_join(
+        args.data_processing_config = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
             "config/data-processing-config.yaml")
         print("data-processing-config is not specified. Use the default: {}".format(

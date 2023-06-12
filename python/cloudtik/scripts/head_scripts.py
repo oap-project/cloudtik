@@ -860,6 +860,7 @@ runtime.add_command(stop)
 # commands running on head node
 head.add_command(attach)
 head.add_command(exec)
+head.add_command(run)
 head.add_command(scale)
 
 head.add_command(rsync_up)

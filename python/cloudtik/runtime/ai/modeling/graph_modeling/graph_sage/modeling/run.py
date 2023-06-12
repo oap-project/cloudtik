@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import tempfile
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
     existing_file
@@ -77,13 +78,24 @@ def _get_num_parts(hosts):
     return len(host_list)
 
 
+def _check_temp_dir(args):
+    if args.single_node:
+        if not args.temp_dir:
+            # for single node, get get a default temp dir from /tmp
+            args.temp_dir = tempfile.mkdtemp()
+            print("temp-dir is not specified. Default to: {}".format(
+                args.temp_dir))
+    else:
+        if not args.temp_dir:
+            raise ValueError(
+                "Must specify the temp-dir for storing the shared intermediate data")
+
+
 def _build_graph(args):
     if not args.input_file:
         raise ValueError(
             "Must specify the input file which contains the processed data.")
-    if not args.temp_dir:
-        raise ValueError(
-            "Must specify the temp dir which is used to store intermediate data.")
+    _check_temp_dir(args)
 
     dataset_output_dir = _get_dataset_output_dir(args.temp_dir)
     build_graph(
@@ -287,7 +299,7 @@ def run(args):
         args.tabular2graph = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
             "config/tabular2graph.yaml")
-        print("tabular2graph is not specified. Use the default: {}".format(
+        print("tabular2graph is not specified. Default to: {}".format(
             args.tabular2graph))
 
     # run build the graph

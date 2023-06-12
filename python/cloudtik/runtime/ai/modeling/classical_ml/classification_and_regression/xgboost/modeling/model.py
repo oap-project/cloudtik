@@ -16,7 +16,6 @@ limitations under the License.
 
 from datetime import datetime
 
-import optuna
 import simplejson as json
 import xgboost as xgb
 
@@ -74,6 +73,8 @@ class XGBoost:
         return accuracy
 
     def tune(self, log_dir):
+        import optuna
+
         num_trials = self.training_params['num_trials']
         search_mode = self.training_params['search_mode']
         if search_mode == 'max':

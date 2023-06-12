@@ -1,5 +1,6 @@
 import argparse
 import os
+import tempfile
 
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.process_data import \
     process_data
@@ -8,12 +9,16 @@ from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgb
 
 
 def _process_data(args, data_engine):
+    if not args.raw_data_path:
+        raise ValueError(
+            "Must specify the raw data path which contains data to be processed.")
+
     if not args.data_processing_config:
         # default to the built-in data_processing_config.yaml if not specified
         args.data_processing_config = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
             "config/data-processing-config.yaml")
-        print("data-processing-config is not specified. Use the default: {}".format(
+        print("data-processing-config is not specified. Default to: {}".format(
             args.data_processing_config))
 
     if args.in_memory or args.no_save:
@@ -34,7 +39,7 @@ def _process_data(args, data_engine):
 def _train_on_data(
         df, training_config,
         temp_dir, model_file, in_memory):
-    print('start training models on ray...')
+    print('start training model...')
     config = load_config(training_config)
     train_data_spec = config['data_spec']
     hpo_spec = config.get('hpo_spec')
@@ -88,13 +93,31 @@ def get_ray_params(args):
     return ray_params
 
 
+def _check_temp_dir(args):
+    if args.single_node:
+        if not args.temp_dir:
+            # for single node, get get a default temp dir from /tmp
+            args.temp_dir = tempfile.mkdtemp()
+            print("temp-dir is not specified. Default to: {}".format(
+                args.temp_dir))
+    else:
+        if not args.temp_dir:
+            raise ValueError(
+                "Must specify the temp-dir for storing the shared intermediate data")
+
+
 def _train(args, data_engine, train_data, test_data):
+    if not args.in_memory and not args.processed_data_file:
+        raise ValueError(
+            "Must specify the processed-data-file which contains processed data to be trained.")
+    _check_temp_dir(args)
+
     if not args.training_config:
         # default to the built-in training_config.yaml if not specified
         args.training_config = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
             "config/training-config.yaml")
-        print("training-config is not specified. Use the default: {}".format(
+        print("training-config is not specified. Default to: {}".format(
             args.training_config))
 
     if args.in_memory:
@@ -104,6 +127,7 @@ def _train(args, data_engine, train_data, test_data):
             import modin.pandas as pd
         data = pd.concat([train_data, test_data])
     else:
+        print(f"loading data from: {args.processed_data_file}")
         data = read_csv_files(
             args.processed_data_file, engine=DATA_ENGINE_PANDAS)
 
@@ -169,6 +193,10 @@ if __name__ == "__main__":
         "--processed-data-file", "--processed_data_file",
         type=str,
         help="The path to the output processed data file")
+    parser.add_argument(
+        "--temp-dir", "--temp_dir",
+        type=str,
+        help="The path to the shared intermediate data")
     parser.add_argument(
         "--model-file", "--model_file",
         type=str,

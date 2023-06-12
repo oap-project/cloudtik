@@ -3186,32 +3186,33 @@ def run_script(script, script_args, with_output=False):
     import cloudtik as cloudtik_home
     # import script registry here because it will search for all the packages for
     # registering scripts
-    from cloudtik.core._private.script_registry import ScriptRegistry
+    from cloudtik.core._private.script_registry import get_registered_script
 
     root_path = os.path.abspath(os.path.dirname(cloudtik_home.__file__))
-    script_target = ScriptRegistry.get(script)
+    script_target = get_registered_script(script)
     if script_target:
         # run a registered command pointing to a script
         script = script_target
 
     if script.endswith(".sh"):
         target = os.path.join(root_path, script)
-        cmds = ["bash", target]
+        cmds = ["bash", quote(target)]
     elif script.endswith(".py"):
         target = os.path.join(root_path, script)
-        cmds = [sys.executable, "-u", target]
+        cmds = [sys.executable, "-u", quote(target)]
     else:
         target = script
         # it should be a python module
-        cmds = [sys.executable, "-u", "-m", target]
+        cmds = [sys.executable, "-u", "-m", quote(target)]
 
     with_script_args(cmds, script_args)
 
+    final_cmd = " ".join(cmds)
     try:
         if with_output:
-            return subprocess.check_output(cmds, shell=True)
+            return subprocess.check_output(final_cmd, shell=True)
         else:
-            subprocess.check_call(cmds, shell=True)
+            subprocess.check_call(final_cmd, shell=True)
     except subprocess.CalledProcessError as err:
         print(f"Called process error {err}")
         raise err

@@ -19,14 +19,18 @@ class ScriptRegistry:
 
 def _register_runtime_aliases():
     from cloudtik import runtime
-    # Use pkgutil.walk_packages(runtime.__path__, runtime.__name__ + ".")
+    return _register_package_aliases(runtime)
+
+
+def _register_package_aliases(package):
+    # Use pkgutil.walk_packages(package.__path__, package.__name__ + ".")
     # will also trigger recursively walk of packages
-    for loader, module_name, is_pkg in pkgutil.walk_packages(runtime.__path__):
+    for loader, module_name, is_pkg in pkgutil.walk_packages(package.__path__):
         if is_pkg:
             # This will trigger recursively walk of packages
             # We just want to check the direct module under runtime
             # _module = loader.find_module(module_name).load_module(module_name)
-            full_name = runtime.__name__ + '.' + module_name
+            full_name = package.__name__ + '.' + module_name
             _module = importlib.import_module(full_name)
             if SCRIPT_ALIASES in _module.__dict__:
                 script_aliases = _module.__dict__[SCRIPT_ALIASES]

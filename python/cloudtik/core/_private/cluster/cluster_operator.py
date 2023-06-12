@@ -3709,9 +3709,9 @@ def submit_and_exec(
             call_context=call_context,
             cmd=cmd_mkdir
         )
-        command_parts = []
+        cmds = []
         if urllib.parse.urlparse(script).scheme in ("http", "https"):
-            command_parts = ["wget", quote(script), "-O", f"~/user/jobs/{target_name};"]
+            cmds = ["wget", quote(script), "-O", f"~/user/jobs/{target_name};"]
         else:
             # upload the script to cluster
             _rsync(
@@ -3728,28 +3728,28 @@ def submit_and_exec(
                 config.get(RUNTIME_CONFIG_KEY), target, runtime, runtime_options)
             if runtime_commands is None:
                 cli_logger.abort("Runtime {} doesn't how to execute your file: {}", runtime, script)
-            command_parts += runtime_commands
+            cmds += runtime_commands
         elif target_name.endswith(".py"):
-            command_parts += ["python", double_quote(target)]
+            cmds += ["python", double_quote(target)]
         elif target_name.endswith(".sh"):
-            command_parts += ["bash", double_quote(target)]
+            cmds += ["bash", double_quote(target)]
         else:
             runtime_commands = get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
             if runtime_commands is None:
                 cli_logger.abort("We don't how to execute your file: {}", script)
-            command_parts += runtime_commands
+            cmds += runtime_commands
 
-        with_script_args(command_parts, script_args)
+        with_script_args(cmds, script_args)
 
         # If user uses screen or tmux and job waiter is used
         # which means to not hold the tmux or screen session, we redirect log with the session name
-        user_cmd = " ".join(command_parts)
+        user_cmd = " ".join(cmds)
         session_name = get_command_session_name(user_cmd, time.time_ns())
         if job_log or ((screen or tmux) and job_waiter_name is not None):
             redirect_output = f">$HOME/user/logs/{session_name}.log"
-            command_parts += [redirect_output, "2>&1"]
+            cmds += [redirect_output, "2>&1"]
 
-        return command_parts, session_name
+        return cmds, session_name
 
     _exec_with_prepare(
         config,

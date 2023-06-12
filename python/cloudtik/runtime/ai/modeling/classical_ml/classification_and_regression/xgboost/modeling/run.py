@@ -218,11 +218,11 @@ if __name__ == "__main__":
         help="The number of cpus per actor")
     parser.add_argument(
         "--gpus-per-actor", "--gpus_per_actor",
-        type=int,
+        type=int, default=-1,
         help="The number of gpus per actor")
     parser.add_argument(
         "--elastic-training", "--elastic_training",
-        action="store_true",
+        action="store_true", default=False,
         help="whether to use elastic training")
     parser.add_argument(
         "--max-failed-actors", "--max_failed_actors",
@@ -234,7 +234,7 @@ if __name__ == "__main__":
         help="The max number of actor restarts")
     parser.add_argument(
         "--checkpoint-frequency", "--checkpoint_frequency",
-        type=int,
+        type=int, default=5,
         help="The checkpoint frequency")
 
     args = parser.parse_args()

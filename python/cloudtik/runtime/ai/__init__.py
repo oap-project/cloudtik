@@ -6,7 +6,7 @@ _script_aliases_ = {
     "ai.launch": os.path.join(
         os.path.dirname(__file__),
         "runner/launch.py"),
-    "ai.modeling.graph-sage": os.path.join(
+    "ai.modeling.graph_sage": os.path.join(
         os.path.dirname(__file__),
         "modeling/graph_modeling/graph_sage/modeling/run.py"),
     "ai.modeling.xgboost": os.path.join(

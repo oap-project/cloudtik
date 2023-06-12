@@ -1,5 +1,4 @@
 import logging
-import os
 import shlex
 import traceback
 import urllib

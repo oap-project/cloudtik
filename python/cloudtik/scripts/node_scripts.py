@@ -371,10 +371,11 @@ def stop(force):
 @click.argument("script", required=True, type=str)
 @click.argument("script_args", nargs=-1)
 def run(script, script_args):
-    """Runs a script (bash or python or a registered command to a python script)
-    within Cloudtik package."""
-    root_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    run_script(root_path, script, script_args)
+    """Runs a built-in script (bash or python or a registered command).
+
+    If you want to execute any commands or user scripts, use exec or submit.
+    """
+    run_script(script, script_args)
 
 
 @node.command()

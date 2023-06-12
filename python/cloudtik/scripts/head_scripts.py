@@ -12,7 +12,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     start_node_on_head, stop_node_on_head, kill_node_on_head, scale_cluster_on_head,
     _wait_for_ready, _get_worker_node_ips, _get_head_node_ip,
     _show_cluster_status, _monitor_cluster, cli_call_context, _exec_node_on_head,
-    do_health_check, cluster_resource_metrics_on_head, show_info)
+    do_health_check, cluster_resource_metrics_on_head, show_info, _run_script_on_head)
 from cloudtik.core._private.constants import CLOUDTIK_REDIS_DEFAULT_PASSWORD
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
@@ -150,6 +150,50 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux,
         with_output=with_output,
         parallel=parallel,
         job_waiter_name=job_waiter)
+
+
+@head.command()
+@click.option(
+    "--wait-for-workers",
+    is_flag=True,
+    default=False,
+    help="Whether wait for minimum number of workers to be ready.")
+@click.option(
+    "--min-workers",
+    required=False,
+    type=int,
+    help="The minimum number of workers to wait for ready.")
+@click.option(
+    "--wait-timeout",
+    required=False,
+    type=int,
+    help="The timeout seconds to wait for ready.")
+@click.option(
+    "--with-output",
+    is_flag=True,
+    default=False,
+    help="Whether to capture command output.")
+@click.argument("script", required=True, type=str)
+@click.argument("script_args", nargs=-1)
+@add_click_logging_options
+def run(wait_for_workers, min_workers, wait_timeout,
+        with_output, script, script_args):
+    """Runs a built-in script (bash or python or a registered command).
+
+    If you want to execute any commands or user scripts, use exec or submit.
+    """
+    config = load_head_cluster_config()
+    call_context = cli_call_context()
+
+    _run_script_on_head(
+        config=config,
+        call_context=call_context,
+        script=script,
+        script_args=script_args,
+        wait_for_workers=wait_for_workers,
+        min_workers=min_workers,
+        wait_timeout=wait_timeout,
+        with_output=with_output)
 
 
 @head.command()

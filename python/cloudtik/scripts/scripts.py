@@ -592,9 +592,9 @@ def run(
         force_update, wait_for_workers, min_workers, wait_timeout,
         no_config_cache, port_forward, yes, job_waiter, job_log,
         script, script_args):
-    """Runs a built-in script (bash or python or a registered command) which is part of Cloudtik.
+    """Runs a built-in script (bash or python or a registered command).
 
-    If you want to execute any commands, use exec or submit.
+    If you want to execute any commands or user scripts, use exec or submit.
     """
     # Don't use config cache so that we will run a full bootstrap needed for start
     if start:

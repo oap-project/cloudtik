@@ -3182,10 +3182,13 @@ def with_verbose_option(cmds, call_context):
             cmds += ["-v" for _ in range(verbosity)]
 
 
-def run_script(root_path, script, script_args):
+def run_script(script, script_args, with_output=False):
+    import cloudtik as cloudtik_home
     # import script registry here because it will search for all the packages for
     # registering scripts
     from cloudtik.core._private.script_registry import ScriptRegistry
+
+    root_path = os.path.abspath(os.path.dirname(cloudtik_home.__file__))
     script_target = ScriptRegistry.get(script)
     if script_target:
         # run a registered command pointing to a script
@@ -3205,7 +3208,10 @@ def run_script(root_path, script, script_args):
     with_script_args(cmds, script_args)
 
     try:
-        subprocess.check_call(cmds, shell=True)
+        if with_output:
+            return subprocess.check_output(cmds, shell=True)
+        else:
+            subprocess.check_call(cmds, shell=True)
     except subprocess.CalledProcessError as err:
         print(f"Called process error {err}")
         raise err

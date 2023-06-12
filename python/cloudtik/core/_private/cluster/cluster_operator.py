@@ -67,7 +67,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info, sum_worker_gpus, \
     sum_nodes_resource, get_gpus_of_node_info, get_resource_of_node_info, get_resource_info_of_node_type, \
     get_worker_node_type, save_server_process, get_resource_requests_for, _get_head_resource_requests, \
-    get_resource_list_str, with_verbose_option
+    get_resource_list_str, with_verbose_option, run_script
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -3881,6 +3881,26 @@ def _exec_with_prepare(
         with_output=with_output,
         job_waiter=job_waiter,
         session_name=session_name)
+
+
+def _run_script_on_head(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        script: str,
+        script_args: Optional[List[str]] = None,
+        wait_for_workers: bool = False,
+        min_workers: Optional[int] = None,
+        wait_timeout: Optional[int] = None,
+        with_output: bool = False):
+    # wait for workers if needed
+    if wait_for_workers:
+        _wait_for_ready(
+            config=config, call_context=call_context,
+            min_workers=min_workers, timeout=wait_timeout)
+
+    return run_script(
+        script, script_args,
+        with_output=with_output)
 
 
 def _get_workers_ready(config: Dict[str, Any], provider):

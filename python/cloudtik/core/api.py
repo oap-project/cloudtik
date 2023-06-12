@@ -248,6 +248,62 @@ class Cluster:
             job_log=job_log
         )
 
+    def run(
+            self,
+            script: str,
+            script_args: Optional[List[str]] = None,
+            screen: bool = False,
+            tmux: bool = False,
+            stop: bool = False,
+            start: bool = False,
+            force_update: bool = False,
+            wait_for_workers: bool = False,
+            min_workers: Optional[int] = None,
+            wait_timeout: Optional[int] = None,
+            port_forward: Optional[cluster_operator.Port_forward] = None,
+            with_output: bool = False,
+            job_waiter: Optional[str] = None,
+            job_log: bool = False) -> Optional[str]:
+        """Runs a built-in script (bash or python or a registered command)
+
+        Args:
+            script (str): The script alias, module, or a path.
+            script_args (list): An array of arguments for the script.
+            screen (bool): whether to run in a screen session
+            tmux (bool): whether to run in a tmux session
+            stop (bool): whether to stop the cluster after command run
+            start (bool): whether to start the cluster if not started
+            force_update (bool): if already started, whether force update the configuration if start is true
+            wait_for_workers (bool): whether wait for minimum number of ready workers
+            min_workers (int): The number of workers to wait for ready
+            wait_timeout (int): The timeout for wait for ready
+            port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
+            with_output (bool): Whether to capture command output.
+            job_waiter (str): The job waiter to use for waiting an async job to complete.
+            job_log (bool): Send the output of the job to log file in ~/user/logs.
+        Returns:
+            The output of the command as a string.
+        """
+        return cluster_operator._run_script(
+            config=self.config,
+            call_context=self.call_context,
+            script=script,
+            script_args=script_args,
+            screen=screen,
+            tmux=tmux,
+            stop=stop,
+            start=start,
+            force_update=force_update,
+            wait_for_workers=wait_for_workers,
+            min_workers=min_workers,
+            wait_timeout=wait_timeout,
+            port_forward=port_forward,
+            with_output=with_output,
+            yes=True,
+            job_waiter_name=job_waiter,
+            job_log=job_log
+        )
+
     def rsync(self,
               *,
               source: Optional[str],
@@ -528,6 +584,89 @@ class ThisCluster:
             with_output=with_output,
             parallel=parallel,
             job_waiter_name=job_waiter)
+
+    def exec(self,
+             cmd: str,
+             *,
+             node_ip: str = None,
+             all_nodes: bool = False,
+             run_env: str = "auto",
+             screen: bool = False,
+             tmux: bool = False,
+             wait_for_workers: bool = False,
+             min_workers: Optional[int] = None,
+             wait_timeout: Optional[int] = None,
+             port_forward: Optional[cluster_operator.Port_forward] = None,
+             with_output: bool = False,
+             parallel: bool = True,
+             job_waiter: Optional[str] = None) -> Optional[str]:
+        """Runs a command on the specified cluster.
+
+        Args:
+            cmd (str): the command to run
+            node_ip (str): node ip on which to run the command
+            all_nodes (bool): whether to run the command on all nodes
+            run_env (str): whether to run the command on the host or in a
+                container. Select between "auto", "host" and "docker".
+            screen (bool): whether to run in a screen session
+            tmux (bool): whether to run in a tmux session
+            wait_for_workers (bool): whether wait for minimum number of ready workers
+            min_workers (int): The number of workers to wait for ready
+            wait_timeout (int): The timeout for wait for ready
+            port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
+            with_output (bool): Whether to capture command output.
+            parallel (bool): Whether to run the commands on nodes in parallel.
+            job_waiter (str): The job waiter to use for waiting an async job to complete.
+        Returns:
+            The output of the command as a string.
+        """
+        return cluster_operator._exec_node_on_head(
+            config=self.config,
+            call_context=self.call_context,
+            node_ip=node_ip,
+            all_nodes=all_nodes,
+            cmd=cmd,
+            run_env=run_env,
+            screen=screen,
+            tmux=tmux,
+            wait_for_workers=wait_for_workers,
+            min_workers=min_workers,
+            wait_timeout=wait_timeout,
+            port_forward=port_forward,
+            with_output=with_output,
+            parallel=parallel,
+            job_waiter_name=job_waiter)
+
+    def run(
+            self,
+            script: str,
+            script_args: Optional[List[str]] = None,
+            wait_for_workers: bool = False,
+            min_workers: Optional[int] = None,
+            wait_timeout: Optional[int] = None,
+            with_output: bool = False) -> Optional[str]:
+        """Runs a built-in script (bash or python or a registered command)
+
+        Args:
+            script (str): The script alias, module, or a path.
+            script_args (list): An array of arguments for the script.
+            wait_for_workers (bool): whether wait for minimum number of ready workers
+            min_workers (int): The number of workers to wait for ready
+            wait_timeout (int): The timeout for wait for ready
+            with_output (bool): Whether to capture command output.
+        Returns:
+            The output of the command as a string.
+        """
+        return cluster_operator._run_script_on_head(
+            config=self.config,
+            call_context=self.call_context,
+            script=script,
+            script_args=script_args,
+            wait_for_workers=wait_for_workers,
+            min_workers=min_workers,
+            wait_timeout=wait_timeout,
+            with_output=with_output
+        )
 
     def rsync(self,
               *,

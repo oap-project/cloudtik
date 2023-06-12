@@ -286,7 +286,7 @@ def run(args):
         # default to the built-in tabular2graph.yaml if not specified
         args.tabular2graph = os.path_join(
             os.path.dirname(os.path.dirname(__file__)),
-            "tabular2graph.yaml")
+            "config/tabular2graph.yaml")
         print("tabular2graph is not specified. Use the default: {}".format(
             args.tabular2graph))
 

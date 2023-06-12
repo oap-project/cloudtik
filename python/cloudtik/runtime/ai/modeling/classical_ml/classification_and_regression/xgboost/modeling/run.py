@@ -12,7 +12,7 @@ def _process_data(args, data_engine):
         # default to the built-in data_processing_config.yaml if not specified
         args.data_processing_config = os.path_join(
             os.path.dirname(os.path.dirname(__file__)),
-            "data-processing-config.yaml")
+            "config/data-processing-config.yaml")
         print("data-processing-config is not specified. Use the default: {}".format(
             args.data_processing_config))
 
@@ -79,7 +79,7 @@ def _train(args, data_engine, train_data, test_data):
         # default to the built-in training_config.yaml if not specified
         args.training_config = os.path_join(
             os.path.dirname(os.path.dirname(__file__)),
-            "training-config.yaml")
+            "config/training-config.yaml")
         print("training-config is not specified. Use the default: {}".format(
             args.training_config))
 

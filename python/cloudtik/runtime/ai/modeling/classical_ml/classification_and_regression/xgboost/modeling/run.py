@@ -1,9 +1,34 @@
 import argparse
+import os
 
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.process_data import \
     process_data
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.utils import \
-    existing_file, existing_directory, load_config, read_csv_files, DATA_ENGINE_PANDAS, DATA_ENGINE_MODIN
+    existing_file, existing_path, load_config, read_csv_files, DATA_ENGINE_PANDAS, DATA_ENGINE_MODIN
+
+
+def _process_data(args, data_engine):
+    if not args.data_processing_config:
+        # default to the built-in data_processing_config.yaml if not specified
+        args.data_processing_config = os.path_join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "data-processing-config.yaml")
+        print("data-processing-config is not specified. Use the default: {}".format(
+            args.data_processing_config))
+
+    if args.in_memory or args.no_save:
+        processed_data_file = None
+    else:
+        processed_data_file = args.processed_data_file
+        if not processed_data_file:
+            raise RuntimeError("Please specify the file path of processed data.")
+    train_data, test_data = process_data(
+        raw_data_path=args.raw_data_path,
+        data_engine=data_engine,
+        data_processing_config=args.data_processing_config,
+        output_file=processed_data_file
+    )
+    return train_data, test_data
 
 
 def train_on_ray(
@@ -49,83 +74,96 @@ def get_ray_params(args):
     return ray_params
 
 
+def _train(args, data_engine, train_data, test_data):
+    if not args.training_config:
+        # default to the built-in training_config.yaml if not specified
+        args.training_config = os.path_join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "training-config.yaml")
+        print("training-config is not specified. Use the default: {}".format(
+            args.training_config))
+
+    if args.in_memory:
+        if data_engine == DATA_ENGINE_PANDAS:
+            import pandas as pd
+        else:
+            import modin.pandas as pd
+        data = pd.concat([train_data, test_data])
+    else:
+        data = read_csv_files(
+            args.processed_data_file, engine=DATA_ENGINE_PANDAS)
+
+    on_ray = False
+    if not args.single_node:
+        on_ray = True
+
+    ray_params = get_ray_params(args)
+    train_on_ray(
+        data,
+        training_config=args.training_config,
+        temp_dir=args.temp_dir,
+        model_file=args.model_file,
+        in_memory=args.in_memory,
+        on_ray=on_ray,
+        ray_params=ray_params,
+    )
+
+
 def run(args):
     data_engine = DATA_ENGINE_PANDAS
-    if not args.is_single_node:
+    if not args.single_node:
         data_engine = DATA_ENGINE_MODIN
-
+    train_data, test_data = (None, None)
     if not args.no_process_data or args.in_memory:
-        if args.in_memory or args.no_save:
-            processed_data_file = None
-        else:
-            processed_data_file = args.processed_data_file
-            if not processed_data_file:
-                raise RuntimeError("Please specify the file path of processed data.")
-        train_data, test_data = process_data(
-            raw_data_path=args.raw_data_path,
-            data_engine=data_engine,
-            data_processing_config=args.data_processing_config,
-            output_file=processed_data_file
-        )
+        train_data, test_data = _process_data(
+            args, data_engine)
 
     if not args.no_training:
-        if args.in_memory:
-            if data_engine == DATA_ENGINE_PANDAS:
-                import pandas as pd
-            else:
-                import modin.pandas as pd
-            data = pd.concat([train_data, test_data])
-        else:
-            data = read_csv_files(
-                args.processed_data_file, engine=DATA_ENGINE_PANDAS)
-
-        on_ray = False
-        if not args.single_node:
-            on_ray = True
-
-        ray_params = get_ray_params(args)
-        train_on_ray(
-            data,
-            training_config=args.training_config,
-            temp_dir=args.temp_dir,
-            model_file=args.model_file,
-            in_memory=args.in_memory,
-            on_ray=on_ray,
-            ray_params=ray_params,
-        )
+        _train(
+            args, data_engine, train_data, test_data)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process data")
     parser.add_argument(
-        "--single_node", default=False, action="store_true",
+        "--single-node", "--single_node",
+        default=False, action="store_true",
         help="To do single node training")
     parser.add_argument(
-        "--no_process_data", default=False, action="store_true",
+        "--no-process-data", "--no_process_data",
+        default=False, action="store_true",
         help="whether to do data process")
     parser.add_argument(
-        "--no_training", default=False, action="store_true",
+        "--no-training", "--no_training",
+        default=False, action="store_true",
         help="whether to do training")
 
     parser.add_argument(
-        "--in_memory", default=False, action="store_true",
+        "--in-memory", "--in_memory",
+        default=False, action="store_true",
         help="whether do in memory data processing and training without save processed data to file.")
 
     parser.add_argument(
-        "--raw_data_path", type=existing_directory, help="The path contains the raw data files")
+        "--raw-data-path", "--raw_data_path",
+        type=existing_path,
+        help="The path contains the raw data files or the file.")
     parser.add_argument(
-        "--data_processing_config", type=existing_file, help="The path to the data processing config file")
+        "--data-processing-config", "--data_processing_config",
+        type=existing_file, help="The path to the data processing config file")
     parser.add_argument(
-        "--training_config", type=existing_file, help="The path to the training config file")
+        "--training-config", "--training_config",
+        type=existing_file,
+        help="The path to the training config file")
     parser.add_argument(
-        "--no_save", default=False, action="store_true",
+        "--no-save", "--no_save",
+        default=False, action="store_true",
         help="whether to save the processed data file")
     parser.add_argument(
-        "--processed_data_file",
+        "--processed-data-file", "--processed_data_file",
         type=str,
         help="The path to the output processed data file")
     parser.add_argument(
-        "--model_file",
+        "--model-file", "--model_file",
         type=str,
         help="The path to the output model file")
 
@@ -136,25 +174,32 @@ if __name__ == "__main__":
     #     max_failed_actors: 4
     #     max_actor_restarts: 8
     parser.add_argument(
-        "--num_actors", type=int, default=5,
+        "--num-actors", "--num_actors",
+        type=int, default=5,
         help="The number of actors")
     parser.add_argument(
-        "--cpus_per_actor", type=int, default=15,
+        "--cpus-per-actor", "--cpus_per_actor",
+        type=int, default=15,
         help="The number of cpus per actor")
     parser.add_argument(
-        "--gpus_per_actor", type=int,
+        "--gpus-per-actor", "--gpus_per_actor",
+        type=int,
         help="The number of gpus per actor")
     parser.add_argument(
-        "--elastic_training", action="store_true",
+        "--elastic-training", "--elastic_training",
+        action="store_true",
         help="whether to use elastic training")
     parser.add_argument(
-        "--max_failed_actors", type=int, default=4,
+        "--max-failed-actors", "--max_failed_actors",
+        type=int, default=4,
         help="The max number of failed actors")
     parser.add_argument(
-        "--max_actor_restarts", type=int, default=8,
+        "--max-actor-restarts", "--max_actor_restarts",
+        type=int, default=8,
         help="The max number of actor restarts")
     parser.add_argument(
-        "--checkpoint_frequency", type=int,
+        "--checkpoint-frequency", "--checkpoint_frequency",
+        type=int,
         help="The checkpoint frequency")
 
     args = parser.parse_args()

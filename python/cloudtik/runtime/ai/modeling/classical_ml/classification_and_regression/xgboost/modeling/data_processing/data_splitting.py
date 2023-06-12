@@ -21,11 +21,11 @@ class DataSplitter:
         self.param = param 
 
     def split(self):
-        match list(self.param.keys())[0]:
-            case 'custom_rules': 
-                self.custom_rules(list(self.param.values())[0])
-            case 'random_split':
-                self.random_split(list(self.param.values())[0])
+        op = list(self.param.keys())[0]
+        if op == 'custom_rules':
+            self.custom_rules(list(self.param.values())[0])
+        elif op == 'random_split':
+            self.random_split(list(self.param.values())[0])
         return self.train_data, self.test_data  
 
     def custom_rules(self, rules):

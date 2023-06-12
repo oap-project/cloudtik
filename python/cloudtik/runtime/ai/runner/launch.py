@@ -424,6 +424,10 @@ def _setup_logger(args):
 
 
 def _run(args):
+    # check either command or func be specified
+    if not args.command and not args.run_func:
+        raise ValueError("Must specify either command or function to launch.")
+
     distributor = Distributor(
         args.num_proc,
         args.nnodes,

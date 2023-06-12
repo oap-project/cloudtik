@@ -26,50 +26,50 @@ class DataTransformer:
 
     def transform(self):
         for step in self.steps:
-            match list(step.keys())[0]: 
-                case 'normalize_feature_names': 
-                    self.normalize_feature_names(list(step.values())[0])
-                case 'rename_feature_names':
-                    raise NotImplementedError 
-                case 'drop_features':
-                    raise NotImplementedError
-                case 'outlier_treatment':
-                    raise NotImplementedError
-                case 'categorify': 
-                    self.categorify(list(step.values())[0])
-                case 'strip_chars':
-                    self.strip_chars(list(step.values())[0])
-                case 'combine_cols':
-                    self.combine_cols(list(step.values())[0])
-                case 'change_datatype':
-                    self.change_datatype(list(step.values())[0])
-                case 'time_to_seconds':
-                    self.time_to_seconds(list(step.values())[0])
-                case 'min_max_normalization':
-                    self.min_max_normalization(list(step.values())[0])
-                case 'one_hot_encoding':
-                    self.one_hot_encoding(list(step.values())[0])
-                case 'string_to_list':
-                    self.string_to_list(list(step.values())[0])
-                case 'multi_hot_encoding':
-                    self.multi_hot_encoding(list(step.values())[0])
-                case 'add_constant_feature':
-                    self.add_constant_feature(list(step.values())[0])
-                case 'define_variable':
-                    self.define_variable(list(step.values())[0])
-                case 'modify_on_conditions':
-                    self.modify_on_conditions(list(step.values())[0])
+            op = list(step.keys())[0]
+            if op == 'normalize_feature_names':
+                self.normalize_feature_names(list(step.values())[0])
+            elif op == 'rename_feature_names':
+                raise NotImplementedError
+            elif op == 'drop_features':
+                raise NotImplementedError
+            elif op == 'outlier_treatment':
+                raise NotImplementedError
+            elif op == 'categorify':
+                self.categorify(list(step.values())[0])
+            elif op == 'strip_chars':
+                self.strip_chars(list(step.values())[0])
+            elif op == 'combine_cols':
+                self.combine_cols(list(step.values())[0])
+            elif op == 'change_datatype':
+                self.change_datatype(list(step.values())[0])
+            elif op == 'time_to_seconds':
+                self.time_to_seconds(list(step.values())[0])
+            elif op == 'min_max_normalization':
+                self.min_max_normalization(list(step.values())[0])
+            elif op == 'one_hot_encoding':
+                self.one_hot_encoding(list(step.values())[0])
+            elif op == 'string_to_list':
+                self.string_to_list(list(step.values())[0])
+            elif op == 'multi_hot_encoding':
+                self.multi_hot_encoding(list(step.values())[0])
+            elif op == 'add_constant_feature':
+                self.add_constant_feature(list(step.values())[0])
+            elif op == 'define_variable':
+                self.define_variable(list(step.values())[0])
+            elif op == 'modify_on_conditions':
+                self.modify_on_conditions(list(step.values())[0])
                 
         return self.df 
 
     def normalize_feature_names(self, steps):
         for step in steps:
-            match list(step.keys())[0]:
-                case 'replace_chars':
-                    self.replace_chars(list(step.values())[0])
-                case 'lowercase':
-                    if list(step.values())[0]:
-                        self.to_lowercase()
+            op = list(step.keys())[0]
+            if op == 'replace_chars':
+                self.replace_chars(list(step.values())[0])
+            elif op == 'lowercase':
+                if list(step.values())[0]:
+                    self.to_lowercase()
 
     def replace_chars(self, replacements):
         for key, value in replacements.items():
@@ -93,12 +93,11 @@ class DataTransformer:
                 if len(target_feature_list) < 2:
                     raise ValueError('there is less than 2 items in the list, cannot concatenate')
                 else:
-                    match operation:
-                        case 'concatenate_strings':
-                            tmp_feature = self.df[target_feature_list[0]].astype('str')
-                            for feature in target_feature_list[1:]:
-                                tmp_feature = tmp_feature + self.df[feature].astype('str')
-                            self.df[new_feature] = tmp_feature 
+                    if operation == 'concatenate_strings':
+                        tmp_feature = self.df[target_feature_list[0]].astype('str')
+                        for feature in target_feature_list[1:]:
+                            tmp_feature = tmp_feature + self.df[feature].astype('str')
+                        self.df[new_feature] = tmp_feature
     
     def change_datatype(self, col_dtypes):
         for col, dtype in col_dtypes.items():

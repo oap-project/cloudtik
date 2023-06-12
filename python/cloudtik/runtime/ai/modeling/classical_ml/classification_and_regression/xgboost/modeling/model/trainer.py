@@ -19,7 +19,7 @@ import os
 import xgboost as xgb
 from sklearn.metrics import precision_recall_curve, auc
 
-from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.model \
+from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.model.model \
     import XGBoost
 
 """

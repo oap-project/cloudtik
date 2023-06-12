@@ -5,13 +5,9 @@ import pandas as pd
 import numpy as np
 import time
 import math
-import argparse
 
 from sklearn import preprocessing
 from category_encoders import TargetEncoder
-
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
-    existing_file
 
 
 def process_data(raw_data_file, output_file):
@@ -110,26 +106,3 @@ def process_data(raw_data_file, output_file):
         )
     )
     print(df_merge.shape)
-
-
-def main(args):
-    process_data(
-        raw_data_file=args.raw_data_file,
-        output_file=args.output_file,
-    )
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Process data")
-    parser.add_argument(
-        "--raw-data-file", "--raw_data_file",
-        type=existing_file,
-        help="The path to the raw transaction data file")
-    parser.add_argument(
-        "--output-file", "--output_file",
-        type=str,
-        help="The path to the output processed edge data file",)
-    args = parser.parse_args()
-    print(args)
-
-    main(args)

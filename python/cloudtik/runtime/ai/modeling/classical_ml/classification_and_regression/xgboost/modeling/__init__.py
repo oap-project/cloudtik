@@ -6,7 +6,7 @@ class ModelingArgs(object):
     def __init__(self):
         self.single_node = False
         self.no_process_data = False
-        self.no_training = False
+        self.no_train = False
 
         self.in_memory = False
         self.raw_data_path = None

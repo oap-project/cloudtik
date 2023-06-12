@@ -2,7 +2,6 @@ import logging
 import os
 import subprocess
 import sys
-from shlex import quote
 from socket import socket
 from typing import Optional
 
@@ -21,7 +20,7 @@ from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
 from cloudtik.core._private.resource_spec import ResourceSpec
-from cloudtik.core._private.utils import with_script_args, parse_resources_json
+from cloudtik.core._private.utils import parse_resources_json, run_script
 from cloudtik.scripts.utils import NaturalOrderGroup
 
 logger = logging.getLogger(__name__)
@@ -368,6 +367,16 @@ def stop(force):
     psutil.wait_procs(stopped, timeout=2)
 
 
+@node.command(context_settings={"ignore_unknown_options": True})
+@click.argument("script", required=True, type=str)
+@click.argument("script_args", nargs=-1)
+def run(script, script_args):
+    """Runs a script (bash or python or a registered command to a python script)
+    within Cloudtik package."""
+    root_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    run_script(root_path, script, script_args)
+
+
 @node.command()
 @click.option(
     "--cpu",
@@ -500,26 +509,11 @@ def dump(
         silent=silent)
 
 
-@node.command(context_settings={"ignore_unknown_options": True})
-@click.argument("script", required=True, type=str)
-@click.argument("script_args", nargs=-1)
-def run_script(script, script_args):
-    """Runs a bash script within Cloudtik python package."""
-    root_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    target = os.path.join(root_path, script)
-    command_parts = ["bash", quote(target)]
-
-    with_script_args(command_parts, script_args)
-
-    final_cmd = " ".join(command_parts)
-    os.system(final_cmd)
-
-
 # core commands running on head and worker node
 node.add_command(start)
 node.add_command(stop)
+node.add_command(run)
 node.add_command(resources)
 
-node.add_command(run_script)
 # utility commands running on head or worker node for dump local data
 node.add_command(dump)

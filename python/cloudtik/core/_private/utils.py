@@ -2,6 +2,7 @@ import base64
 import collections
 import collections.abc
 import copy
+import subprocess
 from datetime import datetime
 import logging
 import hashlib
@@ -3179,3 +3180,32 @@ def with_verbose_option(cmds, call_context):
             # maximum 10 verbose
             verbosity = verbosity if verbosity < 10 else 10
             cmds += ["-v" for _ in range(verbosity)]
+
+
+def run_script(root_path, script, script_args):
+    # import script registry here because it will search for all the packages for
+    # registering scripts
+    from cloudtik.core._private.script_registry import ScriptRegistry
+    script_target = ScriptRegistry.get(script)
+    if script_target:
+        # run a registered command pointing to a script
+        script = script_target
+
+    if script.endswith(".sh"):
+        target = os.path.join(root_path, script)
+        cmds = ["bash", target]
+    elif script.endswith(".py"):
+        target = os.path.join(root_path, script)
+        cmds = [sys.executable, "-u", target]
+    else:
+        target = script
+        # it should be a python module
+        cmds = [sys.executable, "-u", "-m", target]
+
+    with_script_args(cmds, script_args)
+
+    try:
+        subprocess.check_call(cmds, shell=True)
+    except subprocess.CalledProcessError as err:
+        print(f"Called process error {err}")
+        raise err

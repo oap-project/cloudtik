@@ -2571,7 +2571,8 @@ def exec_on_nodes(
         if (start or stop) and not yes:
             cli_logger.confirm(
                 yes,
-                "You are about to start or stop cluster {} for this operation. Are you sure that you want to continue?",
+                "You are about to start or stop cluster {} for this operation. "
+                "Are you sure that you want to continue?",
                 config["cluster_name"], _abort=True)
             cli_logger.newline()
 
@@ -3676,36 +3677,177 @@ def _start_cluster_and_wait_for_workers(
             min_workers=min_workers, timeout=wait_timeout)
 
 
-def submit_and_exec(config: Dict[str, Any],
-                    call_context: CallContext,
-                    script: str,
-                    script_args,
-                    screen: bool = False,
-                    tmux: bool = False,
-                    stop: bool = False,
-                    start: bool = False,
-                    force_update: bool = False,
-                    wait_for_workers: bool = False,
-                    min_workers: Optional[int] = None,
-                    wait_timeout: Optional[int] = None,
-                    port_forward: Optional[Port_forward] = None,
-                    with_output: bool = False,
-                    yes: bool = False,
-                    job_waiter_name: Optional[str] = None,
-                    job_log: bool = False,
-                    runtime: Optional[str] = None,
-                    runtime_options: Optional[List[str]] = None,
-                    ):
-    cli_logger.doassert(not (screen and tmux),
-                        "`{}` and `{}` are incompatible.", cf.bold("--screen"),
-                        cf.bold("--tmux"))
+def submit_and_exec(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        script: str,
+        script_args,
+        screen: bool = False,
+        tmux: bool = False,
+        stop: bool = False,
+        start: bool = False,
+        force_update: bool = False,
+        wait_for_workers: bool = False,
+        min_workers: Optional[int] = None,
+        wait_timeout: Optional[int] = None,
+        port_forward: Optional[Port_forward] = None,
+        with_output: bool = False,
+        yes: bool = False,
+        job_waiter_name: Optional[str] = None,
+        job_log: bool = False,
+        runtime: Optional[str] = None,
+        runtime_options: Optional[List[str]] = None,
+):
+    def prepare_submit_command():
+        target_name = os.path.basename(script)
+        target = os.path.join("~", "user", "jobs", target_name)
 
+        # Create the "user/jobs" and "user/logs" folder before do upload
+        cmd_mkdir = "mkdir -p ~/user/jobs; mkdir -p ~/user/logs"
+        _exec_cmd_on_cluster(
+            config,
+            call_context=call_context,
+            cmd=cmd_mkdir
+        )
+        command_parts = []
+        if urllib.parse.urlparse(script).scheme in ("http", "https"):
+            command_parts = ["wget", quote(script), "-O", f"~/user/jobs/{target_name};"]
+        else:
+            # upload the script to cluster
+            _rsync(
+                config,
+                call_context=call_context,
+                source=script,
+                target=target,
+                down=False)
+
+        # Use new target with $HOME instead of ~ for exec
+        target = os.path.join("$HOME", "user", "jobs", target_name)
+        if runtime is not None:
+            runtime_commands = get_runnable_command(
+                config.get(RUNTIME_CONFIG_KEY), target, runtime, runtime_options)
+            if runtime_commands is None:
+                cli_logger.abort("Runtime {} doesn't how to execute your file: {}", runtime, script)
+            command_parts += runtime_commands
+        elif target_name.endswith(".py"):
+            command_parts += ["python", double_quote(target)]
+        elif target_name.endswith(".sh"):
+            command_parts += ["bash", double_quote(target)]
+        else:
+            runtime_commands = get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
+            if runtime_commands is None:
+                cli_logger.abort("We don't how to execute your file: {}", script)
+            command_parts += runtime_commands
+
+        with_script_args(command_parts, script_args)
+
+        # If user uses screen or tmux and job waiter is used
+        # which means to not hold the tmux or screen session, we redirect log with the session name
+        user_cmd = " ".join(command_parts)
+        session_name = get_command_session_name(user_cmd, time.time_ns())
+        if job_log or ((screen or tmux) and job_waiter_name is not None):
+            redirect_output = f">$HOME/user/logs/{session_name}.log"
+            command_parts += [redirect_output, "2>&1"]
+
+        return command_parts, session_name
+
+    _exec_with_prepare(
+        config,
+        call_context=call_context,
+        prepare=prepare_submit_command,
+        prepare_args=(),
+        screen=screen,
+        tmux=tmux,
+        stop=stop,
+        start=start,
+        force_update=force_update,
+        wait_for_workers=wait_for_workers,
+        min_workers=min_workers,
+        wait_timeout=wait_timeout,
+        port_forward=port_forward,
+        with_output=with_output,
+        yes=yes,
+        job_waiter_name=job_waiter_name,
+    )
+
+
+def _run_script(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        script: str,
+        script_args,
+        screen: bool = False,
+        tmux: bool = False,
+        stop: bool = False,
+        start: bool = False,
+        force_update: bool = False,
+        wait_for_workers: bool = False,
+        min_workers: Optional[int] = None,
+        wait_timeout: Optional[int] = None,
+        port_forward: Optional[Port_forward] = None,
+        with_output: bool = False,
+        yes: bool = False,
+        job_waiter_name: Optional[str] = None,
+        job_log: bool = False
+):
+    def prepare_run_script():
+        cmds = ["cloudtik", "node", "run", script]
+        with_script_args(cmds, script_args)
+
+        # If user uses screen or tmux and job waiter is used
+        # which means to not hold the tmux or screen session, we redirect log with the session name
+        user_cmd = " ".join(cmds)
+        session_name = get_command_session_name(user_cmd, time.time_ns())
+        if job_log or ((screen or tmux) and job_waiter_name is not None):
+            redirect_output = f">$HOME/user/logs/{session_name}.log"
+            cmds += [redirect_output, "2>&1"]
+        return cmds, session_name
+
+    _exec_with_prepare(
+        config,
+        call_context=call_context,
+        prepare=prepare_run_script,
+        prepare_args=(),
+        screen=screen,
+        tmux=tmux,
+        stop=stop,
+        start=start,
+        force_update=force_update,
+        wait_for_workers=wait_for_workers,
+        min_workers=min_workers,
+        wait_timeout=wait_timeout,
+        port_forward=port_forward,
+        with_output=with_output,
+        yes=yes,
+        job_waiter_name=job_waiter_name,
+    )
+
+
+def _exec_with_prepare(
+        config: Dict[str, Any],
+        call_context: CallContext,
+        prepare,
+        prepare_args=(),
+        screen: bool = False,
+        tmux: bool = False,
+        stop: bool = False,
+        start: bool = False,
+        force_update: bool = False,
+        wait_for_workers: bool = False,
+        min_workers: Optional[int] = None,
+        wait_timeout: Optional[int] = None,
+        port_forward: Optional[Port_forward] = None,
+        with_output: bool = False,
+        yes: bool = False,
+        job_waiter_name: Optional[str] = None
+):
     assert not (screen and tmux), "Can specify only one of `screen` or `tmux`."
 
     if (start or stop) and not yes:
         cli_logger.confirm(
             yes,
-            "You are about to start or stop cluster {} for this operation. Are you sure that you want to continue?",
+            "You are about to start or stop cluster {} for this operation. "
+            "Are you sure that you want to continue?",
             config["cluster_name"], _abort=True)
         cli_logger.newline()
 
@@ -3722,58 +3864,11 @@ def submit_and_exec(config: Dict[str, Any],
         min_workers=min_workers,
         wait_timeout=wait_timeout,
     )
-
-    target_name = os.path.basename(script)
-    target = os.path.join("~", "user", "jobs", target_name)
-
-    # Create the "user/jobs" and "user/logs" folder before do upload
-    cmd_mkdir = "mkdir -p ~/user/jobs; mkdir -p ~/user/logs"
-    _exec_cmd_on_cluster(
-        config,
-        call_context=call_context,
-        cmd=cmd_mkdir
+    cmds, session_name = prepare(
+        *prepare_args,
     )
-    command_parts = []
-    if urllib.parse.urlparse(script).scheme in ("http", "https"):
-        command_parts = ["wget", quote(script), "-O", f"~/user/jobs/{target_name};"]
-    else:
-        # upload the script to cluster
-        _rsync(
-            config,
-            call_context=call_context,
-            source=script,
-            target=target,
-            down=False)
 
-    # Use new target with $HOME instead of ~ for exec
-    target = os.path.join("$HOME", "user", "jobs", target_name)
-    if runtime is not None:
-        runtime_commands = get_runnable_command(
-            config.get(RUNTIME_CONFIG_KEY), target, runtime, runtime_options)
-        if runtime_commands is None:
-            cli_logger.abort("Runtime {} doesn't how to execute your file: {}", runtime, script)
-        command_parts += runtime_commands
-    elif target_name.endswith(".py"):
-        command_parts += ["python", double_quote(target)]
-    elif target_name.endswith(".sh"):
-        command_parts += ["bash", double_quote(target)]
-    else:
-        runtime_commands = get_runnable_command(config.get(RUNTIME_CONFIG_KEY), target)
-        if runtime_commands is None:
-            cli_logger.abort("We don't how to execute your file: {}", script)
-        command_parts += runtime_commands
-
-    with_script_args(command_parts, script_args)
-
-    # If user uses screen or tmux and job waiter is used
-    # which means to not hold the tmux or screen session, we redirect log with the session name
-    user_cmd = " ".join(command_parts)
-    session_name = get_command_session_name(user_cmd, time.time_ns())
-    if job_log or ((screen or tmux) and job_waiter is not None):
-        redirect_output = f">$HOME/user/logs/{session_name}.log"
-        command_parts += [redirect_output, "2>&1"]
-
-    cmd = " ".join(command_parts)
+    cmd = " ".join(cmds)
     return _exec_cluster(
         config,
         call_context=call_context,

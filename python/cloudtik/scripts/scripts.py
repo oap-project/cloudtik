@@ -21,7 +21,7 @@ from cloudtik.core._private.cluster.cluster_operator import (
     show_cluster_status, start_ssh_proxy, stop_ssh_proxy, cluster_debug_status,
     cluster_health_check, cluster_process_status, attach_worker, scale_cluster,
     exec_on_nodes, submit_and_exec, _wait_for_ready, _rsync, cli_call_context, cluster_resource_metrics,
-    show_info)
+    show_info, _run_script)
 from cloudtik.core._private.utils import parse_bundles_json, parse_resources
 from cloudtik.scripts.head_scripts import head
 from cloudtik.scripts.node_scripts import node
@@ -472,7 +472,8 @@ def exec(cluster_config_file, cmd, cluster_name, run_env, screen, tmux, stop, st
 @add_click_logging_options
 def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
            force_update, wait_for_workers, min_workers, wait_timeout,
-           no_config_cache, port_forward, yes, job_waiter, job_log, runtime, runtime_options,
+           no_config_cache, port_forward, yes, job_waiter, job_log,
+           runtime, runtime_options,
            script, script_args):
     """Uploads and runs a script on the specified cluster.
 
@@ -506,6 +507,117 @@ def submit(cluster_config_file, cluster_name, screen, tmux, stop, start,
         job_log=job_log,
         runtime=runtime,
         runtime_options=runtime_options,
+        )
+
+
+@cli.command(context_settings={"ignore_unknown_options": True})
+@click.argument("cluster_config_file", required=True, type=str)
+@click.option(
+    "--cluster-name",
+    "-n",
+    required=False,
+    type=str,
+    help="Override the configured cluster name.")
+@click.option(
+    "--screen",
+    is_flag=True,
+    default=False,
+    help="Run the command in a screen.")
+@click.option(
+    "--tmux", is_flag=True, default=False, help="Run the command in tmux.")
+@click.option(
+    "--stop",
+    is_flag=True,
+    default=False,
+    help="Stop the cluster after the command finishes running.")
+@click.option(
+    "--start",
+    is_flag=True,
+    default=False,
+    help="Start the cluster if needed.")
+@click.option(
+    "--force-update",
+    is_flag=True,
+    default=False,
+    help="Force update the cluster even if the cluster is running.")
+@click.option(
+    "--wait-for-workers",
+    is_flag=True,
+    default=False,
+    help="Whether wait for minimum number of workers to be ready.")
+@click.option(
+    "--min-workers",
+    required=False,
+    type=int,
+    help="The minimum number of workers to wait for ready.")
+@click.option(
+    "--wait-timeout",
+    required=False,
+    type=int,
+    help="The timeout seconds to wait for ready.")
+@click.option(
+    "--no-config-cache",
+    is_flag=True,
+    default=False,
+    help="Disable the local cluster config cache.")
+@click.option(
+    "--port-forward",
+    "-p",
+    required=False,
+    multiple=True,
+    type=int,
+    help="Port to forward. Use this multiple times to forward multiple ports.")
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Don't ask for confirmation.")
+@click.option(
+    "--job-waiter",
+    required=False,
+    type=str,
+    help="The job waiter to be used to check the completion of the job.")
+@click.option(
+    "--job-log",
+    is_flag=True,
+    default=False,
+    help="Whether redirect the output of the job to log file in ~/user/logs.")
+@click.argument("script", required=True, type=str)
+@click.argument("script_args", nargs=-1)
+@add_click_logging_options
+def run(
+        cluster_config_file, cluster_name, screen, tmux, stop, start,
+        force_update, wait_for_workers, min_workers, wait_timeout,
+        no_config_cache, port_forward, yes, job_waiter, job_log,
+        script, script_args):
+    """Runs a built-in script (bash or python or a registered command).
+
+    If you want to execute any commands or user scripts, use exec or submit.
+    """
+    # Don't use config cache so that we will run a full bootstrap needed for start
+    if start:
+        no_config_cache = True
+    config = _load_cluster_config(
+        cluster_config_file, cluster_name, no_config_cache=no_config_cache)
+    port_forward = [(port, port) for port in list(port_forward)]
+    _run_script(
+        config,
+        call_context=cli_call_context(),
+        script=script,
+        script_args=script_args,
+        screen=screen,
+        tmux=tmux,
+        stop=stop,
+        start=start,
+        force_update=force_update,
+        wait_for_workers=wait_for_workers,
+        min_workers=min_workers,
+        wait_timeout=wait_timeout,
+        port_forward=port_forward,
+        yes=yes,
+        job_waiter_name=job_waiter,
+        job_log=job_log
         )
 
 
@@ -1197,6 +1309,7 @@ _add_command_alias(stop, name="down", hidden=True)
 cli.add_command(attach)
 cli.add_command(exec)
 cli.add_command(submit)
+cli.add_command(run)
 cli.add_command(scale)
 
 cli.add_command(rsync_up)

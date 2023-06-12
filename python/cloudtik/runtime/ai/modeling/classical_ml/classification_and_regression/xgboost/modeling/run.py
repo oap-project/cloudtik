@@ -31,7 +31,7 @@ def _process_data(args, data_engine):
     return train_data, test_data
 
 
-def train_on_data(
+def _train_on_data(
         df, training_config,
         temp_dir, model_file, in_memory):
     print('start training models on ray...')

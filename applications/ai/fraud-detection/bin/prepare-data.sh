@@ -12,7 +12,7 @@ if [ ! -n "${FRAUD_DETECTION_WORKSPACE}" ]; then
 fi
 
 function usage(){
-    echo "Usage: prepare-data.sh  [ --data_archive_file the path to transactions.tgz file] "
+    echo "Usage: prepare-data.sh  [ --data-archive-file the path to transactions.tgz file] "
     exit 1
 }
 
@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]
 do
     key="$1"
     case $key in
-    --data_archive_file)
+    --data-archive-file)
         # training or inference
         shift
         DATA_ARCHIVE_FILE=$1
@@ -34,7 +34,7 @@ done
 function download_data() {
     mkdir -p $FRAUD_DETECTION_WORKING_DATA
     cd $FRAUD_DETECTION_WORKING_DATA
-    # TODO
+    # TODO: download data if possible
     # download from https://github.com/IBM/TabFormer/tree/main/data/credit_card/transactions.tgz
 }
 
@@ -43,12 +43,13 @@ function prepare_data() {
     cd $FRAUD_DETECTION_WORKING_DATA
     tar -zxvf ${DATA_ARCHIVE_FILE} -C $FRAUD_DETECTION_WORKING_DATA/raw
 
-    python $FRAUD_DETECTION_HOME/python/gnn/process_data.py \
-        --raw_data_file $FRAUD_DETECTION_WORKING_DATA/raw/transactions.csv \
-        --output_file $FRAUD_DETECTION_WORKING_DATA/processed/transactions.csv
+    cloudtik head run ai.modeling.xgboost --single-node --no-train \
+        --raw-data-path $FRAUD_DETECTION_WORKING_DATA/raw \
+        --processed-data-path $FRAUD_DETECTION_WORKING_DATA/processed/transactions.csv \
+        "$@"
 }
 
-if [ "${DATA_ARCHIVE_FILE}" = "" ]; then
+if [ "${DATA_ARCHIVE_FILE}" == "" ]; then
     usage
 fi
 

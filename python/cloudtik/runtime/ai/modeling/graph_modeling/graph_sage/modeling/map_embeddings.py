@@ -11,7 +11,7 @@ import pandas as pd
 
 
 def map_embeddings_distributed(
-        processed_data_file, partition_dir,
+        processed_data_path, partition_dir,
         node_embeddings_dir, node_embeddings_name,
         output_file, tabular2graph):
     node_embeddings_file = node_embeddings_dir + "/" + node_embeddings_name + ".pt"
@@ -24,7 +24,7 @@ def map_embeddings_distributed(
     # 1. Load CSV file output of Classical ML edge featurization workflow
     print("Loading processed data")
     start = time.time()
-    df = pd.read_csv(processed_data_file)
+    df = pd.read_csv(processed_data_path)
     t_load_data = time.time()
     print("Time lo load processed data", t_load_data - start)
 
@@ -94,7 +94,7 @@ def map_embeddings_distributed(
 
 
 def map_embeddings(
-        processed_data_file,
+        processed_data_path,
         node_embeddings_dir, node_embeddings_name,
         output_file, tabular2graph):
     node_embeddings_file = node_embeddings_dir + "/" + node_embeddings_name + ".pt"
@@ -105,7 +105,7 @@ def map_embeddings(
     # 1. Load CSV file output of Classical ML edge featurization workflow
     print("Loading processed data")
     start = time.time()
-    df = pd.read_csv(processed_data_file)
+    df = pd.read_csv(processed_data_path)
     t_load_data = time.time()
     print("Time lo load processed data", t_load_data - start)
 

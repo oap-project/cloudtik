@@ -22,16 +22,16 @@ def _process_data(args, data_engine):
             args.data_processing_config))
 
     if args.in_memory or args.no_save:
-        processed_data_file = None
+        processed_data_path = None
     else:
-        processed_data_file = args.processed_data_file
-        if not processed_data_file:
+        processed_data_path = args.processed_data_path
+        if not processed_data_path:
             raise RuntimeError("Please specify the file path of processed data.")
     train_data, test_data = process_data(
         raw_data_path=args.raw_data_path,
         data_engine=data_engine,
         data_processing_config=args.data_processing_config,
-        output_file=processed_data_file
+        output_file=processed_data_path
     )
     return train_data, test_data
 
@@ -107,9 +107,9 @@ def _check_temp_dir(args):
 
 
 def _train(args, data_engine, train_data, test_data):
-    if not args.in_memory and not args.processed_data_file:
+    if not args.in_memory and not args.processed_data_path:
         raise ValueError(
-            "Must specify the processed-data-file which contains processed data to be trained.")
+            "Must specify the processed-data-path which contains processed data to be trained.")
     _check_temp_dir(args)
 
     if not args.training_config:
@@ -127,9 +127,9 @@ def _train(args, data_engine, train_data, test_data):
             import modin.pandas as pd
         data = pd.concat([train_data, test_data])
     else:
-        print(f"loading data from: {args.processed_data_file}")
+        print(f"loading data from: {args.processed_data_path}")
         data = read_csv_files(
-            args.processed_data_file, engine=DATA_ENGINE_PANDAS)
+            args.processed_data_path, engine=DATA_ENGINE_PANDAS)
 
     _train_on_data(
         data,
@@ -190,9 +190,9 @@ if __name__ == "__main__":
         default=False, action="store_true",
         help="whether to save the processed data file")
     parser.add_argument(
-        "--processed-data-file", "--processed_data_file",
+        "--processed-data-path", "--processed_data_path",
         type=str,
-        help="The path to the output processed data file")
+        help="The path to the output processed data")
     parser.add_argument(
         "--temp-dir", "--temp_dir",
         type=str,

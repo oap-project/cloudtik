@@ -1,5 +1,5 @@
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.run \
-    import run as _run
+    import (run as _run, get_mapped_embeddings_path, get_node_embeddings_path)
 
 
 class ModelingArgs(object):
@@ -11,14 +11,15 @@ class ModelingArgs(object):
         self.no_train_graph = False
         self.no_map_embeddings = False
 
-        self.raw_data_file = None
-        self.processed_data_file = None
+        self.raw_data_path = None
+        self.processed_data_path = None
 
         self.temp_dir = None
         self.output_dir = None
         self.dataset_name = "tabformer_hetero"
         self.tabular2graph = None
         self.node_embeddings_name = "node_emb"
+        self.mapped_embeddings_name = "table_with_embeddings.csv"
 
         self.hosts = None
         self.graph_name = "tabformer_full_homo"
@@ -47,3 +48,4 @@ class ModelingArgs(object):
 
 def run(args: ModelingArgs):
     return _run(args)
+

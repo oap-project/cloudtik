@@ -6,7 +6,7 @@ import tempfile
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.data.process \
     import process_data
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
-    existing_file
+    existing_path
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.build_graph import \
     build_graph
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.partition_graph import \
@@ -55,8 +55,8 @@ def _get_node_embeddings_file(output_dir, node_embeddings_name):
         node_embeddings_dir, node_embeddings_name + ".pt")
 
 
-def _get_mapped_output_file(output_dir):
-    return os.path.join(output_dir, "tabular_with_gnn_embeddings.csv")
+def _get_mapped_output_file(output_dir, mapped_embeddings_name):
+    return os.path.join(output_dir, mapped_embeddings_name)
 
 
 def _get_hosts(hosts):
@@ -103,20 +103,30 @@ def _check_tabular2graph(args):
             args.tabular2graph))
 
 
+def get_node_embeddings_path(args):
+    return _get_node_embeddings_file(
+        args.output_dir, args.node_embeddings_name)
+
+
+def get_mapped_embeddings_path(args):
+    return _get_mapped_output_file(
+        args.output_dir, args.mapped_embeddings_name)
+
+
 def _process_data(args):
-    if not args.raw_data_file:
+    if not args.raw_data_path:
         raise ValueError(
             "Must specify the raw data file which contains raw data to be processed.")
-    if not args.processed_data_file:
-        raise RuntimeError("Please specify the processed-data-file for storing of processed data.")
+    if not args.processed_data_path:
+        raise RuntimeError("Please specify the processed-data-path for storing of processed data.")
     process_data(
-        raw_data_file=args.raw_data_file,
-        output_file=args.processed_data_file,
+        raw_data_path=args.raw_data_path,
+        output_file=args.processed_data_path,
     )
 
 
 def _build_graph(args):
-    if not args.processed_data_file:
+    if not args.processed_data_path:
         raise ValueError(
             "Must specify the input file which contains the processed data.")
     _check_temp_dir(args)
@@ -124,7 +134,7 @@ def _build_graph(args):
 
     dataset_output_dir = _get_dataset_output_dir(args.temp_dir)
     build_graph(
-        input_file=args.processed_data_file,
+        input_file=args.processed_data_path,
         output_dir=dataset_output_dir,
         dataset_name=args.dataset_name,
         tabular2graph=args.tabular2graph
@@ -286,7 +296,7 @@ def _train_distributed(args):
 
 
 def _map_and_save_embeddings(args):
-    if not args.processed_data_file:
+    if not args.processed_data_path:
         raise ValueError(
             "Must specify the processed data file which contains the processed data.")
     if not args.output_dir:
@@ -294,11 +304,12 @@ def _map_and_save_embeddings(args):
             "Must specify the output dir which stored the node embeddings.")
     _check_tabular2graph(args)
 
-    mapped_output_file = _get_mapped_output_file(args.output_dir)
+    mapped_output_file = _get_mapped_output_file(
+        args.output_dir, args.mapped_embeddings_name)
     node_embeddings_dir = _get_node_embeddings_dir(args.output_dir)
     if args.single_node:
         map_embeddings(
-            processed_data_file=args.processed_data_file,
+            processed_data_path=args.processed_data_path,
             node_embeddings_dir=node_embeddings_dir,
             node_embeddings_name=args.node_embeddings_name,
             output_file=mapped_output_file,
@@ -310,7 +321,7 @@ def _map_and_save_embeddings(args):
                 "Must specify the temp dir which stored the intermediate data.")
         partition_dir = _get_partition_dir(args.temp_dir)
         map_embeddings_distributed(
-            processed_data_file=args.processed_data_file,
+            processed_data_path=args.processed_data_path,
             partition_dir=partition_dir,
             node_embeddings_dir=node_embeddings_dir,
             node_embeddings_name=args.node_embeddings_name,
@@ -368,13 +379,13 @@ if __name__ == "__main__":
         help="whether to map embeddings")
 
     parser.add_argument(
-        "--raw-data-file", "--raw_data_file",
-        type=existing_file,
-        help="The path to the raw transaction data file")
+        "--raw-data-path", "--raw_data_path",
+        type=existing_path,
+        help="The path to the raw transaction data")
     parser.add_argument(
-        "--processed-data-file", "--processed_data_file",
+        "--processed-data-path", "--processed_data_path",
         type=str,
-        help="The path to the output processed data file")
+        help="The path to the output processed data")
 
     parser.add_argument(
         "--temp-dir", "--temp_dir",
@@ -398,6 +409,10 @@ if __name__ == "__main__":
         "--node-embeddings-name", "--node_embeddings_name",
         type=str, default="node_emb",
         help="The path to the node embedding file")
+    parser.add_argument(
+        "--mapped-embeddings-name", "--mapped_embeddings_name",
+        type=str, default="table_with_embeddings.csv",
+        help="The path to save the mapped embedding file")
 
     # Distributed training
     parser.add_argument(

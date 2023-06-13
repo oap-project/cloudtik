@@ -10,9 +10,9 @@ mkdir -p $FRAUD_DETECTION_DATA_TMP
 
 TABULAR2GRAPH=${SCRIPT_DIR}/../config/tabular2graph.yaml
 
-python $FRAUD_DETECTION_HOME/python/gnn/run.py \
-        --input_file $FRAUD_DETECTION_DATA/processed/transactions.csv \
-        --output_dir $FRAUD_DETECTION_DATA_OUTPUT \
-        --tmp_dir $FRAUD_DETECTION_DATA_TMP \
+python -u $FRAUD_DETECTION_HOME/bin/train.py \
+        --raw-data-path $FRAUD_DETECTION_WORKSPACE/raw \
+        --output-dir $FRAUD_DETECTION_DATA_OUTPUT \
+        --temp-dir $FRAUD_DETECTION_DATA_TMP \
         --tabular2graph $TABULAR2GRAPH \
         "$@"

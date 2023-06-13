@@ -10,10 +10,10 @@ from sklearn import preprocessing
 from category_encoders import TargetEncoder
 
 
-def process_data(raw_data_file, output_file):
+def process_data(raw_data_path, output_file):
     # Step 1: read and clean the dataframe
     tic = time.time()
-    df = pd.read_csv(raw_data_file)
+    df = pd.read_csv(raw_data_path)
     df.columns = df.columns.str.replace(" ", "_").str.lower()
     print(
         "Time to read the dataframe = {} seconds".format(math.ceil(time.time() - tic))

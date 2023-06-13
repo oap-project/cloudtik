@@ -16,3 +16,11 @@ def existing_file(raw_path):
             '"{}" is not an existing file'.format(raw_path)
         )
     return os.path.abspath(raw_path)
+
+
+def existing_path(raw_path):
+    if not os.path.exists(raw_path):
+        raise argparse.ArgumentTypeError(
+            '"{}" is not an existing directory or file'.format(raw_path)
+        )
+    return os.path.abspath(raw_path)

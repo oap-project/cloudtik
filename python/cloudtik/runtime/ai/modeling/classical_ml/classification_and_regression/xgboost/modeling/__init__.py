@@ -12,7 +12,7 @@ class ModelingArgs(object):
         self.raw_data_path = None
         self.data_processing_config = None
         self.no_save = False
-        self.processed_data_file = None
+        self.processed_data_path = None
 
         self.training_config = None
         self.temp_dir = None

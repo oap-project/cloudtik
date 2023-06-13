@@ -397,7 +397,7 @@ if __name__ == "__main__":
         help="The path to the output")
     parser.add_argument(
         "--dataset-name", "--dataset_name",
-        type=str, default="tabformer_hetero",
+        type=str, default="tabformer",
         help="The dataset name")
     parser.add_argument(
         "--tabular2graph",
@@ -407,12 +407,12 @@ if __name__ == "__main__":
     # Train
     parser.add_argument(
         "--node-embeddings-name", "--node_embeddings_name",
-        type=str, default="node_emb",
-        help="The path to the node embedding file")
+        type=str, default="node_embeddings",
+        help="The path to the node embeddings file")
     parser.add_argument(
         "--mapped-embeddings-name", "--mapped_embeddings_name",
-        type=str, default="table_with_embeddings.csv",
-        help="The path to save the mapped embedding file")
+        type=str, default="mapped_embeddings.csv",
+        help="The path to save the mapped embeddings file")
 
     # Distributed training
     parser.add_argument(
@@ -422,7 +422,7 @@ if __name__ == "__main__":
     # Partition graph parameters
     parser.add_argument(
         "--graph-name", "--graph_name",
-        type=str, default="tabformer_full_homo",
+        type=str, default="tabformer_graph",
         help="The graph name")
     parser.add_argument(
         "--num-parts", "--num_parts",

@@ -16,13 +16,13 @@ class ModelingArgs(object):
 
         self.temp_dir = None
         self.output_dir = None
-        self.dataset_name = "tabformer_hetero"
+        self.dataset_name = "tabformer"
         self.tabular2graph = None
-        self.node_embeddings_name = "node_emb"
-        self.mapped_embeddings_name = "table_with_embeddings.csv"
+        self.node_embeddings_name = "node_embeddings"
+        self.mapped_embeddings_name = "mapped_embeddings.csv"
 
         self.hosts = None
-        self.graph_name = "tabformer_full_homo"
+        self.graph_name = "tabformer_graph"
         self.num_parts = 0
         self.num_hops = 1
         self.num_trainers = 1

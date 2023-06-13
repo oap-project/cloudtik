@@ -86,15 +86,16 @@ def build_graph(
         )
 
     with open(os.path.join(output_dataset_dir, "meta.yaml"), "w") as f:
-        python_data = {
+        meta_yaml = {
             "dataset_name": dataset_name,
             "node_data": list_of_n_dict,
             "edge_data": list_of_e_dict,
         }
-        data = yaml.dump(python_data, f, sort_keys=False, default_flow_style=False)
+        data = yaml.dump(meta_yaml, f, sort_keys=False, default_flow_style=False)
 
-    with open(os.path.join(output_dataset_dir, "meta.yaml"), "r") as file:
-        meta_yaml = yaml.safe_load(file)
+    # avoid to write and read immediately (if the file system points to a distributed file system)
+    # with open(os.path.join(output_dataset_dir, "meta.yaml"), "r") as file:
+    #     meta_yaml = yaml.safe_load(file)
     print("\nmeta_yaml: \n", meta_yaml)
 
     # DGL node/edge csv headers

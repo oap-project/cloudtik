@@ -4,15 +4,13 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/configure.sh
 
 FRAUD_DETECTION_WORKING_DATA=$FRAUD_DETECTION_WORKING/data
-DATA_ARCHIVE_FILE=""
-
-if [ ! -n "${FRAUD_DETECTION_WORKSPACE}" ]; then
-  echo "Please set environment variable '\${FRAUD_DETECTION_WORKSPACE}'."
-  exit 1
-fi
+RAW_DATA_PATH=""
+RAW_DATA_ARCHIVE=""
 
 function usage(){
-    echo "Usage: prepare-data.sh  [ --data-archive-file the path to transactions.tgz file] "
+    echo "Usage: prepare-data.sh [ --raw-data-path ] [ --raw-data-archive ]"
+    echo "Specify either raw-data-path to the raw data file or directory or "
+    echo "raw-data-archive to the tgz file contains the raw data."
     exit 1
 }
 
@@ -20,10 +18,13 @@ while [[ $# -gt 0 ]]
 do
     key="$1"
     case $key in
-    --data-archive-file)
-        # training or inference
+    --raw-data-path)
         shift
-        DATA_ARCHIVE_FILE=$1
+        RAW_DATA_PATH=$1
+        ;;
+    --raw-data-archive)
+        shift
+        RAW_DATA_ARCHIVE=$1
         ;;
     *)
         usage
@@ -34,22 +35,26 @@ done
 function download_data() {
     mkdir -p $FRAUD_DETECTION_WORKING_DATA
     cd $FRAUD_DETECTION_WORKING_DATA
-    # TODO: download data if possible
+    # TODO: download TabFormer dataset if possible
     # download from https://github.com/IBM/TabFormer/tree/main/data/credit_card/transactions.tgz
 }
 
 function prepare_data() {
-    mkdir -p $FRAUD_DETECTION_WORKING_DATA/raw
-    cd $FRAUD_DETECTION_WORKING_DATA
-    tar -zxvf ${DATA_ARCHIVE_FILE} -C $FRAUD_DETECTION_WORKING_DATA/raw
+    if [ "${RAW_DATA_PATH}" == "" ]; then
+        mkdir -p $FRAUD_DETECTION_WORKING_DATA/raw
+        cd $FRAUD_DETECTION_WORKING_DATA
+        tar -zxvf ${RAW_DATA_ARCHIVE} -C $FRAUD_DETECTION_WORKING_DATA/raw
+        RAW_DATA_PATH=$FRAUD_DETECTION_WORKING_DATA/raw
+    fi
 
+    PROCESSED_DATA_PATH=$FRAUD_DETECTION_WORKING_DATA/processed/processed_data.csv
     cloudtik head run ai.modeling.xgboost --single-node --no-train \
-        --raw-data-path $FRAUD_DETECTION_WORKING_DATA/raw \
-        --processed-data-path $FRAUD_DETECTION_WORKING_DATA/processed/transactions.csv \
+        --raw-data-path ${RAW_DATA_PATH} \
+        --processed-data-path ${PROCESSED_DATA_PATH} \
         "$@"
 }
 
-if [ "${DATA_ARCHIVE_FILE}" == "" ]; then
+if [ "${RAW_DATA_PATH}" == "" ] && [ "${RAW_DATA_ARCHIVE}" == "" ]; then
     usage
 fi
 

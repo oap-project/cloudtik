@@ -152,7 +152,7 @@ def exec(cmd, node_ip, all_nodes, run_env, screen, tmux,
         job_waiter_name=job_waiter)
 
 
-@head.command()
+@head.command(context_settings={"ignore_unknown_options": True})
 @click.option(
     "--wait-for-workers",
     is_flag=True,

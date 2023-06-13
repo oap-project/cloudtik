@@ -37,7 +37,7 @@ def _process_data(args, data_engine):
 
 
 def _train_on_data(
-        df, training_config,
+        args, df, training_config,
         temp_dir, model_file, in_memory):
     print('start training model...')
     config = load_config(training_config)
@@ -132,7 +132,7 @@ def _train(args, data_engine, train_data, test_data):
             args.processed_data_path, engine=DATA_ENGINE_PANDAS)
 
     _train_on_data(
-        data,
+        args, data,
         training_config=args.training_config,
         temp_dir=args.temp_dir,
         model_file=args.model_file,

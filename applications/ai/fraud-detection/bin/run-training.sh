@@ -37,7 +37,7 @@ done
 
 if [ "${RAW_DATA_PATH}" == "" ] && [ "${PROCESSED_DATA_PATH}" == "" ]; then
     # we assume user has run prepare-data
-    PROCESSED_DATA_PATH=$FRAUD_DETECTION_WORKSPACE/processed/processed_data.csv
+    PROCESSED_DATA_PATH=$FRAUD_DETECTION_DATA/processed/processed_data.csv
 fi
 
 # create the directories

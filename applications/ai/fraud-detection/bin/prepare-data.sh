@@ -40,6 +40,7 @@ function download_data() {
 }
 
 function prepare_data() {
+    mkdir -p $FRAUD_DETECTION_WORKING_DATA
     if [ "${RAW_DATA_PATH}" == "" ]; then
         mkdir -p $FRAUD_DETECTION_WORKING_DATA/raw
         cd $FRAUD_DETECTION_WORKING_DATA
@@ -47,7 +48,11 @@ function prepare_data() {
         RAW_DATA_PATH=$FRAUD_DETECTION_WORKING_DATA/raw
     fi
 
-    PROCESSED_DATA_PATH=$FRAUD_DETECTION_WORKING_DATA/processed/processed_data.csv
+    PROCESSED_PATH=$FRAUD_DETECTION_WORKING_DATA/processed
+    mkdir -p PROCESSED_PATH
+    PROCESSED_DATA_PATH=$PROCESSED_PATH/processed_data.csv
+
+    # Run data processing
     cloudtik head run ai.modeling.xgboost --single-node --no-train \
         --raw-data-path ${RAW_DATA_PATH} \
         --processed-data-path ${PROCESSED_DATA_PATH} \

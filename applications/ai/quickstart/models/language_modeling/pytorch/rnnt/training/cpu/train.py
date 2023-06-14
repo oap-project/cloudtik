@@ -48,7 +48,6 @@ import torchvision
 
 from tb_logger import DummyLogger, TensorBoardLogger
 import preprocessing
-import intel_extension_for_pytorch as ipex
 from tqdm import tqdm
 import torch.distributed as dist
 
@@ -613,6 +612,9 @@ def main(args):
         optimizer.load_state_dict(checkpoint['optimizer'])
 
     if args.ipex:
+        # cloudtik patch start
+        import intel_extension_for_pytorch as ipex
+        # cloudtik patch end
         if args.bf32:
             ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
         if args.bf16:

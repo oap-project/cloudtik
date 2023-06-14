@@ -185,7 +185,10 @@ def coco_eval(model, val_dataloader, cocoGt, encoder, inv_map, args):
         [inference_time, decoding_time],
         prefix='Test: ')
 
-    if args.bf32:
+    # CloudTik patch start
+    if use_ipex and args.bf32:
+    # if args.bf32:
+    # CloudTik patch end
         ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
 
     # Disable TE, there 2 cat at the end of the forward.
@@ -194,7 +197,10 @@ def coco_eval(model, val_dataloader, cocoGt, encoder, inv_map, args):
     torch._C._jit_set_texpr_fuser_enabled(False)
     Profilling_iterator = 99
     start = time.time()
-    if args.int8:
+    # CloudTik patch start
+    if use_ipex and args.int8:
+    # if args.int8:
+    # CloudTik patch end
         model = model.eval()
         print('int8 conv_bn_fusion enabled')
         with torch.no_grad():

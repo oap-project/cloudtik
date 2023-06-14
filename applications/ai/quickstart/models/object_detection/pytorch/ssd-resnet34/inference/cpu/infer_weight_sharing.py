@@ -233,7 +233,10 @@ def coco_eval(model, val_dataloader, cocoGt, encoder, inv_map, args):
     inference_time = AverageMeter('InferenceTime', ':6.3f')
     decoding_time = AverageMeter('DecodingTime', ':6.3f')
 
-    if args.bf32:
+    # CloudTik patch start
+    if use_ipex and args.bf32:
+    # if args.bf32:
+    # CloudTik patch end
         ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
 
     # Disable TE, there 2 cat at the end of the forward.
@@ -243,7 +246,10 @@ def coco_eval(model, val_dataloader, cocoGt, encoder, inv_map, args):
 
     Profilling_iterator = 99
     start = time.time()
-    if args.int8:
+    # CloudTik patch start
+    if use_ipex and args.int8:
+    # if args.int8:
+    # CloudTik patch end
         model = model.eval()
         model_decode = SSD_R34_NMS(model, encoder).eval()
         print('int8 conv_bn_fusion enabled')
@@ -445,7 +451,10 @@ def coco_eval(model, val_dataloader, cocoGt, encoder, inv_map, args):
                             stats = bench.benchmark(num_calling_threads=args.number_instance, num_warmup_iters=args.warmup_iterations, num_iters=args.iteration) #num_instance, warm up iters, total iters
                     elif args.use_multi_stream_module:
                         print('bf16 use_multi_stream_module path')
-                        if args.async_execution:
+                        # CloudTik patch start
+                        if use_ipex and args.async_execution:
+                        # if args.async_execution:
+                        # CloudTik patch end
                             if args.start_core != -1 and args.end_core != -1:
                                 cpu_pool = ipex.cpu.runtime.CPUPool(core_ids=range(args.start_core, args.end_core + 1))
                             elif args.instance_number != -1:
@@ -585,7 +594,10 @@ def coco_eval(model, val_dataloader, cocoGt, encoder, inv_map, args):
                             stats = bench.benchmark(num_calling_threads=args.number_instance, num_warmup_iters=args.warmup_iterations, num_iters=args.iteration) #num_instance, warm up iters, total iters
                     elif args.use_multi_stream_module:
                         print('fp32 use_multi_stream_module path')
-                        if args.async_execution:
+                        # CloudTik patch start
+                        if use_ipex and args.async_execution:
+                        # if args.async_execution:
+                        # CloudTik patch end
                             if args.start_core != -1 and args.end_core != -1:
                                 cpu_pool = ipex.cpu.runtime.CPUPool(core_ids=range(args.start_core, args.end_core + 1))
                             elif args.instance_number != -1:

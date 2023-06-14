@@ -602,7 +602,10 @@ def main():
     mllogger.end(key=mllog_const.INIT_STOP)
     mllogger.start(key=mllog_const.RUN_START)
 
-    if args.bf32:
+    # Cloudtik patch start
+    if use_ipex and args.bf32:
+    # if args.bf32:
+    # Cloudtik patch end
         ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
 
     success = train300_mlperf_coco(args)

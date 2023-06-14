@@ -35,7 +35,7 @@ from maskrcnn_benchmark.engine.inference import inference
 from ..utils.timer import Timer, get_time_str
 
 use_ipex = False
-if os.environ.get('USE_IPEX') == "1":
+if os.environ.get('USE_IPEX') == "true":
     import intel_extension_for_pytorch as ipex
     use_ipex = True
 

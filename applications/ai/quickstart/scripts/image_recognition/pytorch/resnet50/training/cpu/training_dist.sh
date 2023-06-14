@@ -75,11 +75,17 @@ else
     exit 1
 fi
 
-if [[ "$ENABLE_IPEX" == "true" ]];then
+if [[ "$USE_IPEX" == "true" ]]; then
   ARGS="$ARGS --ipex"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 fi
 
 BACKEND=${BACKEND:-'ccl'}
+
+if [[ "$BACKEND" == "ccl" ]]; then
+  oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
+  source $oneccl_bindings_for_pytorch_path/env/setvars.sh
+fi
 
 CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
 SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
@@ -90,8 +96,6 @@ NUM_RANKS=$(( NNODES * SOCKETS ))
 
 CORES_PER_INSTANCE=$CORES
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
@@ -99,9 +103,6 @@ BATCH_SIZE=128
 
 rm -rf ${OUTPUT_DIR}/resnet50_dist_training_log_*
 TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/image_recognition/pytorch/common/main.py}
-
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
 cloudtik-ai-run \
     --use_default_allocator \

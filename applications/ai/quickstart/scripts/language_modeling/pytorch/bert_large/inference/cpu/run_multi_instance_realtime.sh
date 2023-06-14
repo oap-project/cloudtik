@@ -16,8 +16,6 @@
 # limitations under the License.
 #
 
-
-#export DNNL_MAX_CPU_ISA=AVX512_CORE_AMX
 ARGS="--benchmark"
 precision=fp32
 
@@ -51,6 +49,11 @@ then
     echo "### running fp32 mode"
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  # TODO: flag to enable or disable ipex for inference
+  ARGS="$ARGS --ipex"
+fi
+
 rm -rf ${OUTPUT_DIR}/latency_log*
 export OMP_NUM_THREADS=4
 CORES=`lscpu | grep Core | awk '{print $4}'`
@@ -61,7 +64,6 @@ EVAL_DATA_FILE=${EVAL_DATA_FILE:-"${PWD}/squad1.1/dev-v1.1.json"}
 FINETUNED_MODEL=${FINETUNED_MODEL:-bert_squad_model}
 OUTPUT_DIR=${OUTPUT_DIR:-${PWD}}
 EVAL_SCRIPT=${EVAL_SCRIPT:-"./transformers/examples/legacy/question-answering/run_squad.py"}
-work_space=${work_space:-${OUTPUT_DIR}}
 
 cloudtik-ai-run \
   --ninstance ${SOCKETS} --log_path=${OUTPUT_DIR} --log_file_prefix="./latency_log_${precision}" ${EVAL_SCRIPT} $ARGS --model_type bert --model_name_or_path ${FINETUNED_MODEL} --tokenizer_name bert-large-uncased-whole-word-masking-finetuned-squad  --do_eval --do_lower_case --predict_file $EVAL_DATA_FILE  --per_gpu_eval_batch_size $BATCH_SIZE --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir ./tmp --perf_begin_iter 20 --perf_run_iters 100 --use_jit --int8_config ${INT8_CONFIG} --use_share_weight --total_cores ${CORES}

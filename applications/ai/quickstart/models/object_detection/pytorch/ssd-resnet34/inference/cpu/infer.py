@@ -33,7 +33,7 @@ import numpy as np
 import torch.fx.experimental.optimization as optimization
 
 use_ipex = False
-if os.environ.get('USE_IPEX') == "1":
+if os.environ.get('USE_IPEX') == "true":
     import intel_extension_for_pytorch as ipex
     from intel_extension_for_pytorch.quantization import prepare, convert
     from torch.ao.quantization import MinMaxObserver, PerChannelMinMaxObserver, QConfig
@@ -679,7 +679,7 @@ def main():
         torch.backends.cudnn.benchmark = True
     else:
         if not "USE_IPEX" in os.environ:
-            print('Set environment variable "USE_IPEX" to 1 (export USE_IPEX=1) to utilize Intel® Extension for PyTorch, if needed.')
+            print('Set environment variable "USE_IPEX" to true (export USE_IPEX=true) to utilize Intel Extension for PyTorch, if needed.')
     eval_ssd_r34_mlperf_coco(args)
 
 if __name__ == "__main__":

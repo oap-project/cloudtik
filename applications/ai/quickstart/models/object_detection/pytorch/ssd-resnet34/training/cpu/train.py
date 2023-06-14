@@ -37,7 +37,7 @@ from mlperf_logger import ssd_print, broadcast_seeds
 from mlperf_logger import mllogger
 
 use_ipex = False
-if os.environ.get('USE_IPEX') == "1":
+if os.environ.get('USE_IPEX') == "true":
     import intel_extension_for_pytorch as ipex
     use_ipex = True
 
@@ -602,10 +602,7 @@ def main():
     mllogger.end(key=mllog_const.INIT_STOP)
     mllogger.start(key=mllog_const.RUN_START)
 
-    # Cloudtik patch start
     if use_ipex and args.bf32:
-    # if args.bf32:
-    # Cloudtik patch end
         ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
 
     success = train300_mlperf_coco(args)

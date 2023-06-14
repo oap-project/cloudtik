@@ -19,8 +19,6 @@ MODEL_DIR=${MODEL_DIR-$PWD}
 
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
-TCMALLOC_ARGS=""
-ARGS=""
 
 if [ -z "${DATASET_DIR}" ]; then
   echo "The required environment variable DATASET_DIR has not been set"
@@ -33,8 +31,11 @@ if [ ! -d "${DATASET_DIR}" ]; then
 fi
 
 TCMALLOC_ARGS="--enable_tcmalloc"
-# in case IPEX is used we set ipex and jit path args
-ARGS="--ipex --jit"
+
+ARGS=""
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --jit"
+fi
 echo "Running using ${ARGS} args ..."
 
 cloudtik-ai-run \

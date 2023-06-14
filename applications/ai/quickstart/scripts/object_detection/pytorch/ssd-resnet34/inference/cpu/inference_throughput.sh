@@ -62,7 +62,10 @@ else
     exit 1
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --jit"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
 
 rm -rf ${OUTPUT_DIR}/throughput_log*
 
@@ -112,7 +115,6 @@ if [ "$weight_sharing" = true ]; then
             --no-cuda \
             --iteration 50 \
             --batch-size ${BATCH_SIZE} \
-            --jit \
             --number-instance $STREAM_PER_INSTANCE \
             --use-multi-stream-module \
             --instance-number $i \
@@ -134,7 +136,6 @@ else
         --no-cuda \
         --iteration 50 \
         --batch-size ${BATCH_SIZE} \
-        --jit \
         --throughput-mode \
         $ARGS 2>&1 | tee ${OUTPUT_DIR}/throughput_log_ssdresnet34_${PRECISION}.log
 

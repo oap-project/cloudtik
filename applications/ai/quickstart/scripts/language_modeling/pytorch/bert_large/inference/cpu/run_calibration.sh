@@ -15,8 +15,6 @@
 # limitations under the License.
 #
 
-
-#export DNNL_MAX_CPU_ISA=AVX512_CORE_AMX
 ARGS=""
 precision=fp32
 if [[ "$1" == "bf16" ]]
@@ -39,7 +37,7 @@ EVAL_DATA_FILE=${EVAL_DATA_FILE:-"${PWD}/squad1.1/dev-v1.1.json"}
 FINETUNED_MODEL=${FINETUNED_MODEL:-bert_squad_model}
 OUTPUT_DIR=${OUTPUT_DIR:-"${PWD}"}
 EVAL_SCRIPT=${EVAL_SCRIPT:-"./transformers/examples/legacy/question-answering/run_squad.py"}
-work_space=${work_space:-"${OUTPUT_DIR}"}
+
 cloudtik-ai-run \
   --log_path=${OUTPUT_DIR} --log_file_prefix="calibration_log" $EVAL_SCRIPT $ARGS --model_type bert --model_name_or_path ${FINETUNED_MODEL}  --do_eval --do_lower_case --predict_file $EVAL_DATA_FILE  --per_gpu_eval_batch_size $BATCH_SIZE --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir ./tmp --tokenizer_name bert-large-uncased-whole-word-masking-finetuned-squad --int8_config ${INT8_CONFIG} --do_calibration --calibration_iters 80 2>&1 | tee $LOG_0
 

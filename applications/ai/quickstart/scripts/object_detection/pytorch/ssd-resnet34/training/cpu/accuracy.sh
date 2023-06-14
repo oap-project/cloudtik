@@ -63,8 +63,10 @@ else
     exit 1
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
+if [[ "$USE_IPEX" == "true" ]]; then
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
+
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 

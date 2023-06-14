@@ -53,6 +53,17 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
+
+BACKEND=${BACKEND:-'ccl'}
+
+if [[ "$BACKEND" == "ccl" ]]; then
+  oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
+  source $oneccl_bindings_for_pytorch_path/env/setvars.sh
+fi
+
 CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
 SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
@@ -62,16 +73,10 @@ CORES_PER_INSTANCE=$CORES
 HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
-BACKEND=${BACKEND:-'ccl'}
-
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 
 export TRAIN=1
 
 PRECISION=$1
-
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
 BATCH_SIZE=${BATCH_SIZE-112}
 

@@ -42,7 +42,7 @@ use_optimized_nms = False
 use_last_dim_bbox = False
 use_ipex = False
 softmax_optimizaed_in_last_second_dim = False
-if os.environ.get('USE_IPEX') == "1":
+if os.environ.get('USE_IPEX') == "true":
     import intel_extension_for_pytorch as ipex
     batch_score_nms = torch.ops.torch_ipex.batch_score_nms
     parallel_scale_back_batch = torch.ops.torch_ipex.parallel_scale_back_batch

@@ -46,7 +46,6 @@ if [ -z "${PRECISION}" ]; then
   exit 1
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
@@ -87,6 +86,11 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
+
 weight_sharing=false
 if [ ${WEIGHT_SHAREING} ]; then
   echo "Running RN50 inference throughput with runtime extension enabled."
@@ -117,7 +121,6 @@ if [ "$weight_sharing" = true ]; then
     numactl --physcpubind=$start_core_i-$end_core_i --membind=$numa_node_i python -u \
         ${MODEL_DIR}/models/image_recognition/pytorch/common/main_runtime_extension.py \
         $ARGS \
-        --ipex \
         --pretrained \
         -j 0 \
         -b $BATCH_SIZE \
@@ -131,7 +134,6 @@ else
       --use_default_allocator \
       ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
       $ARGS \
-      --ipex \
       --pretrained \
       -j 0 \
       -b $BATCH_SIZE 2>&1 | tee ${OUTPUT_DIR}/resnet50_accuracy_log_${PRECISION}.log

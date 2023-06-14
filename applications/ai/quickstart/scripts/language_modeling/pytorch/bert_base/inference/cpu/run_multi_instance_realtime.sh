@@ -19,12 +19,6 @@
 
 ARGS=""
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-
-path="ipex"
-ARGS="$ARGS --use_ipex"
-echo "### running with intel extension for pytorch"
-
 precision="fp32"
 if [[ "$1" == "bf16" ]]
 then
@@ -35,10 +29,12 @@ else
     echo "### running fp32 mode"
 fi
 
-mode="jit"
-ARGS="$ARGS --jit_mode"
-echo "### running with jit mode"
-
+mode="default"
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --use_ipex --jit_mode"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+  mode="jit"
+fi
 
 export OMP_NUM_THREADS=4
 CORES=`lscpu | grep Core | awk '{print $4}'`
@@ -50,7 +46,7 @@ if [ -z "${OUTPUT_DIR}" ]; then
   exit 1
 fi
 EVAL_SCRIPT=${EVAL_SCRIPT:-"./transformers/examples/pytorch/question-answering/run_qa.py"}
-WORK_SPACE=${WORK_SPACE:-${OUTPUT_DIR}}
+
 rm -rf ${OUTPUT_DIR}/latency_log*
 cloudtik-ai-run \
   --latency_mode --enable_jemalloc --log_path=${OUTPUT_DIR} --log_file_prefix="./latency_log_${precision}_${mode}" \
@@ -84,4 +80,4 @@ sum = sum / i * INSTANCES_PER_SOCKET;
 }')
 
 echo $INSTANCES_PER_SOCKET
-echo ""BERT-base";"latency";${precision};${BATCH_SIZE};${throughput}" | tee -a ${WORK_SPACE}/summary.log
+echo ""BERT-base";"latency";${precision};${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log

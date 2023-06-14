@@ -36,7 +36,7 @@ import numpy as np
 # from maskrcnn_benchmark.engine.utils_vis import draw, make_dot
 
 use_ipex = False
-if os.environ.get('USE_IPEX') == "1":
+if os.environ.get('USE_IPEX') == "true":
     import intel_extension_for_pytorch as ipex
     use_ipex = True
 

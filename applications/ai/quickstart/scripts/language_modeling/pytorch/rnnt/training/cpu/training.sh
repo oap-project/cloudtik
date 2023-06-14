@@ -76,8 +76,9 @@ else
     echo "Supported precisions now are: fp32, bf16 and bf32"
 fi
 
-if [ "$USE_IPEX" == 1 ]; then
-    IPEX="--ipex"
+if [[ "$USE_IPEX" == "true" ]]; then
+    IPEX_FLAG="--ipex"
+    export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 fi
 
 PROFILE=""
@@ -113,7 +114,7 @@ CMD+=" --lr_decay"
 CMD+=" --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS "
 CMD+=" $CHECKPOINT"
 CMD+=" $PREC"
-CMD+=" $IPEX"
+CMD+=" $IPEX_FLAG"
 CMD+=" --warmup=$WARMUP"
 CMD+=" $PROFILE"
 # TODO: FP32 is still under development. For current validation,
@@ -123,8 +124,6 @@ if [ "$1" = "fp32" ] ; then
 elif [[ ! -z "${NUM_STEPS}" ]]; then
     CMD+=" --num_steps=$NUM_STEPS"
 fi
-
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 
 rm -rf ${OUTPUT_DIR}/throughput_log*
 

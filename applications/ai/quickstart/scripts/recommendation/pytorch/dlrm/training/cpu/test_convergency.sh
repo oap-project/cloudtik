@@ -61,6 +61,10 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --ipex-interaction --ipex-merged-emb"
+fi
+
 LOG_0="${LOG}/socket_0"
 cloudtik-ai-run \
   --node_id=0 --enable_tcmalloc $MODEL_SCRIPT \
@@ -70,7 +74,7 @@ cloudtik-ai-run \
   --arch-mlp-bot=13-512-256-128 --arch-mlp-top=1024-1024-512-256-1 \
   --arch-sparse-feature-size=128 --max-ind-range=40000000 \
   --numpy-rand-seed=727 --print-auc --mlperf-auc-threshold=0.8025 \
-  --mini-batch-size=32768 --print-freq=640 --print-time --ipex-interaction \
-  --test-mini-batch-size=262144 --ipex-merged-emb \
+  --mini-batch-size=32768 --print-freq=640 --print-time \
+  --test-mini-batch-size=262144 \
   --lr-num-warmup-steps=8000 --lr-decay-start-step=70000 --lr-num-decay-steps=30000 \
   --learning-rate=18.0 --test-freq=6400 --should-test --mlperf-bin-shuffle $ARGS | tee $LOG_0

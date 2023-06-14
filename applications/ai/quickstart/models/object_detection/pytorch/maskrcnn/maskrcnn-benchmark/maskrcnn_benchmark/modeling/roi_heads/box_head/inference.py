@@ -11,7 +11,7 @@ from maskrcnn_benchmark.modeling.box_coder import BoxCoder
 # CloudTik patch start
 import os
 use_ipex = False
-if os.environ.get('USE_IPEX') == "1":
+if os.environ.get('USE_IPEX') == "true":
     import intel_extension_for_pytorch as ipex
     box_head_nms = torch.ops.torch_ipex.box_head_nms
     use_ipex = True

@@ -74,13 +74,17 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
+
 CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
 
 CORES_PER_INSTANCE=$CORES
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
@@ -115,7 +119,6 @@ if [ "$weight_sharing" = true ]; then
         numactl --physcpubind=$start_core_i-$end_core_i --membind=$numa_node_i python -u \
             ${MODEL_DIR}/models/image_recognition/pytorch/common/main_runtime_extension.py \
             $ARGS \
-            --ipex \
             --seed 2020 \
             -j 0 \
             -b $BATCH_SIZE \
@@ -134,7 +137,6 @@ else
         --log_file_prefix="./resnet50_throughput_log_${PRECISION}" \
         ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
         $ARGS \
-        --ipex \
         --seed 2020 \
         -j 0 \
         -b $BATCH_SIZE

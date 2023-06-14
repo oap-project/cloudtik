@@ -6,7 +6,7 @@ from .bounding_box import BoxList
 use_ipex = False
 import os
 import torchvision
-if os.environ.get('USE_IPEX') == "1":
+if os.environ.get('USE_IPEX') == "true":
     import intel_extension_for_pytorch as ipex
     use_ipex = True
 

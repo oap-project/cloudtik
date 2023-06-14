@@ -53,14 +53,13 @@ else
     echo "### running fp32 datatype"
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --jit"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
 
 BATCH_SIZE=64
 PRECISION=$1
-
-if [ "$USE_IPEX" == 1 ]; then
-    IPEX="--ipex"
-fi
 
 rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy*
 
@@ -72,8 +71,6 @@ cloudtik-ai-run \
     --model_toml ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/configs/rnnt.toml \
     --ckpt ${CHECKPOINT_DIR}/results/rnnt.pt \
     --batch_size $BATCH_SIZE \
-    $IPEX \
-    --jit \
     $ARGS 2>&1 | tee ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy.log
 
 # For the summary of results
@@ -82,4 +79,4 @@ wait
 accuracy=$(grep 'Accuracy:' ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy* |sed -e 's/.*Accuracy//;s/[^0-9.]//g')
 WER=$(grep 'Evaluation WER:' ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy* |sed -e 's/.*Evaluation WER//;s/[^0-9.]//g')
 echo ""RNN-T";"accuracy";$1; ${BATCH_SIZE};${accuracy}" | tee -a ${OUTPUT_DIR}/summary.log
-echo ""RNN-T";"WER";$1; ${BATCH_SIZE};${WER}" | tee -a ${work_space}/summary.log
+echo ""RNN-T";"WER";$1; ${BATCH_SIZE};${WER}" | tee -a ${OUTPUT_DIR}/summary.log

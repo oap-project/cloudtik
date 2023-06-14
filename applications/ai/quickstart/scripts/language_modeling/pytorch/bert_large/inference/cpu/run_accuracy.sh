@@ -16,7 +16,6 @@
 # limitations under the License.
 #
 
-#export DNNL_MAX_CPU_ISA=AVX512_CORE_AMX
 ARGS=""
 precision=fp32
 
@@ -58,7 +57,6 @@ EVAL_DATA_FILE=${EVAL_DATA_FILE:-"${PWD}/squad1.1/dev-v1.1.json"}
 FINETUNED_MODEL=${FINETUNED_MODEL:-bert_squad_model}
 OUTPUT_DIR=${OUTPUT_DIR:-"${PWD}"}
 EVAL_SCRIPT=${EVAL_SCRIPT:-"./transformers/examples/legacy/question-answering/run_squad.py"}
-work_space=${work_space:-"${OUTPUT_DIR}"}
 
 if [ ${WEIGHT_SHAREING} ]; then
   CORES=`lscpu | grep Core | awk '{print $4}'`

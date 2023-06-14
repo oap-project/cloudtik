@@ -59,28 +59,28 @@ IPEX_ARGS=""
 
 if [[ $PRECISION == "int8" ]]; then
     echo "running int8 path"
-    ARGS="$ARGS --do_quantization 1"
+    ARGS="$ARGS --quantization 1"
 elif [[ $PRECISION == "fp32" ]]; then
     echo "running fp32 path"
-    ARGS="$ARGS --do_quantization 0"
+    ARGS="$ARGS --quantization 0"
 else
     echo "The specified precision '${PRECISION}' is unsupported."
     echo "Supported precisions are: fp32, int8"
     exit 1
 fi
 
-OPTIMIZATION="pytorch"
+OPTIMIZATION="default"
 if [[ "$1" == "ipex" ]]
 then
     OPTIMIZATION="ipex"
-    ARGS="$ARGS --do_ipex_optimization 1"
-    echo "### running ipex optimization path"
+    ARGS="$ARGS --ipex 1"
+    export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+    echo "### running ipex optimization"
 else
-    ARGS="$ARGS --do_ipex_optimization 0"
-    echo "### running offical PyTorch path"
+    ARGS="$ARGS --ipex 0"
+    echo "### running official PyTorch"
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 

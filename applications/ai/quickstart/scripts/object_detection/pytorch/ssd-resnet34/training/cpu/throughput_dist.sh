@@ -63,19 +63,24 @@ TOTAL_CORES=`expr $CORES \* $SOCKETS`
 HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
-BACKEND=${BACKEND:-'ccl'}
 
 CORES_PER_INSTANCE=$CORES
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+if [[ "$USE_IPEX" == "true" ]]; then
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
+
+BACKEND=${BACKEND:-'ccl'}
+
+if [[ "$BACKEND" == "ccl" ]]; then
+  oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
+  source $oneccl_bindings_for_pytorch_path/env/setvars.sh
+fi
 
 PRECISION=$1
 BATCH_SIZE=224
 
 rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist*
-
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
 cloudtik-ai-run \
     --use_default_allocator \

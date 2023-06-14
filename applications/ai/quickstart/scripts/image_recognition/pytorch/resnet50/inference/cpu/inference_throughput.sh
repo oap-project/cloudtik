@@ -126,7 +126,7 @@ if [ "$weight_sharing" = true ]; then
     wait
 
 else
-    python -m intel_extension_for_pytorch.cpu.launch \
+    cloudtik-ai-run \
         --use_default_allocator \
         --ninstance ${SOCKETS} \
         --ncore_per_instance ${CORES_PER_INSTANCE} \

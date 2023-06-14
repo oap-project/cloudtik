@@ -71,31 +71,24 @@ export KMP_AFFINITY=granularity=fine,compact,1,0
 
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
-MULTI_INSTANCE_ARGS=""
-if [[ ${PLATFORM} == "linux" ]]; then
-    pip list | grep intel-extension-for-pytorch
-    if [[ "$?" == 0 ]]; then
-        CORES=`lscpu | grep Core | awk '{print $4}'`
-        SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-        CORES_PER_INSTANCE=4
-        export OMP_NUM_THREADS=$CORES_PER_INSTANCE
 
-        NUMBER_INSTANCE=`expr $CORES / $CORES_PER_INSTANCE`
-        MULTI_INSTANCE_ARGS="-m intel_extension_for_pytorch.cpu.launch \
-        --use_default_allocator --ninstance ${SOCKETS} --log_path=${OUTPUT_DIR} \
-        --log_file_prefix="./resnext101_latency_log_${PRECISION}""
+CORES=`lscpu | grep Core | awk '{print $4}'`
+SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
+CORES_PER_INSTANCE=4
+export OMP_NUM_THREADS=$CORES_PER_INSTANCE
 
-        # in case IPEX is used, we set ipex arg
-        if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
-            ARGS="${ARGS} --ipex --weight-sharing --number-instance $NUMBER_INSTANCE"
-        else
-            ARGS="${ARGS} --ipex --jit --weight-sharing --number-instance $NUMBER_INSTANCE"
-	fi
-        echo "Running using ${ARGS} args ..."
-    fi
-fi
+NUMBER_INSTANCE=`expr $CORES / $CORES_PER_INSTANCE`
+MULTI_INSTANCE_ARGS="--use_default_allocator --ninstance ${SOCKETS} --log_path=${OUTPUT_DIR} \
+--log_file_prefix="./resnext101_latency_log_${PRECISION}""
 
-python ${MULTI_INSTANCE_ARGS} \
+# in case IPEX is used, we set ipex arg
+if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
+    ARGS="${ARGS} --ipex --weight-sharing --number-instance $NUMBER_INSTANCE"
+else
+    ARGS="${ARGS} --ipex --jit --weight-sharing --number-instance $NUMBER_INSTANCE"
+
+cloudtik-ai-run \
+    ${MULTI_INSTANCE_ARGS} \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \
     -j 0 \

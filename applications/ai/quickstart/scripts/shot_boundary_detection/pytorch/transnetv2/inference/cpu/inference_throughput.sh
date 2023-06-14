@@ -62,19 +62,14 @@ rm -rf ${OUTPUT_DIR}/transnetv2_throughput_log_${PRECISION}_*
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 
-# check if stock PYT or IPEX is installed on the system
-IPEX_ARGS=""
-pip list | grep intel-extension-for-pytorch
-if [[ "$?" == 0 ]]; then
-  IPEX_ARGS="-m intel_extension_for_pytorch.cpu.launch \
-  --use_default_allocator \
+LAUNCH_ARGS="--use_default_allocator \
   --throughput_mode \
   --log_path=${OUTPUT_DIR} \
   --log_file_prefix="transnetv2_throughput_log_${PRECISION}""
-  ARGS="$ARGS --ipex"
-fi
+ARGS="$ARGS --ipex"
 
-python ${IPEX_ARGS} \
+cloudtik-ai-run \
+  ${LAUNCH_ARGS} \
   ${MODEL_DIR}/models/shot_boundary_detection/pytorch/transnetv2/inference/cpu/inference.py \
   --batch_size $BATCH_SIZE \
   --jit \

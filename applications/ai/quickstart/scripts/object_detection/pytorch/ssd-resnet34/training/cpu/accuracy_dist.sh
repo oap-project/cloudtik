@@ -79,7 +79,7 @@ rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_accuracy_dist*
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
-python -m intel_extension_for_pytorch.cpu.launch \
+cloudtik-ai-run \
     --use_default_allocator \
     --ncore_per_instance ${CORES_PER_INSTANCE} \
     --distributed \

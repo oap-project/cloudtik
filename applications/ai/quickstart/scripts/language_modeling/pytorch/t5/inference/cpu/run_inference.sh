@@ -101,18 +101,12 @@ else
 	SOURCE_PREFIX=\"translate English to Romanian: \"
 fi
 
-# check if stoch PYT or IPEX is installed on the system
-pip list | grep intel-extension-for-pytorch
-if [[ "$?" == 0 ]]; then
-  IPEX_ARGS="-m intel_extension_for_pytorch.cpu.launch \
-	  --use_default_allocator \
-	  --ninstances 1 \
+cloudtik-ai-run \
+    --use_default_allocator \
+	--ninstances 1 \
     --ncore_per_instance ${CORES_PER_INSTANCE} \
     --log_path=${OUTPUT_DIR} \
-    --log_file_prefix="./${MODEL_NAME}_log_${PRECISION}_${OPTIMIZATION}""
-fi
-
-python ${IPEX_ARGS} \
+    --log_file_prefix="./${MODEL_NAME}_log_${PRECISION}_${OPTIMIZATION}" \
     ${MODEL_DIR}/models/language_modeling/pytorch/t5/inference/cpu/run_translation.py \
     $ARGS \
     --model_name_or_path $MODEL_NAME \

@@ -90,7 +90,7 @@ rm -rf ${OUTPUT_DIR}/${MODEL_NAME}_log*
 SOURCE_PREFIX="translate English to Romanian: "
 
 #Get platform type
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 
 #Add platform specific source_prefix

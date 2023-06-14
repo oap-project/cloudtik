@@ -59,7 +59,7 @@ BATCH_SIZE=1
 
 rm -rf ${OUTPUT_DIR}/transnetv2_latency_log_${PRECISION}_*
 
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 
 # check if stock PYT or IPEX is installed on the system

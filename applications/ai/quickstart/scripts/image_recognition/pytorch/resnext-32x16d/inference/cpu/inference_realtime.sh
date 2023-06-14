@@ -69,7 +69,7 @@ export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 MULTI_INSTANCE_ARGS=""
 if [[ ${PLATFORM} == "linux" ]]; then

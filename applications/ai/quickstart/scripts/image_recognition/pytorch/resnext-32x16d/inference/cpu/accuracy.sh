@@ -83,7 +83,7 @@ else
     exit 1
 fi
 
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 MULTI_INSTANCE_ARGS=""
 if [[ ${PLATFORM} == "linux" ]]; then

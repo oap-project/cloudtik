@@ -100,7 +100,7 @@ python ${IPEX_ARGS} \
 # For the summary of results
 wait
 
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 if [[ ${PLATFORM} == "linux" ]]; then
     accuracy=$(grep 'bbox AP:' ${OUTPUT_DIR}/maskrcnn_${PRECISION}_accuracy* |sed -e 's/.*Accuracy//;s/[^0-9.]//g')

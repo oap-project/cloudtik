@@ -17,7 +17,7 @@
 
 MODEL_DIR=${MODEL_DIR-$PWD}
 
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 TCMALLOC_ARGS=""
 ARGS=""

@@ -48,6 +48,11 @@ LEARNING_RATE=${16:-"0.001"}
 LEARNING_RATE_WARMUP=${17:-"8000"}
 GRADIENT_ACCUMULATION_STEPS=${18:-1}
 LAUNCH_OPT=${LAUNCH_OPT:-"none"}
+SOCKETS=$(cloudtik head info --sockets-per-worker)
+NNODES=$(cloudtik head info --total-workers)
+NUM_RANKS=$(( NNODES * SOCKETS ))
+
+mkdir -p $RESULT_DIR
 
 if [[ $1 == "avx-fp32" ]]; then
     unset DNNL_MAX_CPU_ISA
@@ -71,7 +76,9 @@ else
     echo "Supported precisions now are: fp32, bf16 and bf32"
 fi
 
-IPEX="--ipex"
+if [ "$USE_IPEX" == 1 ]; then
+    IPEX="--ipex"
+fi
 
 PROFILE=""
 if [ "$3" = profiling ]; then
@@ -118,12 +125,10 @@ elif [[ ! -z "${NUM_STEPS}" ]]; then
 fi
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
 rm -rf ${OUTPUT_DIR}/throughput_log*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+cloudtik-ai-run \
     --use_default_allocator \
     --node_id=0 \
     --log_path=${OUTPUT_DIR} \

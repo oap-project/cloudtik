@@ -18,7 +18,7 @@
 MODEL_DIR=${MODEL_DIR-$PWD}
 DATASET_DIR=${DATASET_DIR-$PWD}
 
-cd $MODEL_DIR/models/language_modeling/pytorch/rnnt/training/cpu
+cd ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu
 dir=$(pwd)
 mkdir -p ${DATASET_DIR}/dataset; cd ${DATASET_DIR}/dataset
 
@@ -42,7 +42,7 @@ cd third_party && tar zxf libsndfile-1.0.28.tar.gz && cd libsndfile-1.0.28
 
 export LD_LIBRARY_PATH=$WORKDIR/local/lib:$LD_LIBRARY_PATH
 
-cd $MODEL_DIR/models/language_modeling/pytorch/rnnt/training/cpu
+cd ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu
 python utils/download_librispeech.py utils/librispeech.csv $DATASET_DIR/dataset/ -e $DATASET_DIR/dataset/
 
 export PATH=$WORKDIR/local/bin:$PATH

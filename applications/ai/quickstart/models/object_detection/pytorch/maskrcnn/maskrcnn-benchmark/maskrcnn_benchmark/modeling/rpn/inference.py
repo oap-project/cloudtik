@@ -10,8 +10,17 @@ from maskrcnn_benchmark.structures.boxlist_ops import remove_small_boxes
 from ..utils import cat
 from .utils import permute_and_flatten
 
-import intel_extension_for_pytorch as ipex
-rpn_nms = torch.ops.torch_ipex.rpn_nms
+# CloudTik patch start
+from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
+import os
+use_ipex = False
+if os.environ.get('USE_IPEX') == "1":
+    import intel_extension_for_pytorch as ipex
+    rpn_nms = torch.ops.torch_ipex.rpn_nms
+    use_ipex = True
+#import intel_extension_for_pytorch as ipex
+#rpn_nms = torch.ops.torch_ipex.rpn_nms
+# CloudTik patch end
 
 class RPNPostProcessor(torch.nn.Module):
     """
@@ -123,13 +132,35 @@ class RPNPostProcessor(torch.nn.Module):
         #         score_field="objectness",
         #     )
         #     result.append(boxlist)
-        new_proposal, new_score = rpn_nms(proposals, objectness, image_shapes, self.min_size, self.nms_thresh, self.post_nms_top_n)
+        # CloudTik patch start
+        if use_ipex:
+            new_proposal, new_score = rpn_nms(proposals, objectness, image_shapes, self.min_size, self.nms_thresh,
+                                              self.post_nms_top_n)
 
-        for proposal, score, im_shape in zip(new_proposal, new_score, image_shapes):
-            boxlist = BoxList(proposal, im_shape, mode="xyxy")
-            boxlist.add_field("objectness", score)
-            result.append(boxlist)
-
+            for proposal, score, im_shape in zip(new_proposal, new_score, image_shapes):
+                boxlist = BoxList(proposal, im_shape, mode="xyxy")
+                boxlist.add_field("objectness", score)
+                result.append(boxlist)
+        else:
+            for proposal, score, im_shape in zip(proposals, objectness, image_shapes):
+                boxlist = BoxList(proposal, im_shape, mode="xyxy")
+                boxlist.add_field("objectness", score)
+                boxlist = boxlist.clip_to_image(remove_empty=False)
+                boxlist = remove_small_boxes(boxlist, self.min_size)
+                boxlist = boxlist_nms(
+                    boxlist,
+                    self.nms_thresh,
+                    max_proposals=self.post_nms_top_n,
+                    score_field="objectness",
+                )
+                result.append(boxlist)
+        # new_proposal, new_score = rpn_nms(proposals, objectness, image_shapes, self.min_size, self.nms_thresh, self.post_nms_top_n)
+        #
+        # for proposal, score, im_shape in zip(new_proposal, new_score, image_shapes):
+        #     boxlist = BoxList(proposal, im_shape, mode="xyxy")
+        #     boxlist.add_field("objectness", score)
+        #     result.append(boxlist)
+        # CloudTik patch end
         return result
 
     def forward(self, anchors, objectness, box_regression, targets=None):

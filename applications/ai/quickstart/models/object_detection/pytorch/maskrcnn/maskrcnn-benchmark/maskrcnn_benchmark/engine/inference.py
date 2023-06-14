@@ -32,10 +32,13 @@ from ..utils.comm import all_gather
 from ..utils.comm import synchronize
 from ..utils.timer import Timer, get_time_str
 from .bbox_aug import im_detect_bbox_aug
-import intel_extension_for_pytorch as ipex
 import numpy as np
 # from maskrcnn_benchmark.engine.utils_vis import draw, make_dot
 
+use_ipex = False
+if os.environ.get('USE_IPEX') == "1":
+    import intel_extension_for_pytorch as ipex
+    use_ipex = True
 
 def compute_on_dataset(model, data_loader, device, bbox_aug, timer=None, bf16=False, bf32=False, jit=False, iterations=-1, iter_warmup=-1, enable_profiling=False):
     model.eval()
@@ -48,15 +51,16 @@ def compute_on_dataset(model, data_loader, device, bbox_aug, timer=None, bf16=Fa
     print('Evaluating MaskRCNN: Steps per Epoch {} total Steps {}'.format(steps_per_epoch, total_steps))
 
     model = model.to(memory_format=torch.channels_last)
-    if bf32:
-        ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
-        model.backbone = ipex.optimize(model.backbone, dtype=torch.float32, inplace=True, auto_kernel_selection=True)
-        model.rpn = ipex.optimize(model.rpn, dtype=torch.float32, inplace=True, auto_kernel_selection=True)
-        model.roi_heads = ipex.optimize(model.roi_heads, dtype=torch.float32, inplace=True, auto_kernel_selection=True)
-    else:
-        model.backbone = ipex.optimize(model.backbone, dtype=torch.bfloat16 if bf16 else torch.float32, inplace=True)
-        model.rpn = ipex.optimize(model.rpn, dtype=torch.bfloat16 if bf16 else torch.float32, inplace=True)
-        model.roi_heads = ipex.optimize(model.roi_heads, dtype=torch.bfloat16 if bf16 else torch.float32, inplace=True)
+    if use_ipex:
+        if bf32:
+            ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
+            model.backbone = ipex.optimize(model.backbone, dtype=torch.float32, inplace=True, auto_kernel_selection=True)
+            model.rpn = ipex.optimize(model.rpn, dtype=torch.float32, inplace=True, auto_kernel_selection=True)
+            model.roi_heads = ipex.optimize(model.roi_heads, dtype=torch.float32, inplace=True, auto_kernel_selection=True)
+        else:
+            model.backbone = ipex.optimize(model.backbone, dtype=torch.bfloat16 if bf16 else torch.float32, inplace=True)
+            model.rpn = ipex.optimize(model.rpn, dtype=torch.bfloat16 if bf16 else torch.float32, inplace=True)
+            model.roi_heads = ipex.optimize(model.roi_heads, dtype=torch.bfloat16 if bf16 else torch.float32, inplace=True)
 
     with torch.cpu.amp.autocast(enabled=bf16), torch.no_grad():
         # generate trace model

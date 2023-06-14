@@ -3,10 +3,19 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from intel_extension_for_pytorch.nn.modules._roi_align import RoIAlign as ROIAlign
+# from intel_extension_for_pytorch.nn.modules._roi_align import RoIAlign as ROIAlign
 
 from .utils import cat
 
+# CloudTik patch start
+use_ipex = False
+import os
+if os.environ.get('USE_IPEX') == "1":
+    from intel_extension_for_pytorch.nn.modules._roi_align import RoIAlign as ROIAlign
+    use_ipex = True
+else:
+    from torchvision.ops.roi_align import RoIAlign as ROIAlign
+# CloudTik patch end
 
 class LevelMapper(object):
     """Determine which FPN level each RoI in a set of RoIs should map to based

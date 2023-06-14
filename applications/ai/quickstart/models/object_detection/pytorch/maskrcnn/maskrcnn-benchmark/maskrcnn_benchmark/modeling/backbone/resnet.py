@@ -23,7 +23,7 @@ import torch.nn.functional as F
 from torch import nn
 
 import os
-if os.environ.get('TRAIN') == "1":
+if os.environ.get('TRAIN') == "1" and os.environ.get('USE_IPEX') == "1":
     from intel_extension_for_pytorch.nn import FrozenBatchNorm2d
 else:
     from torch.nn import BatchNorm2d as FrozenBatchNorm2d

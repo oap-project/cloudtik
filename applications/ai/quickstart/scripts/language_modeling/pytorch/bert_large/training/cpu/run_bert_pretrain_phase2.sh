@@ -55,7 +55,7 @@ PRETRAINED_MODEL=${PRETRAINED_MODEL:-~/dataset/checkpoint/}
 DATASET_DIR=${DATASET_DIR:-~/dataset/}
 TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py}
 OUTPUT_DIR=${OUTPUT_DIR:-${PWD}}
-work_space=${work_space:-${OUTPUT_DIR}}
+
 export MALLOC_CONF="oversize_threshold:1,background_thread:true,metadata_thp:auto,dirty_decay_ms:9000000000,muzzy_decay_ms:9000000000";
 rm -rf ${OUTPUT_DIR}/throughput_log_phase2_*
 

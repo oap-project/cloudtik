@@ -56,7 +56,6 @@ SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
 HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 
-work_space=${work_space:-${OUTPUT_DIR}}
 rm -rf ${OUTPUT_DIR}/throughput_log_phase1_*
 
 NUM_RANKS=$(( NNODES * SOCKETS ))

@@ -46,7 +46,7 @@ if [ -z "${OUTPUT_DIR}" ]; then
   exit 1
 fi
 EVAL_SCRIPT=${EVAL_SCRIPT:-"./transformers/examples/pytorch/question-answering/run_qa.py"}
-WORK_SPACE=${WORK_SPACE:-${OUTPUT_DIR}}
+
 rm -rf ${OUTPUT_DIR}/latency_log*
 cloudtik-ai-run \
   --latency_mode --enable_jemalloc --log_path=${OUTPUT_DIR} --log_file_prefix="./latency_log_${precision}_${mode}" \
@@ -80,4 +80,4 @@ sum = sum / i * INSTANCES_PER_SOCKET;
 }')
 
 echo $INSTANCES_PER_SOCKET
-echo ""BERT-base";"latency";${precision};${BATCH_SIZE};${throughput}" | tee -a ${WORK_SPACE}/summary.log
+echo ""BERT-base";"latency";${precision};${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log

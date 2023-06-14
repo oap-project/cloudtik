@@ -45,7 +45,7 @@ if [ -z "${OUTPUT_DIR}" ]; then
   exit 1
 fi
 EVAL_SCRIPT=${EVAL_SCRIPT:-"./transformers/examples/pytorch/question-answering/run_qa.py"}
-WORK_SPACE=${WORK_SPACE:-${OUTPUT_DIR}}
+
 rm -rf ${OUTPUT_DIR}/accuracy_log*
 cloudtik-ai-run \
   --enable_jemalloc --log_path=${OUTPUT_DIR} --log_file_prefix="accuracy_log_${precision}_${mode}" \
@@ -60,7 +60,7 @@ cloudtik-ai-run \
 
 match=$(cat ${OUTPUT_DIR}/accuracy_log* | grep "eval_exact_match" |sed -e 's/.*= //;s/[^0-9.]//g')
 f1=$(cat ${OUTPUT_DIR}/accuracy_log* | grep "eval_f1" |sed -e 's/.*= //;s/[^0-9.]//g')
-echo ""BERT-base";"exact_match";${precision};${BATCH_SIZE};${match}" | tee -a ${WORK_SPACE}/summary.log
-echo ""BERT-base";"f1";${precision};${BATCH_SIZE};${f1}" | tee -a ${WORK_SPACE}/summary.log
+echo ""BERT-base";"exact_match";${precision};${BATCH_SIZE};${match}" | tee -a ${OUTPUT_DIR}/summary.log
+echo ""BERT-base";"f1";${precision};${BATCH_SIZE};${f1}" | tee -a ${OUTPUT_DIR}/summary.log
 
 

@@ -42,7 +42,6 @@ if [ -z "${OUTPUT_DIR}" ]; then
   exit 1
 fi
 EVAL_SCRIPT=${EVAL_SCRIPT:-"./transformers/examples/pytorch/question-answering/run_qa.py"}
-WORK_SPACE=${WORK_SPACE:-${OUTPUT_DIR}}
 
 rm -rf ${OUTPUT_DIR}/throughput_log*
 cloudtik-ai-run \
@@ -69,4 +68,4 @@ END   {
 sum = sum / i;
 printf("%.3f", sum);
 }')
-echo ""BERT-base";"throughput";${precision};${BATCH_SIZE};${throughput}" | tee -a ${WORK_SPACE}/summary.log
+echo ""BERT-base";"throughput";${precision};${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log

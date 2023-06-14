@@ -55,7 +55,7 @@ BERT_MODEL_CONFIG=${BERT_MODEL_CONFIG-~/dataset/checkpoint/config.json}
 DATASET_DIR=${DATASET_DIR:-~/dataset/}
 TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py}
 OUTPUT_DIR=${OUTPUT_DIR:-${PWD}}
-work_space=${work_space:-${OUTPUT_DIR}}
+
 rm -rf ${OUTPUT_DIR}/throughput_log_phase1_*
 
 NUM_RANKS=1

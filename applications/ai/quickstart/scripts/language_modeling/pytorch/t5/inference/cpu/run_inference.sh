@@ -75,10 +75,10 @@ then
     OPTIMIZATION="ipex"
     ARGS="$ARGS --ipex 1"
     export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-    echo "### running ipex optimization path"
+    echo "### running ipex optimization"
 else
     ARGS="$ARGS --ipex 0"
-    echo "### running offical PyTorch path"
+    echo "### running official PyTorch"
 fi
 
 export KMP_BLOCKTIME=1

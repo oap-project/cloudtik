@@ -38,7 +38,6 @@ if [ -z "${PRECISION}" ]; then
 fi
 
 cd ${MODEL_DIR}/models/bert_pre_train
-export work_space=${OUTPUT_DIR}
 
 if [[ "$PRECISION" == *"avx"* ]]; then
     unset DNNL_MAX_CPU_ISA

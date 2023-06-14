@@ -14,7 +14,7 @@ docker:
     image: "cloudtik/spark-ai-oneapi:nightly"
 
 bootstrap_commands:
-    - wget -O ~/bootstrap-quickstart.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/applications/ai/quickstart/bin/bootstrap-quickstart.sh &&
+    - wget -O ~/bootstrap-quickstart.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/applications/ai/quickstart/scripts/bootstrap-quickstart.sh &&
         bash ~/bootstrap-quickstart.sh
 ```
 
@@ -28,7 +28,7 @@ docker:
     image: "cloudtik/spark-ai-runtime:nightly"
 
 bootstrap_commands:
-    - wget -O ~/bootstrap-quickstart.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/applications/ai/quickstart/bin/bootstrap-quickstart.sh &&
+    - wget -O ~/bootstrap-quickstart.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/applications/ai/quickstart/scripts/bootstrap-quickstart.sh &&
         bash ~/bootstrap-quickstart.sh
 ```
 
@@ -38,12 +38,12 @@ If you cluster already started, you can run the installing command on all nodes 
 If you want to use Intel Extension for PyTorch, run the following command.
 If you are using oneAPI AI runtime, you can skip this step.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml "wget -O ~/bootstrap-ipex.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/applications/ai/quickstart/bin/bootstrap-ipex.sh && bash ~/bootstrap-ipex.sh" --all-nodes
+cloudtik exec your-cluster-config.yaml "wget -O ~/bootstrap-ipex.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/applications/ai/quickstart/scripts/bootstrap-ipex.sh && bash ~/bootstrap-ipex.sh" --all-nodes
 ```
 
 Run the following command for installing quickstart application.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml "wget -O ~/bootstrap-quickstart.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/applications/ai/quickstart/bin/bootstrap-quickstart.sh && bash ~/bootstrap-quickstart.sh" --all-nodes
+cloudtik exec your-cluster-config.yaml "wget -O ~/bootstrap-quickstart.sh https://raw.githubusercontent.com/oap-project/cloudtik/main/applications/ai/quickstart/scripts/bootstrap-quickstart.sh && bash ~/bootstrap-quickstart.sh" --all-nodes
 ```
 
 Please note that the toolkit installing may take some time.

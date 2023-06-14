@@ -15,15 +15,7 @@
 # limitations under the License.
 #
 
-
-
 ARGS=""
-
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-
-path="ipex"
-ARGS="$ARGS --use_ipex"
-echo "### running with intel extension for pytorch"
 
 precision="fp32"
 if [[ "$1" == "bf16" ]]
@@ -35,10 +27,12 @@ else
     echo "### running fp32 mode"
 fi
 
-mode="jit"
-ARGS="$ARGS --jit_mode"
-echo "### running with jit mode"
-
+mode="default"
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --use_ipex --jit_mode"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+  mode="jit"
+fi
 
 CORES=`lscpu | grep Core | awk '{print $4}'`
 BATCH_SIZE=${BATCH_SIZE:-`expr 4 \* $CORES`}
@@ -52,7 +46,7 @@ WORK_SPACE=${WORK_SPACE:-${OUTPUT_DIR}}
 
 rm -rf ${OUTPUT_DIR}/throughput_log*
 cloudtik-ai-run \
-  --throughput_mode --enable_jemalloc --log_path=${OUTPUT_DIR} --log_file_prefix="./throughput_log_${path}_${precision}_${mode}" \
+  --throughput_mode --enable_jemalloc --log_path=${OUTPUT_DIR} --log_file_prefix="./throughput_log_${precision}_${mode}" \
   ${EVAL_SCRIPT} $ARGS \
   --model_name_or_path   ${FINETUNED_MODEL} \
   --dataset_name squad \

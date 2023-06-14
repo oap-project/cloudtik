@@ -248,17 +248,17 @@ class DataTrainingArguments:
 
 
 @dataclass
-class CustomerArguments:
+class CustomArguments:
     """
     Arguments for customer setting.
     """
-    do_ipex_optimization: bool = field(
+    ipex: bool = field(
         default=False,
         metadata={
             "help": "Whether to apply ipex optimization."
         },
     )
-    do_quantization: bool = field(
+    quantization: bool = field(
         default=False,
         metadata={
             "help": "Whether to do INT8 quantization."
@@ -270,18 +270,18 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, CustomerArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments, CustomArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        model_args, data_args, training_args, customer_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+        model_args, data_args, training_args, custom_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
-        model_args, data_args, training_args, customer_args = parser.parse_args_into_dataclasses()
+        model_args, data_args, training_args, custom_args = parser.parse_args_into_dataclasses()
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
     send_example_telemetry("run_translation", model_args, data_args)
-    if customer_args.do_ipex_optimization:
+    if custom_args.ipex:
         import intel_extension_for_pytorch 
 
     # Setup logging
@@ -572,7 +572,7 @@ def main():
         result = {k: round(v, 4) for k, v in result.items()}
         return result
 
-    if customer_args.do_ipex_optimization:
+    if custom_args.ipex:
         print("Using IPEX optimization.....................")
         import models_utils_ipex
         model = models_utils_ipex.convert_model(model)
@@ -581,7 +581,7 @@ def main():
         import models_utils
         model = models_utils.convert_model(model)
 
-    if customer_args.do_quantization:
+    if custom_args.quantization:
         print("Using quantize_dynamic.....................")
         torch.quantization.quantize_dynamic(model, inplace=True)
 

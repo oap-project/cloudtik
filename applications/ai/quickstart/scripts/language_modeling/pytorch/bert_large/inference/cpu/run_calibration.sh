@@ -15,8 +15,6 @@
 # limitations under the License.
 #
 
-
-#export DNNL_MAX_CPU_ISA=AVX512_CORE_AMX
 ARGS=""
 precision=fp32
 if [[ "$1" == "bf16" ]]

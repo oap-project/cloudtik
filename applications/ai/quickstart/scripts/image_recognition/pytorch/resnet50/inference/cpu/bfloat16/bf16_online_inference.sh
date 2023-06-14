@@ -28,8 +28,11 @@ INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
 MULTI_INSTANCE_ARGS="--enable_tcmalloc --ninstances ${INSTANCES} --ncore_per_instance ${CORES_PER_INSTANCE}"
 
 echo "Running '${INSTANCES}' instance"
-# in case IPEX is used we set ipex and jit path args
-ARGS="--ipex --jit"
+
+ARGS=""
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --jit"
+fi
 echo "Running using ${ARGS} args ..."
 
 cloudtik-ai-run \

@@ -75,13 +75,16 @@ MULTI_INSTANCE_ARGS="--use_default_allocator --ninstance ${SOCKETS} \
 --ncore_per_instance ${CORES_PER_INSTANCE} --log_path=${OUTPUT_DIR} \
 --log_file_prefix="./resnext101_throughput_log_${PRECISION}""
 
-# in case IPEX is used, we set ipex arg
-if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
-    ARGS="${ARGS} --ipex"
-else
-    ARGS="${ARGS} --ipex --jit"
+if [[ "$USE_IPEX" == "true" ]]; then
+    if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
+        ARGS="${ARGS} --ipex"
+    else
+        ARGS="${ARGS} --ipex --jit"
+    fi
+    export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
+echo "Running using ${ARGS} args ..."
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 

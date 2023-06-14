@@ -58,18 +58,19 @@ else
     exit 1
 fi
 
-if [[ "$2" == "jit" ]]; then
-    ARGS="$ARGS --jit"
-    echo "### running jit mode"
-elif [[ "$2" == "imperative" ]]; then
-    echo "### running imperative mode"
-else
-    echo "The specified mode '$2' is unsupported."
-    echo "Supported mode are: imperative and jit."
-    exit 1
+if [[ "$USE_IPEX" == "true" ]]; then
+    if [[ "$2" == "jit" ]]; then
+        ARGS="$ARGS --jit"
+        echo "### running jit mode"
+    elif [[ "$2" == "imperative" ]]; then
+        echo "### running imperative mode"
+    else
+        echo "The specified mode '$2' is unsupported."
+        echo "Supported mode are: imperative and jit."
+        exit 1
+    fi
+    export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 fi
-
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 
 export TRAIN=0
 

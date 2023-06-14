@@ -74,6 +74,10 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --ipex-interaction"
+fi
+
 CORES=`lscpu | grep Core | awk '{print $4}'`
 # use first socket
 numa_cmd="numactl -C 0-$((CORES-1))  "
@@ -87,7 +91,7 @@ cloudtik-ai-run \
 --memory-map --mlperf-bin-loader --round-targets=True --learning-rate=1.0 \
 --arch-mlp-bot=13-512-256-128 --arch-mlp-top=1024-1024-512-256-1 \
 --arch-sparse-feature-size=128 --max-ind-range=40000000 \
---numpy-rand-seed=727  --inference-only --ipex-interaction \
+--numpy-rand-seed=727  --inference-only \
 --print-freq=100 --print-time --mini-batch-size=2048 --test-mini-batch-size=16384 \
 --test-freq=2048 --print-auc $ARGS \
 --load-model=${WEIGHT_PATH} | tee $LOG

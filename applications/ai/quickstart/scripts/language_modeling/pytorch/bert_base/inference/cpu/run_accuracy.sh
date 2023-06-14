@@ -18,12 +18,6 @@
 
 ARGS=""
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-
-path="ipex"
-ARGS="$ARGS --use_ipex"
-echo "### running with intel extension for pytorch"
-
 precision="fp32"
 if [[ "$1" == "bf16" ]]
 then
@@ -34,10 +28,14 @@ else
     echo "### running fp32 mode"
 fi
 
-mode="jit"
-ARGS="$ARGS --jit_mode"
-echo "### running with jit mode"
+mode="default"
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --use_ipex --jit_mode"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+  mode="jit"
+fi
 
+echo "Running using ${ARGS} args ..."
 
 CORES=`lscpu | grep Core | awk '{print $4}'`
 BATCH_SIZE=${BATCH_SIZE:-`expr 4 \* $CORES`}

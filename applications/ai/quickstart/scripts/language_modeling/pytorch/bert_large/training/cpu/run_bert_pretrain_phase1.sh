@@ -15,9 +15,6 @@
 # limitations under the License.
 #
 
-MODEL_DIR=${MODEL_DIR-../../../../../../}
-
-#export DNNL_MAX_CPU_ISA=AVX512_CORE_AMX
 ARGS="--benchmark"
 precision=fp32
 batch_size=224
@@ -49,6 +46,10 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex"
+fi
+
 export MALLOC_CONF="oversize_threshold:1,background_thread:true,metadata_thp:auto,dirty_decay_ms:9000000000,muzzy_decay_ms:9000000000";
 BERT_MODEL_CONFIG=${BERT_MODEL_CONFIG-~/dataset/checkpoint/config.json}
 DATASET_DIR=${DATASET_DIR:-~/dataset/}
@@ -61,6 +62,7 @@ NUM_RANKS=1
 LBS=$(( batch_size / NUM_RANKS ))
 params="--train_batch_size=$LBS     --learning_rate=3.5e-4     --opt_lamb_beta_1=0.9     --opt_lamb_beta_2=0.999     --warmup_proportion=0.0     --warmup_steps=0.0     --start_warmup_step=0     --max_steps=13700    --max_predictions_per_seq=76      --do_train   --train_mlm_accuracy_window_size=0     --target_mlm_accuracy=0.720     --weight_decay_rate=0.01     --max_samples_termination=4500000     --eval_iter_start_samples=150000 --eval_iter_samples=150000     --eval_batch_size=16  --gradient_accumulation_steps=1 --num_samples_per_checkpoint 1 --min_samples_to_start_checkpoints 1 --log_freq 1 "
 
+# --dense_seq_output due to error for the output
 cloudtik-ai-run \
     --node_id 0 --enable_jemalloc --log_path=${OUTPUT_DIR} --log_file_prefix="./throughput_log_phase1_${precision}" ${TRAIN_SCRIPT} \
     --input_dir ${DATASET_DIR}/2048_shards_uncompressed_128/ \
@@ -68,7 +70,6 @@ cloudtik-ai-run \
     --model_type 'bert' \
     --benchmark \
     --output_dir $OUTPUT_DIR/model_save \
-    --dense_seq_output \
     --config_name ${BERT_MODEL_CONFIG} \
     $ARGS \
     $params \

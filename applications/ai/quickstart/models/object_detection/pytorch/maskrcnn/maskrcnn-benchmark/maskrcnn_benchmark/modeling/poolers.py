@@ -10,7 +10,7 @@ from .utils import cat
 # CloudTik patch start
 use_ipex = False
 import os
-if os.environ.get('USE_IPEX') == "1":
+if os.environ.get('USE_IPEX') == "true":
     from intel_extension_for_pytorch.nn.modules._roi_align import RoIAlign as ROIAlign
     use_ipex = True
 else:

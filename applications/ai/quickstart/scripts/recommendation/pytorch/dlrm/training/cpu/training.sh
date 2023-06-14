@@ -70,6 +70,10 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --ipex-interaction --ipex-merged-emb"
+fi
+
 CORES=`lscpu | grep Core | awk '{print $4}'`
 # BATCHSIZE=$((128*CORES))
 BATCHSIZE=32768 # a converged BS and have better performance on SPR
@@ -84,8 +88,8 @@ cloudtik-ai-run \
   --arch-mlp-bot=13-512-256-128 --arch-mlp-top=1024-1024-512-256-1 \
   --arch-sparse-feature-size=128 --max-ind-range=40000000 \
   --numpy-rand-seed=727 --print-auc --mlperf-auc-threshold=0.8025 \
-  --mini-batch-size=${BATCHSIZE} --print-freq=100 --print-time --ipex-interaction \
-  --test-mini-batch-size=16384 --ipex-merged-emb \
+  --mini-batch-size=${BATCHSIZE} --print-freq=100 --print-time \
+  --test-mini-batch-size=16384 \
   $ARGS |tee $LOG_0
 wait
 

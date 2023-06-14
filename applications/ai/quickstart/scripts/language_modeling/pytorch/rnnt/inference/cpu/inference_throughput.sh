@@ -53,14 +53,13 @@ else
     echo "### running fp32 datatype"
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --jit"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
 
 BATCH_SIZE=448
 PRECISION=$1
-
-if [ "$USE_IPEX" == 1 ]; then
-    IPEX="--ipex"
-fi
 
 rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_throughput*
 
@@ -75,8 +74,6 @@ cloudtik-ai-run \
     --model_toml ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/configs/rnnt.toml \
     --ckpt ${CHECKPOINT_DIR}/results/rnnt.pt \
     --batch_size $BATCH_SIZE \
-    $IPEX \
-    --jit \
     --warm_up 3 \
     --sort_by_duration \
     $ARGS

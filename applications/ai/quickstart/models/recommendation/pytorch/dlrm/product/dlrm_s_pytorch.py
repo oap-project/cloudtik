@@ -103,14 +103,7 @@ import extend_distributed as ext_dist
 
 import os
 import psutil
-# CloudTik patch start
-use_ipex = False
-if os.environ.get('USE_IPEX') == "1":
-    import intel_extension_for_pytorch as ipex
-    from intel_extension_for_pytorch.quantization import prepare, convert
 
-    use_ipex = True
-# CloudTik patch end
 exc = getattr(builtins, "IOError", "FileNotFoundError")
 
 def freeze(model):
@@ -292,7 +285,7 @@ class DLRM_Net(nn.Module):
         #   corresponding to a single lookup
         # 2. for each embedding the lookups are further organized into a batch
         # 3. for a list of embedding tables there is a list of batched lookups
-        if use_ipex and isinstance(emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
+        if args.ipex and isinstance(emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
             return emb_l(emb_args, self.need_linearize_indices_and_offsets)
         lS_o, lS_i = emb_args
         ly = []
@@ -314,7 +307,7 @@ class DLRM_Net(nn.Module):
         return ly
 
     def interact_features(self, x, ly):
-        if use_ipex and args.ipex_interaction:
+        if args.ipex and args.ipex_interaction:
             T = [x] + list(ly)
             R = ipex.nn.functional.interaction(*T)
         else:
@@ -421,33 +414,30 @@ def trace_model(args, dlrm, test_ld):
     dlrm.eval()
     for j, inputBatch in enumerate(test_ld):
         X, lS_o, lS_i, _, _, _ = unpack_batch(inputBatch)
-        # CloudTik patch start
-        if use_ipex and args.bf32:
-            ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
-        if args.bf16:
-            # at::GradMode::is_enabled() will query a threadlocal flag
-            # but new thread generate from throughputbench mark will
-            # init this flag to true, so we temporal cast embedding's
-            # weight to bfloat16 for now
-            if args.inference_only:
-                dlrm.emb_l.bfloat16()
-            if use_ipex:
-                dlrm = ipex.optimize(dlrm, dtype=torch.bfloat16, inplace=True)
-        elif args.int8:
-            if args.num_cpu_cores != 0:
-                torch.set_num_threads(args.num_cpu_cores)
-            qconfig = QConfig(activation=MinMaxObserver.with_args(qscheme=torch.per_tensor_symmetric, dtype=torch.qint8),
-                weight=PerChannelMinMaxObserver.with_args(dtype=torch.qint8, qscheme=torch.per_channel_symmetric))
-            prepare(dlrm, qconfig, example_inputs=(X, lS_o, lS_i), inplace=True)
-            dlrm.load_qconf_summary(qconf_summary = args.int8_configure)
-            convert(dlrm, inplace=True)
-        else:
-            if use_ipex and args.bf32:
+        if args.ipex:
+            if args.bf32:
                 ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
-            if use_ipex:
+            if args.bf16:
+                # at::GradMode::is_enabled() will query a threadlocal flag
+                # but new thread generate from throughputbench mark will
+                # init this flag to true, so we temporal cast embedding's
+                # weight to bfloat16 for now
+                if args.inference_only:
+                    dlrm.emb_l.bfloat16()
+                dlrm = ipex.optimize(dlrm, dtype=torch.bfloat16, inplace=True)
+            elif args.int8:
+                if args.num_cpu_cores != 0:
+                    torch.set_num_threads(args.num_cpu_cores)
+                qconfig = QConfig(activation=MinMaxObserver.with_args(qscheme=torch.per_tensor_symmetric, dtype=torch.qint8),
+                    weight=PerChannelMinMaxObserver.with_args(dtype=torch.qint8, qscheme=torch.per_channel_symmetric))
+                prepare(dlrm, qconfig, example_inputs=(X, lS_o, lS_i), inplace=True)
+                dlrm.load_qconf_summary(qconf_summary = args.int8_configure)
+                convert(dlrm, inplace=True)
+            else:
+                if args.bf32:
+                    ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
                 dlrm = ipex.optimize(dlrm, dtype=torch.float, inplace=True, auto_kernel_selection=True)
-        # CloudTik patch end
-        if args.int8:
+        if args.ipex and args.int8:
             print("Start to trace/freeze for int8, may need {} to save int8 weight".format(dlrm.numel / 1024 / 1024 / 1024))
             print("Current mem usage: {} G".format(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024))
             dlrm = torch.jit.trace(dlrm, [X, lS_o, lS_i])
@@ -528,7 +518,7 @@ def inference(
 
             # forward pass
             # CloudTik patch start
-            if not args.inference_only and use_ipex and isinstance(dlrm.emb_l,
+            if not args.inference_only and args.ipex and isinstance(dlrm.emb_l,
                                                                    ipex.nn.modules.MergedEmbeddingBagWithSGD):
                 n_tables = lS_i_test.shape[0]
                 idx = [lS_i_test[i] for i in range(n_tables)]
@@ -537,7 +527,7 @@ def inference(
                 indices, offsets, indices_with_row_offsets = dlrm.emb_l.linearize_indices_and_offsets(idx, offset, include_last)
 
             start = time_wrap()
-            if not args.inference_only and use_ipex and isinstance(dlrm.emb_l,
+            if not args.inference_only and args.ipex and isinstance(dlrm.emb_l,
                                                                    ipex.nn.modules.MergedEmbeddingBagWithSGD):
                 Z_test = dlrm(X_test, indices, offsets, indices_with_row_offsets)
             else:
@@ -711,6 +701,7 @@ def run():
     parser.add_argument("--lr-decay-start-step", type=int, default=0)
     parser.add_argument("--lr-num-decay-steps", type=int, default=0)
     # intel
+    parser.add_argument("--ipex", action="store_true", default=False)
     parser.add_argument("--print-auc", action="store_true", default=False)
     parser.add_argument("--should-test", action="store_true", default=False)
     parser.add_argument("--bf16", action="store_true", default=False)
@@ -723,14 +714,18 @@ def run():
     parser.add_argument("--int8", action="store_true", default=False)
     parser.add_argument("--calibration", action="store_true", default=False)
     parser.add_argument("--int8-configure", type=str, default="./int8_configure.json")
-    parser.add_argument("--dist-backend", type=str, default="ccl")
+    parser.add_argument("--backend", type=str, default="ccl")
 
     global args
     global nbatches
     global nbatches_test
     args = parser.parse_args()
-    ext_dist.init_distributed(backend=args.dist_backend)
 
+    if args.ipex:
+        import intel_extension_for_pytorch as ipex
+        from intel_extension_for_pytorch.quantization import prepare, convert
+
+    ext_dist.init_distributed(backend=args.backend)
 
     ### some basic setup ###
     np.random.seed(args.numpy_rand_seed)
@@ -802,7 +797,7 @@ def run():
         np_init_emb_weight=np_init_emb_weight,
     )
 
-    if use_ipex and args.ipex_merged_emb:
+    if args.ipex and args.ipex_merged_emb:
         dlrm.emb_l = ipex.nn.modules.MergedEmbeddingBagWithSGD.from_embeddingbag_list(dlrm.emb_l, lr=args.learning_rate)
         dlrm.need_linearize_indices_and_offsets = torch.BoolTensor([False])
 
@@ -869,7 +864,7 @@ def run():
 
     ext_dist.barrier()
 
-    if args.calibration:
+    if args.ipex and args.calibration:
         assert args.load_model != "", "need load weight to do calibration"
         dlrm.eval()
         qconfig = QConfig(activation=MinMaxObserver.with_args(qscheme=torch.per_tensor_symmetric, dtype=torch.qint8),
@@ -901,7 +896,7 @@ def run():
             lS_o = lS_o[:, :global_bs]
             lS_i = lS_i[:, :global_bs]
 
-        if use_ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
+        if args.ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
             if ext_dist.my_size > 1:
                 batch_size = X.size()[0]
                 g_i = lS_i[dlrm.local_ln_emb]
@@ -918,11 +913,11 @@ def run():
                 include_last = [False for i in range(n_tables)]
                 indices, offsets, indices_with_row_offsets = dlrm.emb_l.linearize_indices_and_offsets(idx, offset,
                                                                                                       include_last)
-        if use_ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
+        if args.ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
             sample_input = (X, indices, offsets, indices_with_row_offsets)
         else:
             sample_input = (X, lS_o, lS_i)
-        if use_ipex and args.bf16:
+        if args.ipex and args.bf16:
             print(
                 "Start to split weight to bf16 and trail part, or saving whole fp32 master weight, create bf16 weight copy")
             print(
@@ -936,21 +931,21 @@ def run():
                 dlrm.emb_l.to_bfloat16_train()
             print("Weight cast done, current mem usage: {} G".format(
                 psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024))
-        elif use_ipex:
+        elif args.ipex:
             dlrm, optimizer = ipex.optimize(dlrm, dtype=torch.float, optimizer=optimizer, inplace=True,
                                             sample_input=sample_input, auto_kernel_selection=True)
             if args.bf32:
                 ipex.set_fp32_math_mode(mode=ipex.FP32MathMode.BF32, device="cpu")
 
         for i in range(len(dlrm.top_l)):
-            if use_ipex and isinstance(dlrm.top_l[i], ipex.nn.utils._weight_prepack._IPEXLinear):
+            if args.ipex and isinstance(dlrm.top_l[i], ipex.nn.utils._weight_prepack._IPEXLinear):
                 if isinstance(dlrm.top_l[i + 1], torch.nn.ReLU):
                     dlrm.top_l[i] = ipex.nn.modules.IPEXLinearEltwise(dlrm.top_l[i], 'relu')
                 else:
                     dlrm.top_l[i] = ipex.nn.modules.IPEXLinearEltwise(dlrm.top_l[i], 'sigmoid')
                 dlrm.top_l[i + 1] = torch.nn.Identity()
         for i in range(len(dlrm.bot_l)):
-            if use_ipex and isinstance(dlrm.bot_l[i], ipex.nn.utils._weight_prepack._IPEXLinear):
+            if args.ipex and isinstance(dlrm.bot_l[i], ipex.nn.utils._weight_prepack._IPEXLinear):
                 if isinstance(dlrm.bot_l[i + 1], torch.nn.ReLU):
                     dlrm.bot_l[i] = ipex.nn.modules.IPEXLinearEltwise(dlrm.bot_l[i], 'relu')
                 else:
@@ -1001,7 +996,7 @@ def run():
                         lS_o = lS_o[:, :global_bs]
                         lS_i = lS_i[:, :global_bs]
 
-                    if use_ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
+                    if args.ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
                         if ext_dist.my_size > 1:
                             batch_size = X.size()[0]
                             g_i = lS_i[dlrm.local_ln_emb]
@@ -1028,11 +1023,11 @@ def run():
 
                     # forward pass
 
-                    if use_ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
+                    if args.ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
                         dlrm.emb_l.sgd_args = dlrm.emb_l.sgd_args._replace(lr=lr_scheduler.get_last_lr()[0])
 
                     with torch.cpu.amp.autocast(enabled=args.bf16):
-                        if use_ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
+                        if args.ipex and isinstance(dlrm.emb_l, ipex.nn.modules.MergedEmbeddingBagWithSGD):
                             Z = dlrm_wrap(
                                 X,
                                 indices,

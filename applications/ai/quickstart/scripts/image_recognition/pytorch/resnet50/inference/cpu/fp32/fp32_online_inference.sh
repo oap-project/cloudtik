@@ -19,8 +19,6 @@ MODEL_DIR=${MODEL_DIR-$PWD}
 
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
-MULTI_INSTANCE_ARGS=""
-ARGS=""
 
 CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
@@ -30,8 +28,11 @@ INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
 MULTI_INSTANCE_ARGS="--enable_tcmalloc --ninstances ${INSTANCES} --ncore_per_instance ${CORES_PER_INSTANCE}"
 
 echo "Running '${INSTANCES}' instance"
-# in case IPEX is used we set ipex and jit path args
-ARGS="--ipex --jit"
+
+ARGS=""
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --jit"
+fi
 echo "Running using ${ARGS} args ..."
 
 cloudtik-ai-run \

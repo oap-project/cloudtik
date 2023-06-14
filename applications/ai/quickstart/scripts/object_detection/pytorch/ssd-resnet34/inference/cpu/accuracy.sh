@@ -62,8 +62,11 @@ else
     exit 1
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --jit"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
+
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
@@ -111,7 +114,6 @@ if [ "$weight_sharing" = true ]; then
         -j 0 \
         --no-cuda \
         --batch-size ${BATCH_SIZE} \
-        --jit \
         --number-instance $STREAM_PER_INSTANCE \
         --use-multi-stream-module \
         --instance-number 0 \
@@ -129,7 +131,6 @@ else
         -j 0 \
         --no-cuda \
         --batch-size ${BATCH_SIZE} \
-        --jit \
         --accuracy-mode \
         $ARGS 2>&1 | tee ${OUTPUT_DIR}/ssdresnet34_${PRECISION}_inference_accuracy.log
     wait

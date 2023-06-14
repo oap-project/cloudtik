@@ -19,18 +19,6 @@ MODEL_DIR=${MODEL_DIR-$PWD}
 
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
-TCMALLOC_ARGS=""
-ARGS=""
-
-if [[ ${PLATFORM} == "linux" ]]; then
-  pip list | grep intel-extension-for-pytorch
-  if [[ "$?" == 0 ]]; then
-    TCMALLOC_ARGS=" -m intel_pytorch_extension.cpu.launch --enable_tcmalloc"
-    # in case IPEX is used we set ipex and jit path args
-    ARGS="--ipex --jit"
-    echo "Running using ${ARGS} args ..."
-  fi
-fi
 
 if [ -z "${DATASET_DIR}" ]; then
   echo "The required environment variable DATASET_DIR has not been set"
@@ -42,12 +30,20 @@ if [ ! -d "${DATASET_DIR}" ]; then
   exit 1
 fi
 
-python ${TCMALLOC_ARGS} \
+TCMALLOC_ARGS="--enable_tcmalloc"
+
+ARGS=""
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --jit"
+fi
+echo "Running using ${ARGS} args ..."
+
+cloudtik-ai-run \
+    ${TCMALLOC_ARGS} \
     models/image_recognition/pytorch/common/main.py \
     --arch resnet50 ${DATASET_DIR} \
     --evaluate \
     --pretrained \
-    --jit \
     ${ARGS} \
     --bf16 \
     --workers 0 \

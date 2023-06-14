@@ -50,8 +50,7 @@ else
   echo "Supported precisions are: fp32 and bf16"
   exit 1
 fi
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
+
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
@@ -66,13 +65,16 @@ LAUNCH_ARGS="--use_default_allocator \
   --latency_mode \
   --log_path=${OUTPUT_DIR} \
   --log_file_prefix="transnetv2_latency_log_${PRECISION}""
-ARGS="$ARGS --ipex"
+
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --jit"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
 
 cloudtik-ai-run \
   ${LAUNCH_ARGS} \
   ${MODEL_DIR}/models/shot_boundary_detection/pytorch/transnetv2/inference/cpu/inference.py \
   --batch_size $BATCH_SIZE \
-  --jit \
   -w 50 \
   -m 200 \
   -j 0 \

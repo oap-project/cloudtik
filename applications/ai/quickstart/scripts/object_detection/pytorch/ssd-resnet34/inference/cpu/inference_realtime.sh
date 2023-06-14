@@ -62,7 +62,10 @@ else
     exit 1
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --jit"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
 
 PRECISION=$1
 BATCH_SIZE=1
@@ -98,7 +101,6 @@ if [ "$weight_sharing" = true ]; then
         --no-cuda \
         --iteration 200 \
         --batch-size ${BATCH_SIZE} \
-        --jit \
         --number-instance $INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET \
         $ARGS 2>&1 | tee ${OUTPUT_DIR}/latency_log_ssdresnet34_${PRECISION}.log
     wait
@@ -115,7 +117,6 @@ else
         --no-cuda \
         --iteration 200 \
         --batch-size ${BATCH_SIZE} \
-        --jit \
         --latency-mode \
         $ARGS 2>&1 | tee ${OUTPUT_DIR}/latency_log_ssdresnet34_${PRECISION}.log
     wait

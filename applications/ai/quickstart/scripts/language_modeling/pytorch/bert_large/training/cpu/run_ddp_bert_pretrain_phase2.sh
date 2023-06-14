@@ -14,12 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
-MODEL_DIR=${MODEL_DIR-../../../../../..}
-
-#export DNNL_MAX_CPU_ISA=AVX512_CORE_AMX
 ARGS="--benchmark"
 precision=fp32
 batch_size=28
@@ -42,6 +37,17 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex"
+fi
+
+BACKEND=${BACKEND:-'ccl'}
+
+if [[ "$BACKEND" == "ccl" ]]; then
+  oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
+  source $oneccl_bindings_for_pytorch_path/env/setvars.sh
+fi
+
 PRETRAINED_MODEL=${PRETRAINED_MODEL:-~/dataset/checkpoint/}
 DATASET_DIR=${DATASET_DIR:-~/dataset/}
 TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py}
@@ -49,7 +55,7 @@ OUTPUT_DIR=${OUTPUT_DIR:-${PWD}}
 SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
 HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
-BACKEND=${BACKEND:-'ccl'}
+
 work_space=${work_space:-${OUTPUT_DIR}}
 rm -rf ${OUTPUT_DIR}/throughput_log_phase2_*
 

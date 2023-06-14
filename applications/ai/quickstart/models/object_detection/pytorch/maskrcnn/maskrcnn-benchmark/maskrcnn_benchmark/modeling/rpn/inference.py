@@ -14,7 +14,7 @@ from .utils import permute_and_flatten
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
 import os
 use_ipex = False
-if os.environ.get('USE_IPEX') == "1":
+if os.environ.get('USE_IPEX') == "true":
     import intel_extension_for_pytorch as ipex
     rpn_nms = torch.ops.torch_ipex.rpn_nms
     use_ipex = True

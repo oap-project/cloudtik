@@ -25,8 +25,11 @@ SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 MULTI_INSTANCE_ARGS="--enable_tcmalloc --ninstances ${SOCKETS} --ncore_per_instance ${CORES}"
 
 echo "Running '${SOCKETS}' instance"
-# in case IPEX is used we set ipex and jit path args
-ARGS="--ipex --jit"
+
+ARGS=""
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --jit"
+fi
 echo "Running using ${ARGS} args ..."
 
 cloudtik-ai-run \
@@ -34,7 +37,6 @@ cloudtik-ai-run \
     models/image_recognition/pytorch/common/main.py \
     --arch resnet50 ../ \
     --evaluate \
-    --jit \
     ${ARGS} \
     --bf16 \
     --batch-size 128 \

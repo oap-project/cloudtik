@@ -66,13 +66,22 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex --ipex-interaction --ipex-merged-emb"
+fi
+
+BACKEND=${BACKEND:-'ccl'}
+
+if [[ "$BACKEND" == "ccl" ]]; then
+  oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
+  source $oneccl_bindings_for_pytorch_path/env/setvars.sh
+fi
+
 CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
 HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 BATCHSIZE=$((256*CORES))
 export OMP_NUM_THREADS=$CORES
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
 LOG_0="${LOG}/socket.log"
 cloudtik-ai-run \
@@ -84,8 +93,9 @@ cloudtik-ai-run \
   --arch-mlp-bot=13-512-256-128 --arch-mlp-top=1024-1024-512-256-1 \
   --arch-sparse-feature-size=128 --max-ind-range=40000000 \
   --numpy-rand-seed=727 --print-auc --mlperf-auc-threshold=0.8025 \
-  --mini-batch-size=${BATCHSIZE} --print-freq=100 --print-time --ipex-interaction \
-  --test-mini-batch-size=16384 --ipex-merged-emb \
+  --mini-batch-size=${BATCHSIZE} --print-freq=100 --print-time \
+  --test-mini-batch-size=16384 \
+  --backend ${BACKEND} \
   $ARGS |tee $LOG_0
 wait
 

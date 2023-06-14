@@ -46,7 +46,6 @@ if [ -z "${PRECISION}" ]; then
   exit 1
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
@@ -87,11 +86,16 @@ source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 
 MULTI_INSTANCE_ARGS="--use_default_allocator"
-# in case IPEX is used, we set ipex arg
-if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
-    ARGS="${ARGS} --ipex"
-else
-    ARGS="${ARGS} --ipex --jit"
+
+if [[ "$USE_IPEX" == "true" ]]; then
+    if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
+        ARGS="${ARGS} --ipex"
+    else
+        ARGS="${ARGS} --ipex --jit"
+    fi
+    export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
+echo "Running using ${ARGS} args ..."
 
 cloudtik-ai-run \
     ${MULTI_INSTANCE_ARGS} \

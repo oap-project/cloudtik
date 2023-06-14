@@ -52,7 +52,6 @@ SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
 HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
-BACKEND=${BACKEND:-'ccl'}
 
 if [[ $1 == "avx-fp32" ]]; then
     unset DNNL_MAX_CPU_ISA
@@ -76,8 +75,15 @@ else
     echo "Supported precisions now are: fp32, bf16 and bf32"
 fi
 
-if [ "$USE_IPEX" == 1 ]; then
-    IPEX="--ipex"
+if [[ "$USE_IPEX" == "true" ]]; then
+    IPEX_FLAG="--ipex"
+fi
+
+BACKEND=${BACKEND:-'ccl'}
+
+if [[ "$BACKEND" == "ccl" ]]; then
+  oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
+  source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 fi
 
 PROFILE=""
@@ -113,7 +119,7 @@ CMD+=" --lr_decay"
 CMD+=" --gradient_accumulation_steps=$GRADIENT_ACCUMULATION_STEPS "
 CMD+=" $CHECKPOINT"
 CMD+=" $PREC"
-CMD+=" $IPEX"
+CMD+=" $IPEX_FLAG"
 CMD+=" --warmup=$WARMUP"
 CMD+=" $PROFILE"
 CMD+=" --backend=${BACKEND}"
@@ -126,9 +132,6 @@ elif [[ ! -z "${NUM_STEPS}" ]]; then
 fi
 
 rm -rf ${OUTPUT_DIR}/distributed_throughput_log*
-
-oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
-source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
 cloudtik-ai-run \
     --distributed \

@@ -77,6 +77,10 @@ else
     exit 1
 fi
 
+if [[ "$USE_IPEX" == "true" ]]; then
+  ARGS="$ARGS --ipex"
+  export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
 
 CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
@@ -84,8 +88,6 @@ TOTAL_CORES=`expr $CORES \* $SOCKETS`
 
 CORES_PER_INSTANCE=$CORES
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
@@ -101,7 +103,6 @@ cloudtik-ai-run \
     --log_file_prefix="./resnet50_training_log_${PRECISION}" \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \
-    --ipex \
     -j 0 \
     --seed 2020 \
     --epochs $TRAINING_EPOCHS \

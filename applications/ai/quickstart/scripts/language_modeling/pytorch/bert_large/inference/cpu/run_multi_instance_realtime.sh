@@ -16,8 +16,6 @@
 # limitations under the License.
 #
 
-
-#export DNNL_MAX_CPU_ISA=AVX512_CORE_AMX
 ARGS="--benchmark"
 precision=fp32
 
@@ -49,6 +47,11 @@ elif [[ "$1" == "fp32" || "$1" == "avx-fp32" ]]
 then
     precision=fp32
     echo "### running fp32 mode"
+fi
+
+if [[ "$USE_IPEX" == "true" ]]; then
+  # TODO: flag to enable or disable ipex for inference
+  ARGS="$ARGS --ipex"
 fi
 
 rm -rf ${OUTPUT_DIR}/latency_log*

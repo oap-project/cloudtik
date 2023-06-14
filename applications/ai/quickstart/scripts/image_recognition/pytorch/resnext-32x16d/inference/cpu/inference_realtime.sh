@@ -65,7 +65,6 @@ else
     exit 1
 fi
 
-export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 
@@ -81,11 +80,15 @@ NUMBER_INSTANCE=`expr $CORES / $CORES_PER_INSTANCE`
 MULTI_INSTANCE_ARGS="--use_default_allocator --ninstance ${SOCKETS} --log_path=${OUTPUT_DIR} \
 --log_file_prefix="./resnext101_latency_log_${PRECISION}""
 
-# in case IPEX is used, we set ipex arg
-if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
-    ARGS="${ARGS} --ipex --weight-sharing --number-instance $NUMBER_INSTANCE"
-else
-    ARGS="${ARGS} --ipex --jit --weight-sharing --number-instance $NUMBER_INSTANCE"
+if [[ "$USE_IPEX" == "true" ]]; then
+    if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
+        ARGS="${ARGS} --ipex --weight-sharing --number-instance $NUMBER_INSTANCE"
+    else
+        ARGS="${ARGS} --ipex --jit --weight-sharing --number-instance $NUMBER_INSTANCE"
+    fi
+    export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
+fi
+echo "Running using ${ARGS} args ..."
 
 cloudtik-ai-run \
     ${MULTI_INSTANCE_ARGS} \

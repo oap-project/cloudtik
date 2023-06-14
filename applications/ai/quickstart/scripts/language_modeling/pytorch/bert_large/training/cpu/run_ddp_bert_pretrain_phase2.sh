@@ -46,9 +46,10 @@ PRETRAINED_MODEL=${PRETRAINED_MODEL:-~/dataset/checkpoint/}
 DATASET_DIR=${DATASET_DIR:-~/dataset/}
 TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py}
 OUTPUT_DIR=${OUTPUT_DIR:-${PWD}}
-SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-NNODES=${NNODES:-1}
-HOSTFILE=${HOSTFILE:-./hostfile}
+SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
+HOSTS=${HOSTS:-'127.0.0.1'}
+NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
+BACKEND=${BACKEND:-'ccl'}
 work_space=${work_space:-${OUTPUT_DIR}}
 rm -rf ${OUTPUT_DIR}/throughput_log_phase2_*
 
@@ -57,13 +58,13 @@ LBS=$(( batch_size / NUM_RANKS ))
 params="--train_batch_size=$LBS     --learning_rate=3.5e-4     --opt_lamb_beta_1=0.9     --opt_lamb_beta_2=0.999     --warmup_proportion=0.0     --warmup_steps=0.0     --start_warmup_step=0     --max_steps=13700     --phase2    --max_predictions_per_seq=76      --do_train     --skip_checkpoint     --train_mlm_accuracy_window_size=0     --target_mlm_accuracy=0.720     --weight_decay_rate=0.01     --max_samples_termination=4500000     --eval_iter_start_samples=150000 --eval_iter_samples=150000     --eval_batch_size=16  --gradient_accumulation_steps=1     --log_freq=0 "
 
 cloudtik-ai-run \
-    --distributed --nnodes ${NNODES} --hostfile ${HOSTFILE}  --log_path=${OUTPUT_DIR} --log_file_prefix="./throughput_log_phase2_${precision}" ${TRAIN_SCRIPT} \
+    --distributed --nnodes ${NNODES} --hosts ${HOSTS} --log_path=${OUTPUT_DIR} --log_file_prefix="./throughput_log_phase2_${precision}" ${TRAIN_SCRIPT} \
     --input_dir ${DATASET_DIR}/2048_shards_uncompressed_512/ \
     --eval_dir ${DATASET_DIR}/eval_set_uncompressed/ \
     --model_type 'bert' \
     --model_name_or_path ${PRETRAINED_MODEL} \
     --output_dir model_save \
-    --dense_seq_output \
+    --backend ${BACKEND} \
     $ARGS \
     $params \
     2>&1 | tee ${OUTPUT_DIR}/throughput_log_phase2_${precision}.log

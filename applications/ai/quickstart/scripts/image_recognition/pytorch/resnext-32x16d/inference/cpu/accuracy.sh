@@ -83,24 +83,18 @@ else
     exit 1
 fi
 
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
-MULTI_INSTANCE_ARGS=""
-if [[ ${PLATFORM} == "linux" ]]; then
-    pip list | grep intel-extension-for-pytorch
-    if [[ "$?" == 0 ]]; then
-        MULTI_INSTANCE_ARGS=" -m intel_extension_for_pytorch.cpu.launch --use_default_allocator"
-        # in case IPEX is used, we set ipex arg
-        if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
-            ARGS="${ARGS} --ipex"
-        else
-            ARGS="${ARGS} --ipex --jit"
-	fi
-        echo "Running using ${ARGS} args ..."
-    fi
-fi
 
-python ${MULTI_INSTANCE_ARGS} \
+MULTI_INSTANCE_ARGS="--use_default_allocator"
+# in case IPEX is used, we set ipex arg
+if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
+    ARGS="${ARGS} --ipex"
+else
+    ARGS="${ARGS} --ipex --jit"
+
+cloudtik-ai-run \
+    ${MULTI_INSTANCE_ARGS} \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \
     --pretrained \

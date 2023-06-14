@@ -63,9 +63,6 @@ else
 fi
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
 rm -rf ${OUTPUT_DIR}/throughput_log*
 
@@ -125,7 +122,7 @@ if [ "$weight_sharing" = true ]; then
 
 else
     BATCH_SIZE=112
-    python -m intel_extension_for_pytorch.cpu.launch \
+    cloudtik-ai-run \
         --use_default_allocator \
         --throughput_mode \
         ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer.py \

@@ -17,26 +17,20 @@
 
 MODEL_DIR=${MODEL_DIR-$PWD}
 
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
-MULTI_INSTANCE_ARGS=""
-ARGS=""
 
-if [[ ${PLATFORM} == "linux" ]]; then
-    pip list | grep intel-extension-for-pytorch
-    if [[ "$?" == 0 ]]; then
-        CORES=`lscpu | grep Core | awk '{print $4}'`
-        SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-        MULTI_INSTANCE_ARGS=" -m intel_extension_for_pytorch.cpu.launch --enable_tcmalloc --ninstances ${SOCKETS} --ncore_per_instance ${CORES}"
-        
-        echo "Running '${SOCKETS}' instance"
-        # in case IPEX is used we set ipex and jit path args
-        ARGS="--ipex --jit"
-        echo "Running using ${ARGS} args ..."
-    fi
-fi
+CORES=`lscpu | grep Core | awk '{print $4}'`
+SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
+MULTI_INSTANCE_ARGS="--enable_tcmalloc --ninstances ${SOCKETS} --ncore_per_instance ${CORES}"
 
-python ${MULTI_INSTANCE_ARGS} \
+echo "Running '${SOCKETS}' instance"
+# in case IPEX is used we set ipex and jit path args
+ARGS="--ipex --jit"
+echo "Running using ${ARGS} args ..."
+
+cloudtik-ai-run \
+    ${MULTI_INSTANCE_ARGS} \
     models/image_recognition/pytorch/common/main.py \
     --arch resnet50 ../ \
     --evaluate \

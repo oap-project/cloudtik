@@ -61,9 +61,6 @@ CORES_PER_INSTANCE=$CORES
 
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
 export TRAIN=1
 
@@ -72,7 +69,7 @@ BATCH_SIZE=${BATCH_SIZE-112}
 
 rm -rf ${OUTPUT_DIR}/maskrcnn_${PRECISION}_train_throughput*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+cloudtik-ai-run \
     --enable_jemalloc \
     --node_id=0 \
     ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py \

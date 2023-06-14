@@ -54,15 +54,17 @@ else
 fi
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
 BATCH_SIZE=64
 PRECISION=$1
 
+if [ "$USE_IPEX" == 1 ]; then
+    IPEX="--ipex"
+fi
+
 rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+cloudtik-ai-run \
     --use_default_allocator \
     ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/inference.py \
     --dataset_dir ${DATASET_DIR}/dataset/LibriSpeech/ \
@@ -70,7 +72,7 @@ python -m intel_extension_for_pytorch.cpu.launch \
     --model_toml ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/configs/rnnt.toml \
     --ckpt ${CHECKPOINT_DIR}/results/rnnt.pt \
     --batch_size $BATCH_SIZE \
-    --ipex \
+    $IPEX \
     --jit \
     $ARGS 2>&1 | tee ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy.log
 

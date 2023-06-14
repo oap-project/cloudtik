@@ -17,29 +17,25 @@
 
 MODEL_DIR=${MODEL_DIR-$PWD}
 
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 MULTI_INSTANCE_ARGS=""
 ARGS=""
 
-if [[ ${PLATFORM} == "linux" ]]; then
-    pip list | grep intel-extension-for-pytorch
-    if [[ "$?" == 0 ]]; then
-        CORES=`lscpu | grep Core | awk '{print $4}'`
-        SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-        TOTAL_CORES=`expr $CORES \* $SOCKETS`
-        CORES_PER_INSTANCE=4
-        INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
-        MULTI_INSTANCE_ARGS=" -m intel_extension_for_pytorch.cpu.launch --enable_tcmalloc --ninstances ${INSTANCES} --ncore_per_instance ${CORES_PER_INSTANCE}"
+CORES=`lscpu | grep Core | awk '{print $4}'`
+SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
+TOTAL_CORES=`expr $CORES \* $SOCKETS`
+CORES_PER_INSTANCE=4
+INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
+MULTI_INSTANCE_ARGS="--enable_tcmalloc --ninstances ${INSTANCES} --ncore_per_instance ${CORES_PER_INSTANCE}"
 
-        echo "Running '${INSTANCES}' instance"
-        # in case IPEX is used we set ipex and jit path args
-        ARGS="--ipex --jit"
-        echo "Running using ${ARGS} args ..."
-    fi
-fi
+echo "Running '${INSTANCES}' instance"
+# in case IPEX is used we set ipex and jit path args
+ARGS="--ipex --jit"
+echo "Running using ${ARGS} args ..."
 
-python ${MULTI_INSTANCE_ARGS} \
+cloudtik-ai-run \
+    ${MULTI_INSTANCE_ARGS} \
     models/image_recognition/pytorch/common/main.py \
     --arch resnet50 ../ \
     --evaluate \

@@ -54,15 +54,17 @@ else
 fi
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
 BATCH_SIZE=1
 PRECISION=$1
 
+if [ "$USE_IPEX" == 1 ]; then
+    IPEX="--ipex"
+fi
+
 rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_realtime*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+cloudtik-ai-run \
     --use_default_allocator \
     --latency_mode \
     --log_path ${OUTPUT_DIR} \
@@ -73,7 +75,7 @@ python -m intel_extension_for_pytorch.cpu.launch \
     --model_toml ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/configs/rnnt.toml \
     --ckpt ${CHECKPOINT_DIR}/results/rnnt.pt \
     --batch_size $BATCH_SIZE \
-    --ipex \
+    $IPEX \
     --jit \
     --warm_up 10 \
     $ARGS

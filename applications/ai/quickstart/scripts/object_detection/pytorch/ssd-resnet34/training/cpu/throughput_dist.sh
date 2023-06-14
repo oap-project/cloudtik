@@ -57,19 +57,17 @@ else
     exit 1
 fi
 
-CORES=`lscpu | grep Core | awk '{print $4}'`
-SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
+CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
+SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-NNODES=${NNODES:-1}
-HOSTFILE=${HOSTFILE:-./hostfile}
+HOSTS=${HOSTS:-'127.0.0.1'}
+NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
+BACKEND=${BACKEND:-'ccl'}
 
 CORES_PER_INSTANCE=$CORES
 
 export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
-export USE_IPEX=1
-export KMP_BLOCKTIME=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
 
 PRECISION=$1
 BATCH_SIZE=224
@@ -79,12 +77,12 @@ rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist*
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
-python -m intel_extension_for_pytorch.cpu.launch \
+cloudtik-ai-run \
     --use_default_allocator \
     --ncore_per_instance ${CORES_PER_INSTANCE} \
     --distributed \
     --nnodes ${NNODES} \
-    --hostfile ${HOSTFILE} \
+    --hosts ${HOSTS} \
     --nproc_per_node ${SOCKETS} \
     ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
     --epochs 70 \
@@ -100,7 +98,7 @@ python -m intel_extension_for_pytorch.cpu.launch \
     -w 20 \
     -iter 100 \
     --world_size ${NUM_RANKS} \
-    --backend ccl \
+    --backend ${BACKEND} \
     $ARGS 2>&1 | tee ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist.log
 
 # For the summary of results

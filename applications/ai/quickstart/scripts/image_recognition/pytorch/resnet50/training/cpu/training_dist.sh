@@ -75,12 +75,17 @@ else
     exit 1
 fi
 
+if [[ "$ENABLE_IPEX" == "true" ]];then
+  ARGS="$ARGS --ipex"
+fi
 
-CORES=`lscpu | grep Core | awk '{print $4}'`
-SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
+BACKEND=${BACKEND:-'ccl'}
+
+CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
+SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-NNODES=${NNODES:-1}
-HOSTFILE=${HOSTFILE:-./hostfile}
+HOSTS=${HOSTS:-'127.0.0.1'}
+NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
 
 CORES_PER_INSTANCE=$CORES
@@ -93,25 +98,25 @@ export KMP_AFFINITY=granularity=fine,compact,1,0
 BATCH_SIZE=128
 
 rm -rf ${OUTPUT_DIR}/resnet50_dist_training_log_*
+TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/image_recognition/pytorch/common/main.py}
 
 oneccl_bindings_for_pytorch_path=$(python -c "import torch; import oneccl_bindings_for_pytorch; import os;  print(os.path.abspath(os.path.dirname(oneccl_bindings_for_pytorch.__file__)))")
 source $oneccl_bindings_for_pytorch_path/env/setvars.sh
 
-python -m intel_extension_for_pytorch.cpu.launch \
+cloudtik-ai-run \
     --use_default_allocator \
     --distributed \
     --nnodes ${NNODES} \
-    --hostfile ${HOSTFILE} \
+    --hosts ${HOSTS} \
     --nproc_per_node ${SOCKETS} \
     --ncore_per_instance ${CORES_PER_INSTANCE} \
-    ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
+    ${TRAIN_SCRIPT} \
     $ARGS \
-    --ipex \
     -j 0 \
     --seed 2020 \
     --epochs $TRAINING_EPOCHS \
     --world-size ${NUM_RANKS} \
-    --dist-backend ccl \
+    --dist-backend $BACKEND \
     --train-no-eval \
     -b $BATCH_SIZE 2>&1 | tee ${OUTPUT_DIR}/resnet50_dist_training_log_${PRECISION}.log
 # For the summary of results

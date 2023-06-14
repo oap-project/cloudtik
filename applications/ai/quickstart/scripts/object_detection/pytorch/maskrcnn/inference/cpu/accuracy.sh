@@ -80,15 +80,8 @@ BATCH_SIZE=112
 
 rm -rf ${OUTPUT_DIR}/maskrcnn_${PRECISION}_accuracy*
 
-# check if stoch PYT or IPEX is installed on the system
-IPEX_ARGS=""
-pip list | grep intel-extension-for-pytorch
-if [[ "$?" == 0 ]]; then
-  IPEX_ARGS="-m intel_extension_for_pytorch.cpu.launch \
-    --enable_jemalloc"
-fi
-
-python ${IPEX_ARGS} \
+cloudtik-ai-run \
+    --enable_jemalloc \
     ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/test_net.py \
     $ARGS \
     --config-file "${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/configs/e2e_mask_rcnn_R_50_FPN_1x_coco2017_inf.yaml" \
@@ -100,7 +93,7 @@ python ${IPEX_ARGS} \
 # For the summary of results
 wait
 
-source "${MODEL_DIR}/quickstart/common/utils.sh"
+source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 if [[ ${PLATFORM} == "linux" ]]; then
     accuracy=$(grep 'bbox AP:' ${OUTPUT_DIR}/maskrcnn_${PRECISION}_accuracy* |sed -e 's/.*Accuracy//;s/[^0-9.]//g')

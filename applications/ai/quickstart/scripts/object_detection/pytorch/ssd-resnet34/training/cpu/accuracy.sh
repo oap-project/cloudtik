@@ -73,7 +73,7 @@ BATCH_SIZE=100
 
 rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_accuracy*
 
-python -m intel_extension_for_pytorch.cpu.launch \
+cloudtik-ai-run \
     --use_default_allocator \
     --ninstances 1 \
     --ncore_per_instance ${CORES_PER_INSTANCE} \

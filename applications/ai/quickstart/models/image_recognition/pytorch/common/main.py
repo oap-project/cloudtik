@@ -132,7 +132,7 @@ parser.add_argument('--world-size', default=1, type=int,
 parser.add_argument('--rank', default=0, type=int,
                     help='node rank for distributed training')
 parser.add_argument('--port', default='29500', type=str, help='Port')
-parser.add_argument('--init-method', '--dist-url', default='env://', type=str, dest="init_method",
+parser.add_argument('--dist-url', default='env://', type=str,
                     help='url used to set up distributed training')
 parser.add_argument('--dist-backend', default='nccl', type=str,
                     help='distributed backend')
@@ -194,7 +194,7 @@ def main():
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
 
-    if args.init_method == "env://" and args.world_size == -1:
+    if args.dist_url == "env://" and args.world_size == -1:
         args.world_size = int(os.environ["WORLD_SIZE"])
 
     args.distributed = args.world_size > 1 or args.multiprocessing_distributed
@@ -223,7 +223,7 @@ def main_worker(gpu, ngpus_per_node, args):
         os.environ['RANK'] = str(os.environ.get('PMI_RANK', args.rank))
         os.environ['WORLD_SIZE'] = str(os.environ.get('PMI_SIZE', args.world_size))
         os.environ['MASTER_PORT'] = args.port
-        if args.init_method == "env://" and args.rank == -1:
+        if args.dist_url == "env://" and args.rank == -1:
             args.rank = int(os.environ["RANK"])
         if args.multiprocessing_distributed:
             # For multiprocessing distributed training, rank needs to be the
@@ -239,11 +239,11 @@ def main_worker(gpu, ngpus_per_node, args):
 
             dist.init_process_group(backend=args.dist_backend)
         else:
-            if args.init_method == "env://":
+            if args.dist_url == "env://":
                 dist.init_process_group(backend=args.dist_backend)
             else:
                 dist.init_process_group(backend=args.dist_backend,
-                                        init_method=args.init_method,
+                                        init_method=args.dist_url,
                                         world_size=args.world_size, rank=args.rank)
 
     if args.hub:

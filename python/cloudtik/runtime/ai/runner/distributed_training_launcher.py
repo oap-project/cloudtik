@@ -3,7 +3,6 @@ import os
 import sys
 
 from cloudtik.runtime.ai.runner.launcher import Launcher
-from cloudtik.runtime.ai.runner.util.utils import is_python_program
 
 logger = logging.getLogger(__name__)
 

@@ -106,7 +106,7 @@ def run(
              The index of the list corresponds to the rank of each process.
              Returns only the first min_num_proc results, if set.
     """
-    from .launch import _run
+    from cloudtik.runtime.ai.runner.launch import _run
 
     if kwargs is None:
         kwargs = {}
@@ -183,7 +183,7 @@ def run_command(
                                Example: ["eth0", "eth1"].
     :return: None
     """
-    from .launch import _run
+    from cloudtik.runtime.ai.runner.launch import _run
 
     if hosts is not None and hostfile is not None:
         raise ValueError('Argument hosts and hostfile only allow one provided.')

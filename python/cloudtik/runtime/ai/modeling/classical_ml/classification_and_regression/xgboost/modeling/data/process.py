@@ -11,14 +11,16 @@ def read_raw_data(raw_data_path, data_engine):
 
 def transform_data(data, transform_spec, data_engine):
     print("transforming data...")
-    from .data_transform import DataTransformer
+    from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.data.data_transform \
+        import DataTransformer
     data_transformer = DataTransformer(data, transform_spec, data_engine)
     return data_transformer.transform()
 
 
 def split_data(data, data_splitting_rule, data_engine):
     print('splitting data...')
-    from .data_splitting import DataSplitter
+    from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.data.data_splitting \
+        import DataSplitter
     data_splitter = DataSplitter(data, data_splitting_rule)
     train_data, test_data = data_splitter.split()
     return train_data, test_data
@@ -26,7 +28,8 @@ def split_data(data, data_splitting_rule, data_engine):
 
 def post_transform(train_data, test_data, post_transform_spec, data_engine):
     print("transform pre-splitting data...")
-    from .post_transform import PostTransformer
+    from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.data.post_transform \
+        import PostTransformer
     data_transformer = PostTransformer(
         train_data, test_data, post_transform_spec, data_engine)
     train_data, test_data = data_transformer.transform()

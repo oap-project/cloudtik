@@ -77,12 +77,6 @@ class TrainerArguments:
                     "value if set."
         },
     )
-    dataset: Optional[str] = field(
-        default='imdb',
-        metadata={
-            "help": "Select dataset ('imdb' / 'sst2'). Default is 'imdb'"
-        },
-    )
     max_seq_len: int = field(
         default=512,
         metadata={
@@ -109,6 +103,12 @@ class TrainerArguments:
             "help": "for multi-instance inference, to indicate which instance this is."
         },
     )
+    dataset: Optional[str] = field(
+        default='imdb',
+        metadata={
+            "help": "Select dataset ('imdb' / 'sst2' / local). Default is 'imdb'"
+        },
+    )
     dataset_config: Optional[Union[str, dict]] = field(
         default=None,
         metadata={
@@ -126,7 +126,7 @@ class TrainerArguments:
 @dataclass
 class DatasetConfig:
     """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
+    Configuration for dataset
     """
     train: str = field(
         default=None,
@@ -206,7 +206,11 @@ def parse_arguments(parser, arguments):
             with open(arguments, "r") as f:
                 args_in_yaml = yaml.safe_load(f)
             args = parser.parse_dict(args=args_in_yaml)
-    else:
+    elif isinstance(arguments, dict):
         # a dict
         args = parser.parse_dict(args=arguments)
+    else:
+        # it is already an arguments object
+        return arguments
+
     return args

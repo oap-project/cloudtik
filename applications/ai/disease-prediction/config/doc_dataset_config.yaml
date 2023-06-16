@@ -1,0 +1,12 @@
+delimiter: ','
+features:
+    class_label: label
+    data_column: symptoms
+    id: Patient_ID
+label_list:
+    - Benign
+    - Malignant
+    - Normal
+max_seq_len: 64
+max_test_samples: null
+max_train_samples: null

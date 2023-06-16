@@ -2,22 +2,27 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/configure.sh
+SRC_DIR=$SCRIPT_DIR/../src
 
 DISEASE_PREDICTION_WORKING_DATA=$DISEASE_PREDICTION_WORKING/data
 
 function usage(){
-    echo "Usage: prepare-data.sh [ --no-download ]"
+    echo "Usage: prepare-data.sh [ --image-path ] [ --no-download ] "
     exit 1
 }
 
-NO_DOWNLOAD=NO
+NO_DOWNLOAD=false
 
 while [[ $# -gt 0 ]]
 do
     key="$1"
     case $key in
+    --image-path)
+        shift
+        IMAGE_PATH=$1
+        ;;
     --no-download)
-        NO_DOWNLOAD=YES
+        NO_DOWNLOAD=true
         ;;
     *)
         usage
@@ -26,25 +31,32 @@ do
 done
 
 function download_data() {
-    mkdir -p $DISEASE_PREDICTION_WORKING_DATA/raw
+    RAW_DATA_PATH=$DISEASE_PREDICTION_WORKING_DATA/raw
+    mkdir -p $RAW_DATA_PATH
     python -u \
-      $SCRIPT_DIR/src/data/process.py \
+      $SRC_DIR/data/process.py \
         --no-process \
-        --data-path $DISEASE_PREDICTION_WORKING_DATA/raw
+        --no-split \
+        --dataset-path $RAW_DATA_PATH
 }
 
 function prepare_data() {
-    if [ ! $NO_DOWNLOAD ]; then
+    if [ "$NO_DOWNLOAD" != "true" ]; then
         download_data
-    if
+    fi
 
-    mkdir -p $DISEASE_PREDICTION_WORKING_DATA/processed
+    PROCESSED_DATA_PATH=$DISEASE_PREDICTION_WORKING_DATA/processed
+    mkdir -p $PROCESSED_DATA_PATH
     python -u \
-      $SCRIPT_DIR/src/data/process.py \
+      $SRC_DIR/data/process.py \
         --no-download \
-        --data-path $DISEASE_PREDICTION_WORKING_DATA/raw \
-        --output-dir $DISEASE_PREDICTION_WORKING_DATA/processed
+        --dataset-path $DISEASE_PREDICTION_WORKING_DATA/raw \
+        --image-path $IMAGE_PATH \
+        --output-dir $PROCESSED_DATA_PATH
 }
+if [ "${IMAGE_PATH}" == "" ]; then
+    usage
+fi
 
 prepare_data
 move_to_workspace $DISEASE_PREDICTION_WORKING_DATA

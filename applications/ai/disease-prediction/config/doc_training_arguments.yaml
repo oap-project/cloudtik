@@ -1,0 +1,3 @@
+num_train_epochs: 8
+per_device_eval_batch_size: 100
+per_device_train_batch_size: 100

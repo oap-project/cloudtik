@@ -3,17 +3,15 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/configure.sh
 
-FRAUD_DETECTION_DATA_OUTPUT=$FRAUD_DETECTION_DATA/output
-FRAUD_DETECTION_DATA_TMP=$FRAUD_DETECTION_DATA/tmp
-TABULAR2GRAPH=${SCRIPT_DIR}/../config/tabular2graph.yaml
+DISEASE_PREDICTION_DATA_OUTPUT=$DISEASE_PREDICTION_DATA/output
+DISEASE_PREDICTION_DATA_TMP=$DISEASE_PREDICTION_DATA/tmp
 
 RAW_DATA_PATH=""
 PROCESSED_DATA_PATH=""
 
 function usage(){
-    echo "Usage: run-training.sh [ --raw-data-path ] [ --processed-data-path ]"
-    echo "Specify either raw-data-path to the raw data file or directory or"
-    echo "processed-data-path to the processed data file."
+    echo "Usage: run-training.sh [ --processed-data-path ]"
+    echo "Specify processed-data-path to the processed data."
     exit 1
 }
 
@@ -21,10 +19,6 @@ while [[ $# -gt 0 ]]
 do
     key="$1"
     case $key in
-    --raw-data-path)
-        shift
-        RAW_DATA_PATH=$1
-        ;;
     --processed-data-path)
         shift
         PROCESSED_DATA_PATH=$1
@@ -35,21 +29,20 @@ do
     shift
 done
 
-if [ "${RAW_DATA_PATH}" == "" ] && [ "${PROCESSED_DATA_PATH}" == "" ]; then
+if [ "${PROCESSED_DATA_PATH}" == "" ]; then
     # we assume user has run prepare-data
-    PROCESSED_DATA_PATH=$FRAUD_DETECTION_DATA/processed/processed_data.csv
+    PROCESSED_DATA_PATH=$DISEASE_PREDICTION_DATA/processed
 fi
 
 # create the directories
-mkdir -p $FRAUD_DETECTION_DATA_OUTPUT
-mkdir -p $FRAUD_DETECTION_DATA_TMP
+mkdir -p $DISEASE_PREDICTION_DATA_OUTPUT
+mkdir -p $DISEASE_PREDICTION_DATA_TMP
 
-echo "Output: $FRAUD_DETECTION_DATA_OUTPUT"
+echo "Output: $DISEASE_PREDICTION_DATA_OUTPUT"
 
-python -u $FRAUD_DETECTION_HOME/src/train.py \
-        --raw-data-path "${RAW_DATA_PATH}" \
+python -u \
+    $DISEASE_PREDICTION_HOME/src/train.py \
         --processed-data-path "${PROCESSED_DATA_PATH}" \
-        --output-dir $FRAUD_DETECTION_DATA_OUTPUT \
-        --temp-dir $FRAUD_DETECTION_DATA_TMP \
-        --tabular2graph $TABULAR2GRAPH \
+        --output-dir $DISEASE_PREDICTION_DATA_OUTPUT \
+        --temp-dir $DISEASE_PREDICTION_DATA_TMP \
         "$@"

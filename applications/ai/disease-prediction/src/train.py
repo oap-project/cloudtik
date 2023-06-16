@@ -8,12 +8,13 @@ from transformers import (
     TrainingArguments
 )
 
-from train_vision import (
-    run as run_train_vision,
+from vision.trainer import (
     TrainerArguments as VisionTrainerArguments
 )
-from sentiment_analysis.run import run as run_train_doc
-from sentiment_analysis.utils import (
+from vision.run import run as run_train_vision
+
+from dlsa.run import run as run_train_doc
+from dlsa.utils import (
     TrainerArguments as DocTrainerArguments,
     DatasetConfig
 )

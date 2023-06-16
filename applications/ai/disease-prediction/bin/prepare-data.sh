@@ -2,7 +2,6 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/configure.sh
-SRC_DIR=$SCRIPT_DIR/../src
 
 DISEASE_PREDICTION_WORKING_DATA=$DISEASE_PREDICTION_WORKING/data
 
@@ -34,7 +33,7 @@ function download_data() {
     RAW_DATA_PATH=$DISEASE_PREDICTION_WORKING_DATA/raw
     mkdir -p $RAW_DATA_PATH
     python -u \
-      $SRC_DIR/data/process.py \
+      $DISEASE_PREDICTION_HOME/src/data/process.py \
         --no-process \
         --no-split \
         --dataset-path $RAW_DATA_PATH
@@ -48,7 +47,7 @@ function prepare_data() {
     PROCESSED_DATA_PATH=$DISEASE_PREDICTION_WORKING_DATA/processed
     mkdir -p $PROCESSED_DATA_PATH
     python -u \
-      $SRC_DIR/data/process.py \
+      $DISEASE_PREDICTION_HOME/src/data/process.py \
         --no-download \
         --dataset-path $DISEASE_PREDICTION_WORKING_DATA/raw \
         --image-path $IMAGE_PATH \

@@ -39,14 +39,14 @@ def run(args):
         os.path.dirname(this_dir), "config")
     dlsa_args = DLSATrainerArguments()
 
-    dlsa_modeling_config_file = os.path.join(config_dir, "dlsa_modeling_config.yaml")
+    dlsa_modeling_config_file = os.path.join(config_dir, "dlsa-modeling-config.yaml")
     _load_config_from_file(dlsa_args, dlsa_modeling_config_file)
 
     dlsa_args.dataset = "local"
     dataset_config = DatasetConfig()
 
     # load dataset config from dataset_config file
-    dlsa_dataset_config_file = os.path.join(config_dir, "dlsa_dataset_config.yaml")
+    dlsa_dataset_config_file = os.path.join(config_dir, "dlsa-dataset-config.yaml")
     _load_config_from_file(dataset_config, dlsa_dataset_config_file)
 
     dlsa_split_output_dir = get_dlsa_split_output_dir(args.processed_data_path)
@@ -57,7 +57,7 @@ def run(args):
     training_args = TrainingArguments()
 
     # load training arguments or set automatically
-    dlsa_training_arguments_file = os.path.join(config_dir, "dlsa_training_arguments.yaml")
+    dlsa_training_arguments_file = os.path.join(config_dir, "dlsa-training-arguments.yaml")
     _load_config_from_file(training_args, dlsa_training_arguments_file)
 
     training_args.output_dir = args.output_dir

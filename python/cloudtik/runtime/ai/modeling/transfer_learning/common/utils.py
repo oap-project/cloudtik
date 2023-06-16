@@ -24,6 +24,27 @@ import shutil
 import tarfile
 from zipfile import ZipFile
 
+from enum import Enum, auto
+
+
+class FrameworkType(Enum):
+    TENSORFLOW = auto()
+    PYTORCH = auto()
+
+    def __str__(self):
+        return self.name.lower()
+
+    @staticmethod
+    def from_str(framework_str):
+        if framework_str.lower() == "tensorflow":
+            return FrameworkType.TENSORFLOW
+        elif framework_str.lower() == "pytorch":
+            return FrameworkType.PYTORCH
+        else:
+            options = [e.name for e in FrameworkType]
+            raise ValueError("Unsupported framework: {} (Select from: {})".format(
+                framework_str, options))
+
 
 def read_json_file(json_file_path):
     """

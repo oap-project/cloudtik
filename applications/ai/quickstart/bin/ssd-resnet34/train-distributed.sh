@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
-# Copyright (c) 2021 Intel Corporation
+# Copyright (c) 2022 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,12 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../configure.sh
 
-export BERT_LARGE_HOME=$QUICKSTART_WORKSPACE/bert
-export BERT_LARGE_MODEL=$BERT_LARGE_HOME/model
-export DATASET_DIR=$BERT_LARGE_HOME/data
-export OUTPUT_DIR=$BERT_LARGE_HOME/output
-export BERT_MODEL_CONFIG=${BERT_LARGE_MODEL}/bert_config.json
+export SSD_RESNET34_HOME=$QUICKSTART_WORKSPACE/ssd-resnet34
+export SSD_RESNET34_MODEL=$SSD_RESNET34_HOME/model
+export DATASET_DIR=$SSD_RESNET34_HOME/data
+export OUTPUT_DIR=$SSD_RESNET34_HOME/output
 
+export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
 mkdir -p $OUTPUT_DIR
 
 USE_IPEX=false
@@ -31,7 +31,7 @@ PRECISION=fp32
 BACKEND=gloo
 
 function usage(){
-    echo "Usage: run-training-distributed.sh [ --ipex ] [ --precision fp32 | bf16 | bf32 ] [ --backend ccl | gloo ]"
+    echo "Usage: train-distributed.sh [ --ipex ] [ --precision fp32 | bf16 | bf32 ] [ --backend ccl | gloo ]"
     exit 1
 }
 
@@ -57,17 +57,18 @@ do
     shift
 done
 
+if [[ "$PRECISION" == *"avx"* ]]; then
+    unset DNNL_MAX_CPU_ISA
+fi
+
 export USE_IPEX
 export PRECISION
 export BACKEND
-
-export TRAIN_SCRIPT=${QUICKSTART_HOME}/models/language_modeling/pytorch/bert_large/training/run_pretrain_mlperf.py
 
 LOGICAL_CORES=$(cloudtik head info --cpus-per-worker)
 export CORES=$(( LOGICAL_CORES / 2 ))
 export HOSTS=$(cloudtik head worker-ips --separator "," --node-status up-to-date)
 export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
-cd ${QUICKSTART_HOME}/scripts/language_modeling/pytorch/bert_large/training/cpu
-
-bash run_ddp_bert_pretrain_phase1.sh $PRECISION
+cd ${QUICKSTART_HOME}/scripts/object_detection/pytorch/ssd-resnet34/training/cpu
+bash throughput_dist.sh $PRECISION

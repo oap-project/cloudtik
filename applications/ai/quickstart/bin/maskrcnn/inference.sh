@@ -14,7 +14,7 @@ PRECISION=fp32
 MODE=jit
 
 function usage(){
-    echo "Usage: run-inference.sh [ --metric throughput | realtime ] [ --ipex ] [ --precision fp32 | bf16 | bf32 ] [ --mode jit or imperative ]"
+    echo "Usage: inference.sh [ --metric throughput | realtime ] [ --ipex ] [ --precision fp32 | bf16 | bf32 ] [ --mode jit or imperative ]"
     exit 1
 }
 

@@ -15,7 +15,7 @@ USE_IPEX=false
 PRECISION=fp32
 
 function usage(){
-    echo "Usage: run-inference.sh [ --ipex ] [ --precision fp32| int8| avx-int8| bf16| bf32| fp16 ] "
+    echo "Usage: inference.sh [ --ipex ] [ --precision fp32| int8| avx-int8| bf16| bf32| fp16 ] "
     exit 1
 }
 

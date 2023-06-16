@@ -32,7 +32,7 @@ PRECISION=fp32
 BACKEND=gloo
 
 function usage(){
-    echo "Usage: run-training-distributed.sh [ --training_epochs ] [ --ipex ] [ --precision fp32 | bf16 | bf32 ] [ --backend ccl | gloo ]"
+    echo "Usage: train-distributed.sh [ --training_epochs ] [ --ipex ] [ --precision fp32 | bf16 | bf32 ] [ --backend ccl | gloo ]"
     exit 1
 }
 

@@ -23,7 +23,7 @@ USE_IPEX=false
 PRECISION=fp32
 
 function usage(){
-    echo "Usage: run-training.sh [ --num-steps 100 ] [ --ipex ] [ --precision fp32 | bf16 | bf32 ] "
+    echo "Usage: train.sh [ --num-steps 100 ] [ --ipex ] [ --precision fp32 | bf16 | bf32 ] "
     exit 1
 }
 

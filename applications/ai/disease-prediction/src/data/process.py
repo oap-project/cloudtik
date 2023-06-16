@@ -17,7 +17,7 @@ import argparse
 import os
 
 from download import download
-from process_doc_data import process as process_doc
+from process_dlsa_data import process as process_dlsa
 from process_vision_data import process as process_vision
 from split_data import split
 
@@ -30,7 +30,7 @@ def get_output_annotations_file(output_dir):
 def process(data_path, image_path, output_dir):
     output_annotations_file = get_output_annotations_file(
         output_dir)
-    process_doc(
+    process_dlsa(
         data_path=data_path, output_annotations_file=output_annotations_file)
     process_vision(
         data_path=data_path, image_folder=image_path, output_dir=output_dir)
@@ -39,7 +39,7 @@ def process(data_path, image_path, output_dir):
 def run(args):
     if not args.dataset_path:
         raise ValueError(
-            "Please specify dataset-dir for storing the download dataset.")
+            "Please specify dataset-path for storing the download dataset.")
 
     if not args.no_download:
         download(args.dataset_path)

@@ -7,15 +7,15 @@ from sklearn.model_selection import train_test_split
 from pathlib import Path
 
 
-def get_split_images_output_dir(output_dir):
+def get_vision_split_output_dir(output_dir):
     return os.path.join(output_dir, "split_images")
 
 
-def get_split_doc_output_dir(output_dir):
+def get_dlsa_split_output_dir(output_dir):
     return os.path.join(output_dir, "annotation", "split")
 
 
-def split_doc_data(df: DataFrame, test_size: float) -> Tuple[DataFrame, DataFrame]:
+def split_dlsa_data(df: DataFrame, test_size: float) -> Tuple[DataFrame, DataFrame]:
     """Split the dataset into training and testing sets for NLP.
 
     Args:
@@ -86,7 +86,7 @@ def split_vision_data(
     label_column = dataset_config["features"]["class_label"]
 
     # Create the target directory for the dataset
-    split_images_dir = get_split_images_output_dir(output_dir)
+    split_images_dir = get_vision_split_output_dir(output_dir)
     if path.exists(split_images_dir):
         shutil.rmtree(split_images_dir)
 
@@ -111,15 +111,15 @@ def split_vision_data(
 
 def split(
         processed_data_dir, output_dir, test_size, overwrite=True):
-    doc_processed_data_dir = os.path.join(processed_data_dir, "annotation")
-    output_annotations_file = os.path.join(doc_processed_data_dir, "annotation.csv")
+    output_annotations_file = os.path.join(
+        os.path.join(processed_data_dir, "annotation"), "annotation.csv")
 
-    doc_split_data_path = get_split_doc_output_dir(output_dir)
-    doc_training_data_path = os.path.join(doc_split_data_path, "train.csv")
-    doc_testing_data_path = os.path.join(doc_split_data_path, "test.csv")
+    split_data_path = get_dlsa_split_output_dir(output_dir)
+    training_data_path = os.path.join(split_data_path, "train.csv")
+    testing_data_path = os.path.join(split_data_path, "test.csv")
 
-    if (path.exists(doc_training_data_path) or path.exists(
-            doc_testing_data_path)) and not overwrite:
+    if (path.exists(training_data_path) or path.exists(
+            testing_data_path)) and not overwrite:
         print("Training or testing data already exist. Skip split.")
         return
 
@@ -128,12 +128,12 @@ def split(
     input_data = read_csv(output_annotations_file)
 
     # create training and testing data
-    training_data, testing_data = split_doc_data(
+    training_data, testing_data = split_dlsa_data(
         input_data, test_size)
 
     # save training and testing data
-    training_data.to_csv(doc_training_data_path, index=False)
-    testing_data.to_csv(doc_testing_data_path, index=False)
+    training_data.to_csv(training_data_path, index=False)
+    testing_data.to_csv(testing_data_path, index=False)
 
     # create vision data
     split_vision_data(training_data, testing_data)

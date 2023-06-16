@@ -46,7 +46,7 @@ mkdir -p $FRAUD_DETECTION_DATA_TMP
 
 echo "Output: $FRAUD_DETECTION_DATA_OUTPUT"
 
-python -u $FRAUD_DETECTION_HOME/bin/train.py \
+python -u $FRAUD_DETECTION_HOME/src/train.py \
         --raw-data-path "${RAW_DATA_PATH}" \
         --processed-data-path "${PROCESSED_DATA_PATH}" \
         --output-dir $FRAUD_DETECTION_DATA_OUTPUT \

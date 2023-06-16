@@ -8,16 +8,17 @@ from transformers import (
     TrainingArguments
 )
 
-from train_vision import (
-    run as run_train_vision,
+from vision.trainer import (
     TrainerArguments as VisionTrainerArguments
 )
-from sentiment_analysis.run import run as run_train_doc
-from sentiment_analysis.utils import (
-    TrainerArguments as DocTrainerArguments,
+from vision.run import run as run_train_vision
+
+from dlsa.run import run as run_train_doc
+from dlsa.utils import (
+    TrainerArguments as DLSATrainerArguments,
     DatasetConfig
 )
-from data.split_data import get_split_images_output_dir, get_split_doc_output_dir
+from data.split_data import get_vision_split_output_dir, get_dlsa_split_output_dir
 
 
 def _load_config_from_file(config, config_file):
@@ -36,41 +37,41 @@ def run(args):
     this_dir = os.path.dirname(__file__)
     config_dir = os.path.join(
         os.path.dirname(this_dir), "config")
-    doc_args = DocTrainerArguments()
+    dlsa_args = DLSATrainerArguments()
 
-    doc_modeling_config_file = os.path.join(config_dir, "doc_modeling_config.yaml")
-    _load_config_from_file(doc_args, doc_modeling_config_file)
+    dlsa_modeling_config_file = os.path.join(config_dir, "dlsa_modeling_config.yaml")
+    _load_config_from_file(dlsa_args, dlsa_modeling_config_file)
 
-    doc_args.dataset = "local"
+    dlsa_args.dataset = "local"
     dataset_config = DatasetConfig()
 
     # load dataset config from dataset_config file
-    doc_dataset_config_file = os.path.join(config_dir, "doc_dataset_config.yaml")
-    _load_config_from_file(dataset_config, doc_dataset_config_file)
+    dlsa_dataset_config_file = os.path.join(config_dir, "dlsa_dataset_config.yaml")
+    _load_config_from_file(dataset_config, dlsa_dataset_config_file)
 
-    split_doc_output_dir = get_split_doc_output_dir(args.processed_data_path)
-    dataset_config.train = os.path.join(split_doc_output_dir, "train.csv")
-    dataset_config.test = os.path.join(split_doc_output_dir, "test.csv")
-    doc_args.dataset_config = dataset_config
+    dlsa_split_output_dir = get_dlsa_split_output_dir(args.processed_data_path)
+    dataset_config.train = os.path.join(dlsa_split_output_dir, "train.csv")
+    dataset_config.test = os.path.join(dlsa_split_output_dir, "test.csv")
+    dlsa_args.dataset_config = dataset_config
 
     training_args = TrainingArguments()
 
     # load training arguments or set automatically
-    doc_training_arguments_file = os.path.join(config_dir, "doc_training_arguments.yaml")
-    _load_config_from_file(training_args, doc_training_arguments_file)
+    dlsa_training_arguments_file = os.path.join(config_dir, "dlsa_training_arguments.yaml")
+    _load_config_from_file(training_args, dlsa_training_arguments_file)
 
     training_args.output_dir = args.output_dir
     training_args.do_predict = (not args.no_predict)
 
-    doc_args.training_args = training_args
+    dlsa_args.training_args = training_args
 
-    run_train_doc(doc_args)
+    run_train_doc(dlsa_args)
 
     # run vision and doc training
     vision_args = VisionTrainerArguments()
 
-    split_images_path = get_split_images_output_dir(args.processed_data_path)
-    vision_args.data_path = split_images_path
+    vision_split_output_dir = get_vision_split_output_dir(args.processed_data_path)
+    vision_args.data_path = vision_split_output_dir
     vision_args.output_dir = args.output_dir
     vision_args.no_predict = args.no_predict
 

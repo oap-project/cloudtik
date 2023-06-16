@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2022 Intel Corporation
+# Copyright (c) 2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,23 +15,33 @@
 # limitations under the License.
 #
 
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source ${SCRIPT_DIR}/../configure.sh
 
-export SSD_RESNET34_HOME=$QUICKSTART_WORKSPACE/ssd-resnet34
-export SSD_RESNET34_MODEL=$SSD_RESNET34_HOME/model
-export DATASET_DIR=$SSD_RESNET34_HOME/data
-export OUTPUT_DIR=$SSD_RESNET34_HOME/output
+RNNT_HOME=$QUICKSTART_WORKSPACE/rnn-t
 
-export CHECKPOINT_DIR=$SSD_RESNET34_MODEL
+RNNT_OUTPUT_DIR=$RNNT_HOME/output
+RNNT_DATASET_DIR=$RNNT_HOME/data
+RNNT_CHECKPOINT_DIR=$RNNT_HOME/checkpoint
+
+# Env vars
+export OUTPUT_DIR=$RNNT_OUTPUT_DIR
+export DATASET_DIR=$RNNT_DATASET_DIR
+export CHECKPOINT_DIR=$RNNT_CHECKPOINT_DIR
+
 mkdir -p $OUTPUT_DIR
+mkdir -p $CHECKPOINT_DIR
 
+
+NUM_STEPS=100
 USE_IPEX=false
+#(fp32, bf16, bf32)
 PRECISION=fp32
 BACKEND=gloo
 
 function usage(){
-    echo "Usage: run-training-distributed.sh [ --ipex ] [ --precision fp32 | bf16 | bf32 ] [ --backend ccl | gloo ]"
+    echo "Usage: train-distributed.sh [ --num-steps 100 ] [ --ipex ] [ --precision fp32 | bf16 | bf32 ] [ --backend ccl | gloo ] "
     exit 1
 }
 
@@ -39,6 +49,11 @@ while [[ $# -gt 0 ]]
 do
     key="$1"
     case $key in
+    --num-steps)
+        # num for steps
+        shift
+        NUM_STEPS=$1
+        ;;
     --ipex)
         shift
         USE_IPEX=true
@@ -57,12 +72,8 @@ do
     shift
 done
 
-if [[ "$PRECISION" == *"avx"* ]]; then
-    unset DNNL_MAX_CPU_ISA
-fi
-
 export USE_IPEX
-export PRECISION
+export NUM_STEPS
 export BACKEND
 
 LOGICAL_CORES=$(cloudtik head info --cpus-per-worker)
@@ -70,5 +81,5 @@ export CORES=$(( LOGICAL_CORES / 2 ))
 export HOSTS=$(cloudtik head worker-ips --separator "," --node-status up-to-date)
 export SOCKETS=$(cloudtik head info --sockets-per-worker)
 
-cd ${QUICKSTART_HOME}/scripts/object_detection/pytorch/ssd-resnet34/training/cpu
-bash throughput_dist.sh $PRECISION
+cd ${QUICKSTART_HOME}/scripts/language_modeling/pytorch/rnnt/training/cpu
+bash training_multinode.sh $PRECISION

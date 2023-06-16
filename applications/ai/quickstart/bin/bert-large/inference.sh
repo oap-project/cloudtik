@@ -15,7 +15,7 @@ PRECISION=fp32
 USE_IPEX=false
 
 function usage(){
-    echo "Usage: run-inference.sh [ --metric throughput | realtime ] [ --ipex ] [ --precision fp32 | bf16 | bf32 ] "
+    echo "Usage: inference.sh [ --metric throughput | realtime ] [ --ipex ] [ --precision fp32 | bf16 | bf32 ] "
     exit 1
 }
 

@@ -74,20 +74,20 @@ Replace model-name to one of the model name above.
 ### Run inference
 Run the following command for inference if supported.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'bash $HOME/applications/quickstart/bin/[model-name]/run-inference.sh'
+cloudtik exec your-cluster-config.yaml 'bash $HOME/applications/quickstart/bin/[model-name]/inference.sh'
 ```
 Replace model-name to one of the model name above.
 
 ### Run single node training
 Run the following command for training if supported.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'bash $HOME/applications/quickstart/bin/[model-name]/run-training.sh'
+cloudtik exec your-cluster-config.yaml 'bash $HOME/applications/quickstart/bin/[model-name]/train.sh'
 ```
 Replace model-name to one of the model name above.
 
 ### Run distributed training
 Run the following command for training if supported.
 ```buildoutcfg
-cloudtik exec your-cluster-config.yaml 'bash $HOME/applications/quickstart/bin/[model-name]/run-training-distributed.sh'
+cloudtik exec your-cluster-config.yaml 'bash $HOME/applications/quickstart/bin/[model-name]/train-distributed.sh'
 ```
 Replace model-name to one of the model name above.

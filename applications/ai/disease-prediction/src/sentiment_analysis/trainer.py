@@ -22,7 +22,7 @@ from transformers import (
     Trainer as TransformerTrainer
 )
 
-from .utils import Benchmark, compute_metrics, save_test_metrics, save_train_metrics
+from utils import Benchmark, compute_metrics, save_test_metrics, save_train_metrics
 
 
 class Trainer(object):

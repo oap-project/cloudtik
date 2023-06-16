@@ -21,7 +21,7 @@ from transformers import (
     Trainer as TransformerTrainer
 )
 
-from .utils import compute_metrics, save_test_metrics, Benchmark
+from utils import compute_metrics, save_test_metrics, Benchmark
 
 
 class Predictor(object):

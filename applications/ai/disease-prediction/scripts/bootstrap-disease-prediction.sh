@@ -42,9 +42,7 @@ function install_tools() {
 }
 
 function install_libaries() {
-    pip install --no-cache-dir -qq optuna sigopt modin
-    pip install --no-cache-dir --pre dgl -f https://data.dgl.ai/wheels/repo.html && \
-    pip install --no-cache-dir --pre dglgo -f https://data.dgl.ai/wheels-test/repo.html
+    pip install --no-cache-dir -qq docx2txt openpyxl pillow
 }
 
 function install_disease_prediction() {
@@ -54,7 +52,7 @@ function install_disease_prediction() {
     git clone https://github.com/oap-project/cloudtik.git
     rm -rf $DISEASE_PREDICTION_HOME/*
     mkdir -p $DISEASE_PREDICTION_HOME
-    cp -r cloudtik/applications/ai/fraud-detection/* $DISEASE_PREDICTION_HOME/
+    cp -r cloudtik/applications/ai/disease-prediction/* $DISEASE_PREDICTION_HOME/
     rm -rf $DISEASE_PREDICTION_TMP/cloudtik
 }
 

@@ -14,6 +14,25 @@ from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import Framewor
 IMAGE_SIZE = 224
 
 
+class TrainerArguments:
+    def __init__(self):
+        self.no_train = False
+        self.no_predict = False
+        self.data_path = None
+        self.model = "resnet_v1_50"
+        self.temp_dir = None
+        self.output_dir = None
+        self.model_dir = None
+        self.output_report_file = None
+
+        self.batch_size = 32
+        self.epochs = 5
+        self.int8 = False
+        self.disable_auto_mixed_precision = False
+
+        self.hosts = None
+
+
 def collect_class_labels(dataset_dir):
     dataset = dataset_factory.load_dataset(dataset_dir=dataset_dir,
                                            use_case='image_classification',
@@ -253,18 +272,18 @@ def run(args):
             train_dataset_dir, args.model_dir, class_labels,
             args.model, args.int8, train_output)
 
-        if not args.output_file:
-            args.output_file = os.path.join(args.output_dir, "output.yaml")
+        if not args.output_report_file:
+            args.output_report_file = os.path.join(args.output_dir, "output.yaml")
 
     if not args.no_predict:
         if not args.model_dir:
             raise ValueError("Must specify the model dir stored the output model.")
-        if not args.output_file:
-            raise ValueError("Must specify the output file for storing test results.")
+        if not args.output_report_file:
+            raise ValueError("Must specify the output report file for storing test results.")
         class_labels = collect_class_labels(train_dataset_dir)
         predict(
             test_dataset_dir, args.model_dir, class_labels,
-            args.model, args.int8, args.output_file)
+            args.model, args.int8, args.output_report_file)
 
 
 if __name__ == "__main__":
@@ -302,7 +321,7 @@ if __name__ == "__main__":
         type=str,
         help="The path to the output model file")
     parser.add_argument(
-        "--output-file", "--output_file",
+        "--output-report-file", "--output_report_file",
         type=str,
         help="The path to the output report file")
 

@@ -22,7 +22,7 @@ from transformers import (
 )
 from transformers import logging as hf_logging
 
-from .utils import TrainerArguments, parse_arguments, DatasetConfig
+from utils import TrainerArguments, parse_arguments, DatasetConfig
 
 hf_logging.set_verbosity_info()
 
@@ -31,12 +31,12 @@ def _run(args):
     kwargs = {"args": args, "training_args": args.training_args}
 
     if args.training_args.do_train:
-        from .trainer import Trainer
+        from trainer import Trainer
         trainer = Trainer(**kwargs)
         trainer.train()
     else:
         # if not do train, we do predict
-        from .predictor import Predictor
+        from predictor import Predictor
         predictor = Predictor(**kwargs)
         predictor.predict()
 

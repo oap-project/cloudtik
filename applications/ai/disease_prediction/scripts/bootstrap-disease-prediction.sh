@@ -52,7 +52,7 @@ function install_disease_prediction() {
     git clone https://github.com/oap-project/cloudtik.git
     rm -rf $DISEASE_PREDICTION_HOME/*
     mkdir -p $DISEASE_PREDICTION_HOME
-    cp -r cloudtik/applications/ai/disease-prediction/* $DISEASE_PREDICTION_HOME/
+    cp -r cloudtik/applications/ai/disease_prediction/* $DISEASE_PREDICTION_HOME/
     rm -rf $DISEASE_PREDICTION_TMP/cloudtik
 }
 

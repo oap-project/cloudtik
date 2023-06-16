@@ -54,7 +54,7 @@ function install_fraud_detection() {
     git clone https://github.com/oap-project/cloudtik.git
     rm -rf $FRAUD_DETECTION_HOME/*
     mkdir -p $FRAUD_DETECTION_HOME
-    cp -r cloudtik/applications/ai/fraud-detection/* $FRAUD_DETECTION_HOME/
+    cp -r cloudtik/applications/ai/fraud_detection/* $FRAUD_DETECTION_HOME/
     rm -rf $FRAUD_DETECTION_TMP/cloudtik
 }
 

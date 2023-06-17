@@ -30,7 +30,7 @@ def get_vision_model_output_dir(args):
         args.model_path if args.model_path else args.output_dir, "vision")
 
 
-def run(args):
+def _run_dlsa(args):
     this_dir = os.path.dirname(__file__)
     config_dir = os.path.join(
         os.path.dirname(this_dir), "config")
@@ -72,6 +72,8 @@ def run(args):
 
     run_train_dlsa(dlsa_args)
 
+
+def _run_vision(args):
     # run vision and doc training
     vision_args = VisionTrainerArguments()
 
@@ -89,8 +91,25 @@ def run(args):
     run_train_vision(vision_args)
 
 
+def run(args):
+
+    if not args.no_dlsa:
+        _run_dlsa(args)
+
+    if not args.no_vision:
+        _run_vision(args)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Disease Prediction Training")
+    parser.add_argument(
+        "--no-dlsa", "--no_dlsa",
+        default=False, action="store_true",
+        help="whether to run dlsa.")
+    parser.add_argument(
+        "--no-vision", "--no_vision",
+        default=False, action="store_true",
+        help="whether to run vision.")
     parser.add_argument(
         "--no-train", "--no_train",
         default=False, action="store_true",
@@ -99,6 +118,7 @@ if __name__ == "__main__":
         "--no-predict", "--no_predict",
         default=False, action="store_true",
         help="whether to predict on test the data.")
+
     parser.add_argument(
         "--processed-data-path", "--processed_data_path",
         type=str,

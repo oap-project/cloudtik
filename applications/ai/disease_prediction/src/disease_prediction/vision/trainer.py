@@ -9,8 +9,12 @@ from PIL import Image
 
 from cloudtik.runtime.ai.modeling.transfer_learning import dataset_factory, model_factory
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import FrameworkType
+from cloudtik.runtime.ai.util.utils import move_contents
 
 IMAGE_SIZE = 224
+
+TRAIN_FRAMEWORK = str(FrameworkType.TENSORFLOW)
+TRAIN_CATEGORY = "image_classification"
 
 
 class TrainerArguments:
@@ -34,8 +38,8 @@ class TrainerArguments:
 
 def collect_class_labels(dataset_dir):
     dataset = dataset_factory.load_dataset(dataset_dir=dataset_dir,
-                                           use_case='image_classification',
-                                           framework='tensorflow')
+                                           category=TRAIN_CATEGORY,
+                                           framework=TRAIN_FRAMEWORK)
     return dataset.class_names
 
 
@@ -69,7 +73,7 @@ def train(
     tstart = time.time()
     model = model_factory.get_model(
         model_name=model,
-        framework=str(FrameworkType.TENSORFLOW))
+        framework=TRAIN_FRAMEWORK)
     tend = time.time()
     print("\nModel Loading time (s): ", tend - tstart)
 
@@ -77,8 +81,8 @@ def train(
     # Data loading and preprocessing #
     dataset = dataset_factory.load_dataset(
         dataset_dir=dataset_dir,
-        category='image_classification',
-        framework=str(FrameworkType.TENSORFLOW),
+        category=TRAIN_CATEGORY,
+        framework=TRAIN_FRAMEWORK,
         shuffle_files=True)
 
     print("Class names:", str(dataset.class_names))
@@ -131,7 +135,8 @@ def _save_model(model, model_dir, output_dir, quantization):
     else:
         if model_dir:
             # move the contents of saved_model_dir to model_dir
-            shutil.move(saved_model_dir, model_dir)
+            move_contents(
+                source=saved_model_dir, target=model_dir, overwrite=True)
             saved_model_dir = model_dir
     return saved_model_dir
 
@@ -167,8 +172,8 @@ def preprocess_dataset(dataset_dir, image_size, batch_size):
     """
     dataset = dataset_factory.load_dataset(
         dataset_dir=dataset_dir,
-        use_case='image_classification',
-        framework=str(FrameworkType.TENSORFLOW),
+        category=TRAIN_CATEGORY,
+        framework=TRAIN_FRAMEWORK,
         shuffle_files=False)
     dataset.preprocess(image_size, batch_size)
     class_dict = reverse_map(dataset.class_names)
@@ -199,8 +204,8 @@ def predict(
     # Load model
     model = model_factory.load_model(
         model_name, model_dir,
-        category="image_classification",
-        framework=str(FrameworkType.TENSORFLOW))
+        category=TRAIN_CATEGORY,
+        framework=TRAIN_FRAMEWORK)
 
     if int8:
         model_int8 = tf.saved_model.load(model_dir)

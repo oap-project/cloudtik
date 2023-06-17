@@ -122,6 +122,34 @@ class TrainerArguments:
         },
     )
 
+    model_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the model dir"
+        },
+    )
+    output_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the output"
+        },
+    )
+    temp_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the intermediate output"
+        },
+    )
+
+    no_train: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to train."}
+    )
+    no_predict: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to predict."}
+    )
+
 
 @dataclass
 class DatasetConfig:

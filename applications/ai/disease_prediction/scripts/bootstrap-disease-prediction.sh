@@ -42,7 +42,7 @@ function install_tools() {
 }
 
 function install_libaries() {
-    pip install --no-cache-dir -qq docx2txt openpyxl pillow
+    pip install --no-cache-dir -qq docx2txt openpyxl pillow accelerate==0.20.3
 }
 
 function install_disease_prediction() {

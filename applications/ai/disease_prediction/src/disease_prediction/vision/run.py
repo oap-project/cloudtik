@@ -78,7 +78,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-dir", "--model_dir",
         type=str,
-        help="The path to the output model file")
+        help="The path to the model")
     parser.add_argument(
         "--output-report-file", "--output_report_file",
         type=str,

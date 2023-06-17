@@ -166,7 +166,10 @@ class Trainer(object):
 
     def _load_model(self):
         with self.track('Load Model'):
-            self.model = AutoModelForSequenceClassification.from_pretrained(self.args.model_name_or_path)
+            self.model = AutoModelForSequenceClassification.from_pretrained(
+                self.args.model_name_or_path,
+                num_labels=self.num_labels if self.num_labels is not None else None
+            )
 
             self.trainer = TransformerTrainer(
                 model=self.model,  # the instantiated HF model to be trained

@@ -40,6 +40,7 @@ mkdir -p $DISEASE_PREDICTION_DATA_TMP
 
 echo "Output: $DISEASE_PREDICTION_DATA_OUTPUT"
 
+export PYTHONPATH=$DISEASE_PREDICTION_HOME/src:${PYTHONPATH}
 python -u \
     $DISEASE_PREDICTION_HOME/src/train.py \
         --processed-data-path "${PROCESSED_DATA_PATH}" \

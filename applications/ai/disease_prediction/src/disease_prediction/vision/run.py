@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from trainer import train, collect_class_labels, predict
+from disease_prediction.vision.trainer import train, collect_class_labels, predict
 
 
 def run(args):

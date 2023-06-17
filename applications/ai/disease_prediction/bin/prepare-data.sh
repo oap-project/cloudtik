@@ -46,8 +46,10 @@ function prepare_data() {
 
     PROCESSED_DATA_PATH=$DISEASE_PREDICTION_WORKING_DATA/processed
     mkdir -p $PROCESSED_DATA_PATH
+
+    export PYTHONPATH=$DISEASE_PREDICTION_HOME/src:${PYTHONPATH}
     python -u \
-      $DISEASE_PREDICTION_HOME/src/data/process.py \
+      $DISEASE_PREDICTION_HOME/src/process.py \
         --no-download \
         --dataset-path $DISEASE_PREDICTION_WORKING_DATA/raw \
         --image-path $IMAGE_PATH \

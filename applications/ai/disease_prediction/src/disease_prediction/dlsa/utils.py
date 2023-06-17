@@ -134,6 +134,18 @@ class TrainerArguments:
             "help": "The path to the output"
         },
     )
+    train_output: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the train output"
+        },
+    )
+    predict_output: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the predict output"
+        },
+    )
     temp_dir: Optional[str] = field(
         default=None,
         metadata={
@@ -184,9 +196,9 @@ class DatasetConfig:
     )
 
 
-class PredsLabels:
-    def __init__(self, preds, labels):
-        self.predictions = preds
+class PredictionsLabels:
+    def __init__(self, predictions, labels):
+        self.predictions = predictions
         self.label_ids = labels
 
 
@@ -208,16 +220,17 @@ def save_test_metrics(metrics, max_test, output_dir):
     metrics['test_samples'] = max_test
     with open(Path(output_dir) / 'test_results.json', 'w') as f:
         json.dump(metrics, f, indent=2)
-    return "\n\n******** TEST METRICS ********\n" + '\n'.join(f'{k}: {v}' for k, v in metrics.items())
+    return "\n\n******** TEST METRICS ********\n" + '\n'.join(
+        f'{k}: {v}' for k, v in metrics.items())
 
 
-def save_performance_metrics(trainer, data, output_file):
-    label_map = {i:v for i,v in enumerate(data.features['label'].names)}
-    predictions = trainer.predict(data)
+def save_predictions(predictions, data, output_file):
+    label_map = {i: v for i, v in enumerate(data.features['label'].names)}
 
     predictions_report = {}
     predictions_report["label_id"] = [label_map[i] for i in predictions.label_ids.tolist()]
-    predictions_report["predictions_label"] = [label_map[i] for i in np.argmax(predictions.predictions, axis=1).tolist() ]
+    predictions_report["predictions_label"] = [label_map[i] for i in np.argmax(
+        predictions.predictions, axis=1).tolist()]
     predictions_report["predictions_probabilities"] = softmax(predictions.predictions, axis=1).tolist() 
     predictions_report["metrics"] = predictions.metrics
     

@@ -20,14 +20,26 @@ from disease_prediction.dlsa.utils import (
 from disease_prediction.data.split_data import get_vision_split_output_dir, get_dlsa_split_output_dir
 
 
+def get_dlsa_output_dir(args):
+    return os.path.join(args.output_dir, "dlsa")
+
+
 def get_dlsa_model_output_dir(args):
-    return os.path.join(
-        args.model_path if args.model_path else args.output_dir, "dlsa")
+    if args.model_path:
+        return os.path.join(args.model_path, "dlsa")
+    else:
+        return os.path.join(get_dlsa_output_dir(args), "model")
+
+
+def get_vision_output_dir(args):
+    return os.path.join(args.output_dir, "vision")
 
 
 def get_vision_model_output_dir(args):
-    return os.path.join(
-        args.model_path if args.model_path else args.output_dir, "vision")
+    if args.model_path:
+        return os.path.join(args.model_path, "vision")
+    else:
+        return os.path.join(get_vision_output_dir(args), "model")
 
 
 def _run_dlsa(args):
@@ -39,6 +51,9 @@ def _run_dlsa(args):
     dlsa_modeling_config_file = os.path.join(
         config_dir, "dlsa-modeling-config.yaml")
     load_config_from(dlsa_modeling_config_file, dlsa_args)
+
+    dlsa_args.output_dir = get_dlsa_output_dir(args)
+    os.makedirs(dlsa_args.output_dir, exist_ok=True)
 
     dlsa_args.no_train = args.no_train
     dlsa_args.no_predict = args.no_predict
@@ -56,17 +71,15 @@ def _run_dlsa(args):
     dlsa_args.dataset_config = dataset_config
 
     # training arguments for transformer
-    dlsa_model_output_dir = get_dlsa_model_output_dir(args)
-    os.makedirs(dlsa_model_output_dir, exist_ok=True)
-
-    dlsa_args.model_dir = dlsa_model_output_dir
+    dlsa_args.model_dir = get_dlsa_model_output_dir(args)
+    os.makedirs(dlsa_args.model_dir, exist_ok=True)
 
     # load training arguments or set automatically
-    training_args = TrainingArguments(output_dir=dlsa_model_output_dir)
+    training_args = TrainingArguments(output_dir=dlsa_args.model_dir)
     dlsa_training_arguments_file = os.path.join(
         config_dir, "dlsa-training-arguments.yaml")
     load_config_from(dlsa_training_arguments_file, training_args)
-    training_args.output_dir = dlsa_model_output_dir
+    training_args.output_dir = dlsa_args.model_dir
 
     dlsa_args.training_args = training_args
 
@@ -79,11 +92,11 @@ def _run_vision(args):
 
     vision_split_output_dir = get_vision_split_output_dir(args.processed_data_path)
     vision_args.data_path = vision_split_output_dir
-    vision_args.output_dir = args.output_dir
 
-    vision_model_output_dir = get_vision_model_output_dir(args)
-    os.makedirs(vision_model_output_dir, exist_ok=True)
-    vision_args.model_dir = vision_model_output_dir
+    vision_args.output_dir = get_vision_output_dir(args)
+    os.makedirs(vision_args.output_dir, exist_ok=True)
+    vision_args.model_dir = get_vision_model_output_dir(args)
+    os.makedirs(vision_args.model_dir, exist_ok=True)
 
     vision_args.no_train = args.no_train
     vision_args.no_predict = args.no_predict

@@ -9,7 +9,7 @@ from PIL import Image
 
 from cloudtik.runtime.ai.modeling.transfer_learning import dataset_factory, model_factory
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import FrameworkType
-from cloudtik.runtime.ai.util.utils import move_contents
+from cloudtik.runtime.ai.util.utils import move_dir_contents
 
 IMAGE_SIZE = 224
 
@@ -135,7 +135,7 @@ def _save_model(model, model_dir, output_dir, quantization):
     else:
         if model_dir:
             # move the contents of saved_model_dir to model_dir
-            move_contents(
+            move_dir_contents(
                 source=saved_model_dir, target=model_dir, overwrite=True)
             saved_model_dir = model_dir
     return saved_model_dir

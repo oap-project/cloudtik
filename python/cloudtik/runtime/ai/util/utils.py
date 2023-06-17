@@ -28,7 +28,7 @@ def load_config_from(source, config=None):
         return args_in_source
 
 
-def move_contents(source, target, overwrite=True):
+def move_dir_contents(source, target, overwrite=True):
     file_names = os.listdir(source)
     for file_name in file_names:
         if overwrite:

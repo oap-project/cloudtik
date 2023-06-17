@@ -20,12 +20,14 @@ from disease_prediction.dlsa.utils import (
 from disease_prediction.data.split_data import get_vision_split_output_dir, get_dlsa_split_output_dir
 
 
-def get_dlsa_model_output_dir(output_dir):
-    return os.path.join(output_dir, "dlsa")
+def get_dlsa_model_output_dir(args):
+    return os.path.join(
+        args.model_path if args.model_path else args.output_dir, "dlsa")
 
 
-def get_vision_model_output_dir(output_dir):
-    return os.path.join(output_dir, "vision")
+def get_vision_model_output_dir(args):
+    return os.path.join(
+        args.model_path if args.model_path else args.output_dir, "vision")
 
 
 def run(args):
@@ -34,17 +36,18 @@ def run(args):
         os.path.dirname(this_dir), "config")
     dlsa_args = DLSATrainerArguments()
 
-    dlsa_modeling_config_file = os.path.join(config_dir, "dlsa-modeling-config.yaml")
+    dlsa_modeling_config_file = os.path.join(
+        config_dir, "dlsa-modeling-config.yaml")
     load_config_from(dlsa_modeling_config_file, dlsa_args)
 
     dlsa_args.no_train = args.no_train
     dlsa_args.no_predict = args.no_predict
 
+    # load dataset config from dataset_config file
     dlsa_args.dataset = "local"
     dataset_config = DatasetConfig()
-
-    # load dataset config from dataset_config file
-    dlsa_dataset_config_file = os.path.join(config_dir, "dlsa-dataset-config.yaml")
+    dlsa_dataset_config_file = os.path.join(
+        config_dir, "dlsa-dataset-config.yaml")
     load_config_from(dlsa_dataset_config_file, dataset_config)
 
     dlsa_split_output_dir = get_dlsa_split_output_dir(args.processed_data_path)
@@ -52,15 +55,16 @@ def run(args):
     dataset_config.test = os.path.join(dlsa_split_output_dir, "test.csv")
     dlsa_args.dataset_config = dataset_config
 
-    dlsa_model_output_dir = get_dlsa_model_output_dir(
-        args.model_path if args.model_path else args.output_dir)
+    # training arguments for transformer
+    dlsa_model_output_dir = get_dlsa_model_output_dir(args)
     os.makedirs(dlsa_model_output_dir, exist_ok=True)
 
     dlsa_args.model_dir = dlsa_model_output_dir
 
     # load training arguments or set automatically
     training_args = TrainingArguments(output_dir=dlsa_model_output_dir)
-    dlsa_training_arguments_file = os.path.join(config_dir, "dlsa-training-arguments.yaml")
+    dlsa_training_arguments_file = os.path.join(
+        config_dir, "dlsa-training-arguments.yaml")
     load_config_from(dlsa_training_arguments_file, training_args)
     training_args.output_dir = dlsa_model_output_dir
 
@@ -75,8 +79,7 @@ def run(args):
     vision_args.data_path = vision_split_output_dir
     vision_args.output_dir = args.output_dir
 
-    vision_model_output_dir = get_vision_model_output_dir(
-        args.model_path if args.model_path else args.output_dir)
+    vision_model_output_dir = get_vision_model_output_dir(args)
     os.makedirs(vision_model_output_dir, exist_ok=True)
     vision_args.model_dir = vision_model_output_dir
 

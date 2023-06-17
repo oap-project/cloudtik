@@ -41,7 +41,7 @@ def _run(args):
         training_args.do_train = True
         training_args.do_predict = True
 
-        kwargs = {"args": args, "training_args": args.training_args}
+        kwargs = {"args": args, "training_args": training_args}
         trainer = Trainer(**kwargs)
         trainer.train()
 

@@ -16,7 +16,7 @@
 import argparse
 import os
 
-from cloudtik.runtime.ai.util.utils import load_config_from_file
+from cloudtik.runtime.ai.util.utils import load_config_from
 from disease_prediction.data.download import download
 from disease_prediction.data.process_dlsa_data import process as process_dlsa
 from disease_prediction.data.process_vision_data import process as process_vision
@@ -41,10 +41,11 @@ def _get_dataset_config():
     # load dataset config from dataset_config file
     this_dir = os.path.dirname(__file__)
     config_dir = os.path.join(
-        os.path.dirname(os.path.dirname(this_dir)), "config")
+        os.path.dirname(this_dir), "config")
 
-    dlsa_dataset_config_file = os.path.join(config_dir, "dlsa-dataset-config.yaml")
-    return load_config_from_file(dlsa_dataset_config_file)
+    dlsa_dataset_config_file = os.path.join(
+        config_dir, "dlsa-dataset-config.yaml")
+    return load_config_from(dlsa_dataset_config_file)
 
 
 def run(args):

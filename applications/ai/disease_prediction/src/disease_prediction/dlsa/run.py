@@ -22,7 +22,7 @@ from transformers import (
 )
 from transformers import logging as hf_logging
 
-from utils import TrainerArguments, parse_arguments, DatasetConfig
+from disease_prediction.dlsa.utils import TrainerArguments, parse_arguments, DatasetConfig
 
 hf_logging.set_verbosity_info()
 

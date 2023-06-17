@@ -17,10 +17,10 @@ import argparse
 import os
 
 from cloudtik.runtime.ai.util.utils import load_config_from_file
-from download import download
-from process_dlsa_data import process as process_dlsa
-from process_vision_data import process as process_vision
-from split_data import split
+from disease_prediction.data.download import download
+from disease_prediction.data.process_dlsa_data import process as process_dlsa
+from disease_prediction.data.process_vision_data import process as process_vision
+from disease_prediction.data.split_data import split
 
 
 def get_output_annotations_file(output_dir):

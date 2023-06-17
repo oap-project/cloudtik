@@ -7,17 +7,17 @@ from transformers import (
     TrainingArguments
 )
 
-from vision.trainer import (
+from disease_prediction.vision.trainer import (
     TrainerArguments as VisionTrainerArguments
 )
-from vision.run import run as run_train_vision
+from disease_prediction.vision.run import run as run_train_vision
 
-from dlsa.run import run as run_train_doc
-from dlsa.utils import (
+from disease_prediction.dlsa.run import run as run_train_doc
+from disease_prediction.dlsa.utils import (
     TrainerArguments as DLSATrainerArguments,
     DatasetConfig
 )
-from data.split_data import get_vision_split_output_dir, get_dlsa_split_output_dir
+from disease_prediction.data.split_data import get_vision_split_output_dir, get_dlsa_split_output_dir
 
 
 def run(args):

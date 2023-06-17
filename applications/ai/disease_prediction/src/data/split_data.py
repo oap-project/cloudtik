@@ -110,11 +110,14 @@ def split_vision_data(
 
 
 def split(
-        processed_data_dir, output_dir, test_size, overwrite=True):
+        processed_data_dir, output_dir,
+        test_size, dataset_config, overwrite=True):
     output_annotations_file = os.path.join(
         os.path.join(processed_data_dir, "annotation"), "annotation.csv")
 
     split_data_path = get_dlsa_split_output_dir(output_dir)
+    os.makedirs(split_data_path, exist_ok=True)
+
     training_data_path = os.path.join(split_data_path, "train.csv")
     testing_data_path = os.path.join(split_data_path, "test.csv")
 
@@ -136,4 +139,8 @@ def split(
     testing_data.to_csv(testing_data_path, index=False)
 
     # create vision data
-    split_vision_data(training_data, testing_data)
+    split_vision_data(
+        training_data, testing_data,
+        processed_data_dir=processed_data_dir,
+        dataset_config=dataset_config,
+        output_dir=output_dir)

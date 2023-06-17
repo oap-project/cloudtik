@@ -16,6 +16,7 @@
 import argparse
 import os
 
+from cloudtik.runtime.ai.util.utils import load_config_from_file
 from download import download
 from process_dlsa_data import process as process_dlsa
 from process_vision_data import process as process_vision
@@ -33,7 +34,17 @@ def process(data_path, image_path, output_dir):
     process_dlsa(
         data_path=data_path, output_annotations_file=output_annotations_file)
     process_vision(
-        data_path=data_path, image_folder=image_path, output_dir=output_dir)
+        data_path=data_path, image_path=image_path, output_dir=output_dir)
+
+
+def _get_dataset_config():
+    # load dataset config from dataset_config file
+    this_dir = os.path.dirname(__file__)
+    config_dir = os.path.join(
+        os.path.dirname(os.path.dirname(this_dir)), "config")
+
+    dlsa_dataset_config_file = os.path.join(config_dir, "dlsa-dataset-config.yaml")
+    return load_config_from_file(dlsa_dataset_config_file)
 
 
 def run(args):
@@ -49,7 +60,7 @@ def run(args):
             raise ValueError("Dataset directory {} doesn't exist.".format(args.dataset_path))
 
         if not args.image_path:
-            raise ValueError("Please specify image-dir of the images.")
+            raise ValueError("Please specify image-path of the images.")
 
         if not args.output_dir:
             args.output_dir = args.dataset_path
@@ -59,6 +70,7 @@ def run(args):
             args.dataset_path,
             args.image_path,
             args.output_dir)
+        print("Data process completed.")
 
     if not args.no_split:
         if not args.output_dir:
@@ -66,10 +78,13 @@ def run(args):
             print("output-dir is not specified. Default to: {}".format(
                 args.output_dir))
 
+        dataset_config = _get_dataset_config()
         split(
             processed_data_dir=args.output_dir,
             output_dir=args.output_dir,
-            test_size=args.test_size)
+            test_size=args.test_size,
+            dataset_config=dataset_config)
+        print("Data split completed.")
 
 
 if __name__ == "__main__":

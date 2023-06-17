@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions
 # and limitations under the License.
 #
-
+import os
 
 from datasets import load_dataset, Features, Value, ClassLabel
 from transformers import (
@@ -21,7 +21,8 @@ from transformers import (
     Trainer as TransformerTrainer
 )
 
-from disease_prediction.dlsa.utils import Benchmark, compute_metrics, save_test_metrics
+from disease_prediction.dlsa.utils import \
+    Benchmark, compute_metrics, save_test_metrics, save_predictions
 
 
 class Predictor(object):
@@ -154,6 +155,10 @@ class Predictor(object):
 
     def _predict(self):
         with self.track('Inference'):
-            preds, _, metrics = self.trainer.predict(self.test_data)
-            test_metrics = save_test_metrics(metrics, len(self.test_data), self.training_args.output_dir)
+            predictions = self.trainer.predict(self.test_data)
+            test_metrics = save_test_metrics(
+                predictions.metrics, len(self.test_data), self.training_args.output_dir)
         print(test_metrics)
+        if self.args.predict_output:
+            save_predictions(
+                predictions, self.test_data, self.args.predict_output)

@@ -29,23 +29,30 @@ def run(args):
 
         if not args.model_dir:
             args.model_dir = saved_model_dir
-        train_output = os.path.join(args.output_dir, "train_output.yaml")
+
+        if not args.train_output:
+            args.train_output = os.path.join(args.output_dir, "train_output.yaml")
+            print("train-output is not specified. Default to: {}".format(
+                args.output_dir))
+
         predict(
             train_dataset_dir, args.model_dir, class_labels,
-            args.model, args.int8, train_output)
-
-        if not args.output_report_file:
-            args.output_report_file = os.path.join(args.output_dir, "output.yaml")
+            args.model, args.int8, args.train_output)
 
     if not args.no_predict:
+        if not args.predict_output and args.output_dir:
+            args.predict_output = os.path.join(args.output_dir, "predict_output.yaml")
+            print("predict-output is not specified. Default to: {}".format(
+                args.output_dir))
+
         if not args.model_dir:
             raise ValueError("Must specify the model dir stored the output model.")
-        if not args.output_report_file:
-            raise ValueError("Must specify the output report file for storing test results.")
+        if not args.predict_output:
+            raise ValueError("Must specify the predict output for storing test results.")
         class_labels = collect_class_labels(train_dataset_dir)
         predict(
             test_dataset_dir, args.model_dir, class_labels,
-            args.model, args.int8, args.output_report_file)
+            args.model, args.int8, args.predict_output)
 
 
 if __name__ == "__main__":
@@ -83,9 +90,13 @@ if __name__ == "__main__":
         type=str,
         help="The path to the model")
     parser.add_argument(
-        "--output-report-file", "--output_report_file",
+        "--train-output", "--train_output",
         type=str,
-        help="The path to the output report file")
+        help="The path to the train output")
+    parser.add_argument(
+        "--predict-output", "--predict_output",
+        type=str,
+        help="The path to the predict output")
 
     parser.add_argument(
         "--batch-size", "--batch_size",

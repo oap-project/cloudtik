@@ -34,14 +34,17 @@ hf_logging.set_verbosity_info()
 
 def _run(args):
     if not args.no_train:
-        if not args.model_dir:
-            args.model_dir = args.training_args.output_dir
+        _args = copy.deepcopy(args)
+        if not _args.model_dir:
+            _args.model_dir = _args.training_args.output_dir
 
-        training_args = copy.deepcopy(args.training_args)
-        training_args.do_train = True
-        training_args.do_predict = True
+        if not _args.train_output:
+            _args.train_output = os.path.join(
+                _args.output_dir, "train_output.yaml")
+        _args.training_args.do_train = True
+        _args.training_args.do_predict = True
 
-        kwargs = {"args": args, "training_args": training_args}
+        kwargs = {"args": _args, "training_args": _args.training_args}
         trainer = Trainer(**kwargs)
         trainer.train()
 
@@ -51,6 +54,9 @@ def _run(args):
         if args.model_dir:
             _args.model_name_or_path = args.model_dir
 
+        if not _args.predict_output:
+            _args.predict_output = os.path.join(
+                _args.output_dir, "predict_output.yaml")
         _args.training_args.do_train = False
         _args.training_args.do_predict = True
 

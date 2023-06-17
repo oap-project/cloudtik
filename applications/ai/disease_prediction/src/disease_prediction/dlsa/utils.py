@@ -134,6 +134,12 @@ class TrainerArguments:
             "help": "The path to the output"
         },
     )
+    temp_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the intermediate output"
+        },
+    )
     train_output: Optional[str] = field(
         default=None,
         metadata={
@@ -144,12 +150,6 @@ class TrainerArguments:
         default=None,
         metadata={
             "help": "The path to the predict output"
-        },
-    )
-    temp_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The path to the intermediate output"
         },
     )
 

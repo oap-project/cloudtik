@@ -26,7 +26,8 @@ class TrainerArguments:
         self.temp_dir = None
         self.output_dir = None
         self.model_dir = None
-        self.output_report_file = None
+        self.train_output = None
+        self.predict_output = None
 
         self.batch_size = 32
         self.epochs = 5

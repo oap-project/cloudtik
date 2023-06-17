@@ -7,6 +7,3 @@ label_list:
     - Benign
     - Malignant
     - Normal
-max_seq_len: 64
-max_test_samples: null
-max_train_samples: null

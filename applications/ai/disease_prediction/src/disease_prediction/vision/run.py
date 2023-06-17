@@ -18,10 +18,13 @@ def run(args):
             raise ValueError("Must specify the output dir for storing the output model and result.")
 
         model, history, dict_metrics, saved_model_dir = train(
-            train_dataset_dir,
-            args.output_dir, args.model,
-            args.batch_size, args.epochs,
-            args.model_dir, enable_auto_mixed_precision=enable_auto_mixed_precision)
+            dataset_dir=train_dataset_dir,
+            output_dir=args.output_dir,
+            model=args.model,
+            batch_size=args.batch_size,
+            epochs=args.epochs,
+            model_dir=args.model_dir,
+            enable_auto_mixed_precision=enable_auto_mixed_precision)
         class_labels = collect_class_labels(train_dataset_dir)
 
         if not args.model_dir:

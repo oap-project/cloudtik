@@ -32,8 +32,10 @@ done
 function download_data() {
     RAW_DATA_PATH=$DISEASE_PREDICTION_WORKING_DATA/raw
     mkdir -p $RAW_DATA_PATH
+
+    export PYTHONPATH=$DISEASE_PREDICTION_HOME/src:${PYTHONPATH}
     python -u \
-      $DISEASE_PREDICTION_HOME/src/data/process.py \
+      $DISEASE_PREDICTION_HOME/src/process.py \
         --no-process \
         --no-split \
         --dataset-path $RAW_DATA_PATH

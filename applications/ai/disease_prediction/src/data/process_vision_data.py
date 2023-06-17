@@ -29,7 +29,7 @@ import json
 
 
 def classify_images(
-        image_folder, annotation_file, output_dir):
+        image_path, annotation_file, output_dir):
     print("Create folders for classified images")
 
     output_images_dir = os.path.join(output_dir, "vision_images")
@@ -43,7 +43,7 @@ def classify_images(
     print("----- Classifying the images for data preprocessing -----")
     manual_annotations = pd.read_excel(annotation_file)
     print("Classify Low energy images")
-    directory = os.path.join(image_folder, "Low energy images of CDD-CESM")
+    directory = os.path.join(image_path, "Low energy images of CDD-CESM")
     for filename in os.listdir(directory):
         src = os.path.join(directory, filename)
         # checking if it is a file   
@@ -55,7 +55,7 @@ def classify_images(
                 tgt = os.path.join(output_images_dir, str(classification_type.values[0]))
                 shutil.copy2(src, tgt)             
     print("Classify Subtracted energy images")
-    directory = os.path.join(image_folder, "Subtracted images of CDD-CESM")
+    directory = os.path.join(image_path, "Subtracted images of CDD-CESM")
     for filename in os.listdir(directory):
         src = os.path.join(directory, filename)
         # checking if it is a file   
@@ -107,7 +107,7 @@ def segment_images(segmentation_path, output_dir, cesm_only=True):
     directory = path.join(output_images_dir, "Malignant")
     save_directory = path.join(output_segmented_dir, "Malignant")
     os.makedirs(save_directory, exist_ok=True)
-    print("Creating segmented images for \"malignant\" cases ..........")
+    print("Creating segmented images for \"Malignant\" cases ..........")
     for filename in os.listdir(directory):
         if cesm_only:
             if '_CM_' not in filename:
@@ -208,13 +208,13 @@ def segment_images(segmentation_path, output_dir, cesm_only=True):
 
 
 def process_vision_data(
-        image_folder,
+        image_path,
         manual_annotations_file,
         segmentation_path,
         output_dir):
     # Classify images data into Benign,Malignant,Normal
     classify_images(
-        image_folder, manual_annotations_file, output_dir)
+        image_path, manual_annotations_file, output_dir)
 
     # Segment the classified images and save the ROI tiles
     segment_images(
@@ -223,13 +223,13 @@ def process_vision_data(
 
 def process(
         data_path,
-        image_folder=None,
+        image_path=None,
         manual_annotations_file=None,
         segmentation_path=None,
         output_dir=None):
     if data_path:
-        if not image_folder:
-            image_folder = os.path.join(
+        if not image_path:
+            image_path = os.path.join(
                 data_path, "CDD-CESM")
         if not manual_annotations_file:
             manual_annotations_file = os.path.join(
@@ -243,7 +243,7 @@ def process(
             print("output-dir is not specified. Default to: {}".format(
                 output_dir))
 
-    if not image_folder:
+    if not image_path:
         raise ValueError(
             "Please specify data-path or explicitly image-folder.")
 
@@ -260,7 +260,7 @@ def process(
             "Please specify output-dir for storing the output.")
 
     process_vision_data(
-        image_folder,
+        image_path,
         manual_annotations_file,
         segmentation_path,
         output_dir)
@@ -269,7 +269,7 @@ def process(
 def run(args):
     process(
         data_path=args.data_path,
-        image_folder=args.image_folder,
+        image_path=args.image_path,
         manual_annotations_file=args.manual_annotations_file,
         segmentation_path=args.segmentation_path,
         output_dir=args.output_dir)
@@ -285,9 +285,9 @@ if __name__ == "__main__":
         help="Location of root of data path",
     )
     parser.add_argument(
-        "--image-folder", "--image_folder",
+        "--image-path", "--image_path",
         type=str,
-        help="Location of image folder",
+        help="Path to the image directory",
     )
     parser.add_argument(
         "--manual-annotations-file", "--manual_annotations_file",

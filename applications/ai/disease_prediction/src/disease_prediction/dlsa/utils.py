@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter_ns
-from typing import Optional, Any, Union, Dict, List
+from typing import Optional, Dict
 import yaml
 import numpy as np
 from scipy.special import softmax
@@ -45,122 +45,6 @@ class Benchmark:
 
     def summary(self):
         print(f"\n{'#' * 30}\nBenchmark Summary:\n{'#' * 30}\n\n{self.summary_msg}")
-
-
-@dataclass
-class TrainerArguments:
-    """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
-    """
-    model_name_or_path: str = field(
-        default="bert-base-uncased",
-        metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
-    )
-    tokenizer_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
-    )
-    smoke_test: Optional[bool] = field(
-        default=False,
-        metadata={"help": "Whether to execute in sanity check mode."}
-    )
-    max_train_samples: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
-                    "value if set."
-        },
-    )
-    max_test_samples: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": "For debugging purposes or quicker testing, truncate the number of testing examples to this "
-                    "value if set."
-        },
-    )
-    max_seq_len: int = field(
-        default=512,
-        metadata={
-            "help": "The maximum total input sequence length after tokenization. Sequences longer "
-                    "than this will be truncated, sequences shorter will be padded."
-        },
-    )
-    preprocessing_num_workers: Optional[int] = field(
-        default=None,
-        metadata={"help": "The number of processes to use for the preprocessing."},
-    )
-    overwrite_cache: bool = field(
-        default=True, metadata={"help": "Overwrite the cached training and evaluation sets."}
-    )
-    multi_instance: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to use multi-instance mode"
-        },
-    )
-    instance_index: Optional[int] = field(
-        default=None,
-        metadata={
-            "help": "for multi-instance inference, to indicate which instance this is."
-        },
-    )
-    dataset: Optional[str] = field(
-        default='imdb',
-        metadata={
-            "help": "Select dataset ('imdb' / 'sst2' / local). Default is 'imdb'"
-        },
-    )
-    dataset_config: Optional[Union[str, dict]] = field(
-        default=None,
-        metadata={
-            "help": "The dict or file for dataset config (typically for local)"
-        },
-    )
-    training_args: Optional[Union[str, dict]] = field(
-        default=None,
-        metadata={
-            "help": "The dict or file for training arguments"
-        },
-    )
-
-    model_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The path to the model dir"
-        },
-    )
-    output_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The path to the output"
-        },
-    )
-    temp_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The path to the intermediate output"
-        },
-    )
-    train_output: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The path to the train output"
-        },
-    )
-    predict_output: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The path to the predict output"
-        },
-    )
-
-    no_train: Optional[bool] = field(
-        default=False,
-        metadata={"help": "Whether to train."}
-    )
-    no_predict: Optional[bool] = field(
-        default=False,
-        metadata={"help": "Whether to predict."}
-    )
 
 
 @dataclass
@@ -236,22 +120,3 @@ def save_predictions(predictions, data, output_file):
     
     with open(output_file, 'w') as file:
         _ = yaml.dump(predictions_report, file) 
-
-
-def parse_arguments(parser, arguments):
-    if isinstance(arguments, str):
-        if arguments.endswith(".json"):
-            args = parser.parse_json_file(json_file=arguments)
-        else:
-            # default a yaml file
-            with open(arguments, "r") as f:
-                args_in_yaml = yaml.safe_load(f)
-            args = parser.parse_dict(args=args_in_yaml)
-    elif isinstance(arguments, dict):
-        # a dict
-        args = parser.parse_dict(args=arguments)
-    else:
-        # it is already an arguments object
-        return arguments
-
-    return args

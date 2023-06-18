@@ -3,6 +3,28 @@ import os
 
 from disease_prediction.vision.trainer import train, collect_class_labels, predict
 
+from disease_prediction.utils import DEFAULT_TRAIN_OUTPUT, DEFAULT_PREDICT_OUTPUT
+
+
+class TrainerArguments:
+    def __init__(self):
+        self.no_train = False
+        self.no_predict = False
+        self.data_path = None
+        self.model = "resnet_v1_50"
+        self.temp_dir = None
+        self.output_dir = None
+        self.model_dir = None
+        self.train_output = None
+        self.predict_output = None
+
+        self.batch_size = 32
+        self.epochs = 5
+        self.int8 = False
+        self.disable_auto_mixed_precision = False
+
+        self.hosts = None
+
 
 def run(args):
     dataset_dir = args.data_path
@@ -31,7 +53,8 @@ def run(args):
             args.model_dir = saved_model_dir
 
         if not args.train_output:
-            args.train_output = os.path.join(args.output_dir, "train_output.yaml")
+            args.train_output = os.path.join(
+                args.output_dir, DEFAULT_TRAIN_OUTPUT)
             print("train-output is not specified. Default to: {}".format(
                 args.output_dir))
 
@@ -41,7 +64,8 @@ def run(args):
 
     if not args.no_predict:
         if not args.predict_output and args.output_dir:
-            args.predict_output = os.path.join(args.output_dir, "predict_output.yaml")
+            args.predict_output = os.path.join(
+                args.output_dir, DEFAULT_PREDICT_OUTPUT)
             print("predict-output is not specified. Default to: {}".format(
                 args.output_dir))
 
@@ -49,6 +73,8 @@ def run(args):
             raise ValueError("Must specify the model dir stored the output model.")
         if not args.predict_output:
             raise ValueError("Must specify the predict output for storing test results.")
+
+        # TODO: we should not depend on train_dataset_dir for predict
         class_labels = collect_class_labels(train_dataset_dir)
         predict(
             test_dataset_dir, args.model_dir, class_labels,

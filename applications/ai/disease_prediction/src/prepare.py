@@ -18,23 +18,8 @@ import os
 
 from cloudtik.runtime.ai.util.utils import load_config_from
 from disease_prediction.data.download import download
-from disease_prediction.data.process_dlsa_data import process as process_dlsa
-from disease_prediction.data.process_vision_data import process as process_vision
-from disease_prediction.data.split_data import split
-
-
-def get_output_annotations_file(output_dir):
-    return os.path.join(
-        output_dir, "annotation", "annotation.csv")
-
-
-def process(data_path, image_path, output_dir):
-    output_annotations_file = get_output_annotations_file(
-        output_dir)
-    process_dlsa(
-        data_path=data_path, output_annotations_file=output_annotations_file)
-    process_vision(
-        data_path=data_path, image_path=image_path, output_dir=output_dir)
+from disease_prediction.data.process import process
+from disease_prediction.data.split import split
 
 
 def _get_dataset_config():

@@ -15,21 +15,142 @@
 import copy
 import os
 import sys
-
+from typing import Optional, Union
 import yaml
+from dataclasses import dataclass, field
+
 from transformers import (
     HfArgumentParser,
     TrainingArguments
 )
 from transformers import logging as hf_logging
 
+from disease_prediction.utils import DEFAULT_TRAIN_OUTPUT, DEFAULT_PREDICT_OUTPUT
+
 from disease_prediction.dlsa.trainer import Trainer
 from disease_prediction.dlsa.predictor import Predictor
-from disease_prediction.dlsa.utils import TrainerArguments, parse_arguments, DatasetConfig
+from disease_prediction.dlsa.utils import DatasetConfig
 
 from cloudtik.runtime.ai.util.utils import load_config_from
+from disease_prediction.utils import parse_arguments
 
 hf_logging.set_verbosity_info()
+
+
+@dataclass
+class TrainerArguments:
+    """
+    Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
+    """
+    model_name_or_path: str = field(
+        default="bert-base-uncased",
+        metadata={"help": "Path to pretrained model or model identifier from huggingface.co/models"}
+    )
+    tokenizer_name: Optional[str] = field(
+        default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
+    )
+    smoke_test: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to execute in sanity check mode."}
+    )
+    max_train_samples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
+                    "value if set."
+        },
+    )
+    max_test_samples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "For debugging purposes or quicker testing, truncate the number of testing examples to this "
+                    "value if set."
+        },
+    )
+    max_seq_len: int = field(
+        default=512,
+        metadata={
+            "help": "The maximum total input sequence length after tokenization. Sequences longer "
+                    "than this will be truncated, sequences shorter will be padded."
+        },
+    )
+    preprocessing_num_workers: Optional[int] = field(
+        default=None,
+        metadata={"help": "The number of processes to use for the preprocessing."},
+    )
+    overwrite_cache: bool = field(
+        default=True, metadata={"help": "Overwrite the cached training and evaluation sets."}
+    )
+    multi_instance: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to use multi-instance mode"
+        },
+    )
+    instance_index: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "for multi-instance inference, to indicate which instance this is."
+        },
+    )
+    dataset: Optional[str] = field(
+        default='imdb',
+        metadata={
+            "help": "Select dataset ('imdb' / 'sst2' / local). Default is 'imdb'"
+        },
+    )
+    dataset_config: Optional[Union[str, dict]] = field(
+        default=None,
+        metadata={
+            "help": "The dict or file for dataset config (typically for local)"
+        },
+    )
+    training_args: Optional[Union[str, dict]] = field(
+        default=None,
+        metadata={
+            "help": "The dict or file for training arguments"
+        },
+    )
+
+    model_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the model dir"
+        },
+    )
+    output_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the output"
+        },
+    )
+    temp_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the intermediate output"
+        },
+    )
+    train_output: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the train output"
+        },
+    )
+    predict_output: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "The path to the predict output"
+        },
+    )
+
+    no_train: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to train."}
+    )
+    no_predict: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to predict."}
+    )
 
 
 def _run(args):
@@ -40,7 +161,7 @@ def _run(args):
 
         if not _args.train_output:
             _args.train_output = os.path.join(
-                _args.output_dir, "train_output.yaml")
+                _args.output_dir, DEFAULT_TRAIN_OUTPUT)
         _args.training_args.do_train = True
         _args.training_args.do_predict = True
 
@@ -56,7 +177,7 @@ def _run(args):
 
         if not _args.predict_output:
             _args.predict_output = os.path.join(
-                _args.output_dir, "predict_output.yaml")
+                _args.output_dir, DEFAULT_PREDICT_OUTPUT)
         _args.training_args.do_train = False
         _args.training_args.do_predict = True
 

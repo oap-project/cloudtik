@@ -4,30 +4,11 @@ from os import path, listdir
 from pandas import DataFrame
 from pathlib import Path
 
+from disease_prediction.utils import get_subject_id
+
 
 def get_split_output_dir(output_dir):
     return os.path.join(output_dir, "split_images")
-
-
-def get_subject_id(image_name):
-    """
-    Extracts the patient ID from an image filename.
-
-    Args:
-    - image_name: string representing the filename of an image
-
-    Returns:
-    - patient_id: string representing the patient ID extracted from the image filename
-    """
-
-    # Split the filename by "/"
-    image_name = image_name.split("/")[-1]
-
-    # Extract the first two substrings separated by "_", remove the first character (which is "P"), and join them
-    # together to form the patient ID
-    patient_id = "".join(image_name.split("_")[:2])[1:]
-
-    return patient_id
 
 
 def copy_images(patient_ids: DataFrame, source_folder: str, target_folder: str) -> None:

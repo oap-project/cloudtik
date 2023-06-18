@@ -17,26 +17,6 @@ TRAIN_FRAMEWORK = str(FrameworkType.TENSORFLOW)
 TRAIN_CATEGORY = "image_classification"
 
 
-class TrainerArguments:
-    def __init__(self):
-        self.no_train = False
-        self.no_predict = False
-        self.data_path = None
-        self.model = "resnet_v1_50"
-        self.temp_dir = None
-        self.output_dir = None
-        self.model_dir = None
-        self.train_output = None
-        self.predict_output = None
-
-        self.batch_size = 32
-        self.epochs = 5
-        self.int8 = False
-        self.disable_auto_mixed_precision = False
-
-        self.hosts = None
-
-
 def collect_class_labels(dataset_dir):
     dataset = dataset_factory.load_dataset(dataset_dir=dataset_dir,
                                            category=TRAIN_CATEGORY,

@@ -35,7 +35,7 @@ function download_data() {
 
     export PYTHONPATH=$DISEASE_PREDICTION_HOME/src:${PYTHONPATH}
     python -u \
-      $DISEASE_PREDICTION_HOME/src/process.py \
+      $DISEASE_PREDICTION_HOME/src/prepare.py \
         --no-process \
         --no-split \
         --dataset-path $RAW_DATA_PATH
@@ -51,7 +51,7 @@ function prepare_data() {
 
     export PYTHONPATH=$DISEASE_PREDICTION_HOME/src:${PYTHONPATH}
     python -u \
-      $DISEASE_PREDICTION_HOME/src/process.py \
+      $DISEASE_PREDICTION_HOME/src/prepare.py \
         --no-download \
         --dataset-path $DISEASE_PREDICTION_WORKING_DATA/raw \
         --image-path $IMAGE_PATH \

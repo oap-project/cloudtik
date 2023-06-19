@@ -37,7 +37,7 @@ class Trainer(object):
         f1_scores = self.f1_scores
 
         # corrected scores based on f1-scores
-        scrored_probabilities = [
+        scored_probabilities = [
             list(f1_scores * i) for i in test_data["predictions_probabilities"]
         ]
 
@@ -46,7 +46,7 @@ class Trainer(object):
         if 'label_id' in test_data:
             df_scored["labels"] = test_data["label_id"]
         df_scored["predictions_label"] = test_data["predictions_label"]
-        df_scored["predictions_probabilities"] = scrored_probabilities
+        df_scored["predictions_probabilities"] = scored_probabilities
         df_scored["id"] = test_data["id"]
 
         return df_scored

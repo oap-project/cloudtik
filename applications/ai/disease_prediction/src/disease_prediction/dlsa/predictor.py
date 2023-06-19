@@ -94,6 +94,8 @@ class Predictor(object):
                     label2id = label_to_id_mapping(class_names)
                     self.test_data = test_data.align_labels_with_mapping(
                         label2id, label_column)
+                else:
+                    self.test_data = test_data
             else:
                 data = load_dataset(dataset)
                 test_split = "validation" if dataset == "sst2" else "test"

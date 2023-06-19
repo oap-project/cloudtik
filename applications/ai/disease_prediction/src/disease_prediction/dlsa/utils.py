@@ -23,6 +23,8 @@ import yaml
 import numpy as np
 from scipy.special import softmax
 
+from datasets import ClassLabel
+
 SEC_TO_NS_SCALE = 1000000000
 
 
@@ -108,11 +110,31 @@ def save_test_metrics(metrics, max_test, output_dir):
         f'{k}: {v}' for k, v in metrics.items())
 
 
-def save_predictions(predictions, data, output_file):
-    label_map = {i: v for i, v in enumerate(data.features['label'].names)}
+def label_to_id_mapping(class_labels):
+    return {class_labels[i]: i for i in range(len(class_labels))}
+
+
+def id_to_label_mapping(class_labels):
+    if class_labels is None:
+        raise ValueError("No class labels information specified.")
+    return {i: v for i, v in enumerate(class_labels)}
+
+
+def save_predictions(
+        predictions, data, output_file,
+        class_labels=None):
+    if class_labels is None:
+        # try get from the data feature definition (for train data, it has the label)
+        # a better way is to find a ClassLabel feature
+        for name, feature in data.features.items():
+            if isinstance(feature, ClassLabel):
+                class_labels = feature.names
+    label_map = id_to_label_mapping(class_labels)
 
     predictions_report = {}
-    predictions_report["label_id"] = [label_map[i] for i in predictions.label_ids.tolist()]
+
+    if predictions.label_ids is not None:
+        predictions_report["label_id"] = [label_map[i] for i in predictions.label_ids.tolist()]
     predictions_report["predictions_label"] = [label_map[i] for i in np.argmax(
         predictions.predictions, axis=1).tolist()]
     predictions_report["predictions_probabilities"] = softmax(predictions.predictions, axis=1).tolist() 

@@ -13,6 +13,7 @@
 # and limitations under the License.
 #
 
+import pandas as pd
 from datasets import load_dataset, Features, Value, ClassLabel
 from transformers import (
     AutoTokenizer,
@@ -21,7 +22,7 @@ from transformers import (
 )
 
 from disease_prediction.dlsa.utils import \
-    Benchmark, compute_metrics, save_test_metrics, save_predictions
+    Benchmark, compute_metrics, save_test_metrics, save_predictions, label_to_id_mapping
 
 
 class Predictor(object):
@@ -53,20 +54,29 @@ class Predictor(object):
             if dataset == "local":
                 class_names = dataset_config.label_list
                 self.num_labels = len(class_names)
-                customer_features = {v: k for k, v in dataset_config.features.items()}
+                valid_features = {v: k for k, v in dataset_config.features.items()}
+                dataset_features = {}
 
-                for key, value in customer_features.items():
+                # handles whether we have label column for prediction
+                dataset_samples = pd.read_csv(dataset_config.test, nrows=0)
+                columns_in_data = set(dataset_samples.columns)
+                label_column = None
+
+                for key, value in valid_features.items():
                     if value == "class_label":
-                        customer_features[key] = ClassLabel(names=class_names)
+                        if key in columns_in_data:
+                            # only put the label column if it exists
+                            label_column = key
+                            dataset_features[key] = ClassLabel(names=class_names)
                     elif value == "data_column":
-                        customer_features[key] = Value("string")
+                        dataset_features[key] = Value("string")
                         self.text_column = key
                         self.remove_columns.append(key)
                     else:
-                        customer_features[key] = Value("string")
+                        dataset_features[key] = Value("string")
                         self.remove_columns.append(key)
 
-                features = Features(customer_features)
+                features = Features(dataset_features)
 
                 test_all = load_dataset(
                     "csv",
@@ -79,8 +89,13 @@ class Predictor(object):
                     test_all.select(range(self.max_test)) if self.max_test else test_all
                 )
 
-                label2id = {class_names[i]: i for i in range(len(class_names))}
-                self.test_data = test_data.align_labels_with_mapping(label2id, "label")
+                # only if label column exists
+                if label_column:
+                    label2id = label_to_id_mapping(class_names)
+                    self.test_data = test_data.align_labels_with_mapping(
+                        label2id, label_column)
+                else:
+                    self.test_data = test_data
             else:
                 data = load_dataset(dataset)
                 test_split = "validation" if dataset == "sst2" else "test"
@@ -159,5 +174,14 @@ class Predictor(object):
                 predictions.metrics, len(self.test_data), self.training_args.output_dir)
         print(test_metrics)
         if self.args.predict_output:
+            class_labels = self._get_class_labels()
             save_predictions(
-                predictions, self.test_data, self.args.predict_output)
+                predictions, self.test_data, self.args.predict_output,
+                class_labels=class_labels)
+
+    def _get_class_labels(self):
+        if self.args.dataset == "local":
+            return self.args.dataset_config.label_list
+
+        # For this, the labels will from the dataset
+        return None

@@ -37,18 +37,19 @@ class Trainer(object):
         f1_scores = self.f1_scores
 
         # corrected scores based on f1-scores
-        corrected_scores = [
+        scored_probabilities = [
             list(f1_scores * i) for i in test_data["predictions_probabilities"]
         ]
 
         # create a pandas DataFrame with corrected predictions, labels and IDs
-        df_corrected = DataFrame()
-        df_corrected["labels"] = test_data["label_id"]
-        df_corrected["predictions_label"] = test_data["predictions_label"]
-        df_corrected["predictions_probabilities"] = corrected_scores
-        df_corrected["id"] = test_data["id"]
+        df_scored = DataFrame()
+        if 'label_id' in test_data:
+            df_scored["labels"] = test_data["label_id"]
+        df_scored["predictions_label"] = test_data["predictions_label"]
+        df_scored["predictions_probabilities"] = scored_probabilities
+        df_scored["id"] = test_data["id"]
 
-        return df_corrected
+        return df_scored
 
     def load_model(self, model_file):
         model_df = read_csv(

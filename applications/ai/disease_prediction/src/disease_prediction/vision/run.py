@@ -29,7 +29,8 @@ class TrainerArguments:
 def run(args):
     dataset_dir = args.data_path
     if not dataset_dir:
-        raise ValueError("Must specify the data path which contains the train and test images.")
+        raise ValueError(
+            "Must specify the data path which contains the train and test images.")
 
     train_dataset_dir = os.path.join(dataset_dir, "train")
     test_dataset_dir = os.path.join(dataset_dir, "test")
@@ -37,8 +38,10 @@ def run(args):
 
     if not args.no_train:
         if not args.output_dir:
-            raise ValueError("Must specify the output dir for storing the output model and result.")
+            raise ValueError(
+                "Must specify the output dir for storing the output model and result.")
 
+        print("Start vision training...")
         model, history, dict_metrics, saved_model_dir = train(
             dataset_dir=train_dataset_dir,
             output_dir=args.output_dir,
@@ -61,6 +64,7 @@ def run(args):
         predict(
             train_dataset_dir, args.model_dir, class_labels,
             args.model, args.int8, args.train_output)
+        print("End vision training.")
 
     if not args.no_predict:
         if not args.predict_output and args.output_dir:
@@ -70,15 +74,20 @@ def run(args):
                 args.output_dir))
 
         if not args.model_dir:
-            raise ValueError("Must specify the model dir stored the output model.")
+            raise ValueError(
+                "Must specify the model dir stored the output model.")
         if not args.predict_output:
-            raise ValueError("Must specify the predict output for storing test results.")
+            raise ValueError(
+                "Must specify the predict output for storing test results.")
 
         # TODO: we should not depend on train_dataset_dir for predict
         class_labels = collect_class_labels(train_dataset_dir)
+
+        print("Start Vision predicting...")
         predict(
             test_dataset_dir, args.model_dir, class_labels,
             args.model, args.int8, args.predict_output)
+        print("End Vision predicting...")
 
 
 if __name__ == "__main__":

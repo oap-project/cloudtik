@@ -29,13 +29,13 @@ def run(args):
         # train data for inputs (set some meaningful default if not set)
         if not args.dlsa_train_input:
             raise ValueError(
-                "Must specify DLSA train test input for consult train.")
+                "Must specify DLSA train input for consult train.")
         if not args.dlsa_train_output:
             raise ValueError(
-                "Must specify DLSA train test output for consult train.")
+                "Must specify DLSA train output for consult train.")
         if not args.vision_train_output:
             raise ValueError(
-                "Must specify vision train test output for consult train.")
+                "Must specify vision train output for consult train.")
 
         if not args.model_file and args.output_dir:
             args.model_file = os.path.join(args.output_dir, "consult-model.csv")
@@ -105,15 +105,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dlsa-train-input", "--dlsa_train_input",
         type=str,
-        help="The path to the DLSA train test input")
+        help="The path to the DLSA train input")
     parser.add_argument(
         "--dlsa-train-output", "--dlsa_train_output",
         type=str,
-        help="The path to the DLSA train test output")
+        help="The path to the DLSA train output")
     parser.add_argument(
         "--vision-train-output", "--vision_train_output",
         type=str,
-        help="The path to the vision train test output")
+        help="The path to the vision train output")
 
     parser.add_argument(
         "--dlsa-predict-input", "--dlsa_predict_input",

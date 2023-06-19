@@ -56,10 +56,11 @@ function prepare_data() {
         --dataset-path $DISEASE_PREDICTION_WORKING_DATA/raw \
         --image-path $IMAGE_PATH \
         --output-dir $PROCESSED_DATA_PATH
+
+    move_to_workspace $PROCESSED_DATA_PATH "data"
 }
 if [ "${IMAGE_PATH}" == "" ]; then
     usage
 fi
 
 prepare_data
-move_to_workspace $DISEASE_PREDICTION_WORKING_DATA

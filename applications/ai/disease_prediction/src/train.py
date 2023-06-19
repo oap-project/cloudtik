@@ -144,7 +144,7 @@ def _run_consult(args):
     vision_output_dir = get_vision_output_dir(args)
 
     consult_args.dlsa_train_input = os.path.join(
-        dlsa_split_output_dir, "test.csv")
+        dlsa_split_output_dir, "train.csv")
     consult_args.dlsa_train_output = os.path.join(
         dlsa_output_dir, DEFAULT_TRAIN_OUTPUT)
     consult_args.vision_train_output = os.path.join(

@@ -189,10 +189,12 @@ class Trainer(object):
     def _predict(self):
         if self.training_args.do_predict:
             with self.track('Predict'):
-                predictions = self.trainer.predict(self.test_data)
+                test_predictions = self.trainer.predict(self.test_data)
                 test_metrics = save_test_metrics(
-                    predictions.metrics, len(self.test_data), self.training_args.output_dir)
+                    test_predictions.metrics, len(self.test_data), self.training_args.output_dir)
             print(test_metrics)
+            # predicting on train data to get the train output
             if self.args.train_output:
+                train_predictions = self.trainer.predict(self.train_data)
                 save_predictions(
-                    predictions, self.test_data, self.args.train_output)
+                    train_predictions, self.train_data, self.args.train_output)

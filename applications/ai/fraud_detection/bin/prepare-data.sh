@@ -57,6 +57,9 @@ function prepare_data() {
         --raw-data-path ${RAW_DATA_PATH} \
         --processed-data-path ${PROCESSED_DATA_PATH} \
         "$@"
+
+    move_to_workspace $PROCESSED_PATH "data"
+    move_to_workspace $RAW_DATA_PATH "data"
 }
 
 if [ "${RAW_DATA_PATH}" == "" ] && [ "${RAW_DATA_ARCHIVE}" == "" ]; then
@@ -64,4 +67,3 @@ if [ "${RAW_DATA_PATH}" == "" ] && [ "${RAW_DATA_ARCHIVE}" == "" ]; then
 fi
 
 prepare_data
-move_to_workspace $FRAUD_DETECTION_WORKING_DATA

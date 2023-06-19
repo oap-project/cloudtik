@@ -26,9 +26,26 @@ fi
 FRAUD_DETECTION_DATA=$FRAUD_DETECTION_WORKSPACE/data
 
 function move_to_workspace() {
-    # Move a folder (the parameter) into workspace
+    # Move a folder (the first parameter) into workspace target(the second parameter)
     if [ $FRAUD_DETECTION_WORKSPACE != $FRAUD_DETECTION_WORKING ]; then
-        mkdir -p $FRAUD_DETECTION_WORKSPACE
-        cp -r -n $1 $FRAUD_DETECTION_WORKSPACE
+        SOURCE_TO_MOVE=$1
+        TARGET=$2
+
+        if [ "$TARGET" != "" ]; then
+            TARGET_HOME=$FRAUD_DETECTION_WORKSPACE/$TARGET
+        else
+            TARGET_HOME=$FRAUD_DETECTION_WORKSPACE
+        fi
+
+        SOURCE_NAME="$(basename -- $SOURCE_TO_MOVE)"
+        TARGET_DIR=$TARGET_HOME/$SOURCE_NAME
+
+        # rm if the target exists
+        if [ -d "$TARGET_DIR" ]; then
+            rm -rf "$TARGET_DIR"
+        fi
+
+        mkdir -p $TARGET_HOME
+        cp -r -n $SOURCE_TO_MOVE $TARGET_HOME
     fi
 }

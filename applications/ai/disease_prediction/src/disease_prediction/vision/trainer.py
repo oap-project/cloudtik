@@ -10,6 +10,7 @@ from PIL import Image
 from cloudtik.runtime.ai.modeling.transfer_learning import dataset_factory, model_factory
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import FrameworkType
 from cloudtik.runtime.ai.util.utils import move_dir_contents
+from disease_prediction.utils import id_to_label_mapping, is_labeled_dataset, read_yaml_file
 
 IMAGE_SIZE = 224
 
@@ -65,8 +66,9 @@ def train(
         category=TRAIN_CATEGORY,
         framework=TRAIN_FRAMEWORK,
         shuffle_files=True)
+    class_names = dataset.class_names
 
-    print("Class names:", str(dataset.class_names))
+    print("Class names:", str(class_names))
     dataset.preprocess(
         model.image_size, batch_size=batch_size,
         add_aug=['hvflip', 'rotate'])
@@ -95,9 +97,11 @@ def train(
     if save_model:
         saved_model_dir = _save_model(
             model, model_dir, output_dir, quantization)
+        # save also the classnames as meta information
+        _save_model_meta(class_names, saved_model_dir)
 
     print("Done fine tuning the model ............")
-    return model, history, dict_metrics, saved_model_dir
+    return model, class_names, history, dict_metrics, saved_model_dir
 
 
 def _save_model(model, model_dir, output_dir, quantization):
@@ -122,6 +126,18 @@ def _save_model(model, model_dir, output_dir, quantization):
     return saved_model_dir
 
 
+def _save_model_meta(class_names, model_dir):
+    meta = {"class_names": class_names}
+    meta_file = os.path.join(model_dir, "model-meta.yaml")
+    with open(meta_file, 'w') as file:
+        yaml.dump(meta, file)
+
+
+def load_model_meta(model_dir):
+    meta_file = os.path.join(model_dir, "model-meta.yaml")
+    return read_yaml_file(meta_file)
+
+
 def _predict(model, image_location):
     image_shape = (model.image_size, model.image_size)
     image = Image.open(image_location).resize(image_shape)
@@ -139,15 +155,15 @@ def _predict_int8(model, image_location):
     # adding a batch dimension (with np.newaxis)
     image = np.array(image)/255.0
     image = image[np.newaxis, ...].astype('float32')
-    infer = model.signatures[tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
+    predict_model = model.signatures[tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
     # result = model.predict(image[np.newaxis, ...])
     # result=model.predict(image[np.newaxis, ...], 'probabilities')[0]
-    output_name = list(infer.structured_outputs.keys())
-    result = infer(tf.constant(image))[output_name[0]][0]
+    output_name = list(predict_model.structured_outputs.keys())
+    result = predict_model(tf.constant(image))[output_name[0]][0]
     return result
 
 
-def preprocess_dataset(dataset_dir, image_size, batch_size):
+def load_and_preprocess_dataset(dataset_dir, image_size, batch_size):
     """
     Load and preprocess dataset
     """
@@ -157,28 +173,44 @@ def preprocess_dataset(dataset_dir, image_size, batch_size):
         framework=TRAIN_FRAMEWORK,
         shuffle_files=False)
     dataset.preprocess(image_size, batch_size)
-    class_dict = reverse_map(dataset.class_names)
-    return dataset, class_dict
+    return dataset
 
 
-def reverse_map(class_names):
-    class_dict = {}
-    i = 0
-    for c in class_names:
-        class_dict[i] = c
-        i = i + 1
-    return class_dict
+def predict_image_dir(
+        model, image_dir, id_to_label,
+        predictions_report,
+        label=None,
+        int8=False):
+    fns = os.listdir(image_dir)
+    for fn in fns:
+        patient_id = fn
+        fn = os.path.join(os.path.join(image_dir, fn))
+        if int8:
+            result = _predict_int8(model, fn)
+        else:
+            result = _predict(model, fn)
+        pred_prob = result.numpy().tolist()
+
+        result_dict = {
+            "pred": id_to_label[np.argmax(pred_prob).tolist()],
+            "pred_prob": pred_prob
+        }
+        if label:
+            result_dict["label"] = label
+        predictions_report["results"][patient_id] = [result_dict]
 
 
 def predict(
-        test_data_dir, saved_model_dir, class_labels,
+        test_data_dir, saved_model_dir, class_names,
         model_name="resnet_v1_50", int8=False,
         output_file="output.yaml"):
     # Load the model
     tstart = time.time()
     model_dir = saved_model_dir
-    test_dir = test_data_dir
-    labels = class_labels
+
+    id_to_label = id_to_label_mapping(class_names)
+    is_labeled = is_labeled_dataset(test_data_dir)
+
     predictions_report_save_file = output_file
     predictions_report = {"metric": {}, "results": {}}
 
@@ -190,40 +222,44 @@ def predict(
 
     if int8:
         model_int8 = tf.saved_model.load(model_dir)
+        predict_model = model_int8
+    else:
+        predict_model = model
 
     tend = time.time()
     print("\n Vision Model Loading time: ", tend - tstart)
-    # Load dataset for metric evaluation
-    dataset, class_dict = preprocess_dataset(test_data_dir,
-                                             model.image_size, 32)
-    metrics = model.evaluate(dataset)
-    for metric_name, metric_value in zip(model._model.metrics_names,
-                                         metrics):
-        print("{}: {}".format(metric_name, metric_value))
-        predictions_report["metric"][metric_name] = metric_value
+
+    # This should only be done on a dataset that has labels for testing
+    if is_labeled:
+        # Load dataset for metric evaluation
+        dataset = load_and_preprocess_dataset(
+            test_data_dir, model.image_size, 32)
+        metrics = model.evaluate(dataset)
+        for metric_name, metric_value in zip(model._model.metrics_names,
+                                             metrics):
+            print("{}: {}".format(metric_name, metric_value))
+            predictions_report["metric"][metric_name] = metric_value
 
     tstart = time.time()
-    for label in os.listdir(test_dir):
-        print("Infering data in folder: ", label)
-        fns = os.listdir(os.path.join(test_dir, label))
-        for fn in fns:
-            patient_id = fn
-            fn = os.path.join(os.path.join(test_dir, label, fn))
-            if int8:
-                result = _predict_int8(model_int8, fn)
-            else:
-                result = _predict(model, fn)
-            pred_prob = result.numpy().tolist()
-            infer_result_patient = [
-                {
-                    "label": label,
-                    "pred": class_dict[np.argmax(pred_prob).tolist()],
-                    "pred_prob": pred_prob
-                }
-            ]
-            predictions_report["label"] = labels
-            predictions_report["label_id"] = list(class_dict.keys())
-            predictions_report["results"][patient_id] = infer_result_patient
+    if is_labeled:
+        for label in os.listdir(test_data_dir):
+            print("Predicting data in labeled folder: ", label)
+            image_dir = os.path.join(test_data_dir, label)
+            predict_image_dir(
+                predict_model, image_dir, id_to_label,
+                predictions_report,
+                label=label, int8=int8
+            )
+    else:
+        # It's a prediction dataset without label
+        predict_image_dir(
+            predict_model, test_data_dir, id_to_label,
+            predictions_report,
+            label=None, int8=int8
+        )
+
+    predictions_report["label"] = class_names
+    predictions_report["label_id"] = list(id_to_label.keys())
 
     with open(predictions_report_save_file, 'w') as file:
         _ = yaml.dump(predictions_report, file, )

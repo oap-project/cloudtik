@@ -25,6 +25,8 @@ from scipy.special import softmax
 
 from datasets import ClassLabel
 
+from disease_prediction.utils import id_to_label_mapping
+
 SEC_TO_NS_SCALE = 1000000000
 
 
@@ -108,16 +110,6 @@ def save_test_metrics(metrics, max_test, output_dir):
         json.dump(metrics, f, indent=2)
     return "\n\n******** TEST METRICS ********\n" + '\n'.join(
         f'{k}: {v}' for k, v in metrics.items())
-
-
-def label_to_id_mapping(class_labels):
-    return {class_labels[i]: i for i in range(len(class_labels))}
-
-
-def id_to_label_mapping(class_labels):
-    if class_labels is None:
-        raise ValueError("No class labels information specified.")
-    return {i: v for i, v in enumerate(class_labels)}
 
 
 def save_predictions(

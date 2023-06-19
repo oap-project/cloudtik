@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from disease_prediction.vision.trainer import train, collect_class_labels, predict
+from disease_prediction.vision.trainer import train, collect_class_labels, predict, load_model_meta
 
 from disease_prediction.utils import DEFAULT_TRAIN_OUTPUT, DEFAULT_PREDICT_OUTPUT
 
@@ -41,8 +41,8 @@ def run(args):
             raise ValueError(
                 "Must specify the output dir for storing the output model and result.")
 
-        print("Start vision training...")
-        model, history, dict_metrics, saved_model_dir = train(
+        print("Start Vision training...")
+        model, class_names, history, dict_metrics, saved_model_dir = train(
             dataset_dir=train_dataset_dir,
             output_dir=args.output_dir,
             model=args.model,
@@ -50,7 +50,6 @@ def run(args):
             epochs=args.epochs,
             model_dir=args.model_dir,
             enable_auto_mixed_precision=enable_auto_mixed_precision)
-        class_labels = collect_class_labels(train_dataset_dir)
 
         if not args.model_dir:
             args.model_dir = saved_model_dir
@@ -62,9 +61,12 @@ def run(args):
                 args.output_dir))
 
         predict(
-            train_dataset_dir, args.model_dir, class_labels,
-            args.model, args.int8, args.train_output)
-        print("End vision training.")
+            train_dataset_dir, args.model_dir,
+            class_names=class_names,
+            model_name=args.model,
+            int8=args.int8,
+            output_file=args.train_output)
+        print("End Vision training.")
 
     if not args.no_predict:
         if not args.predict_output and args.output_dir:
@@ -80,13 +82,16 @@ def run(args):
             raise ValueError(
                 "Must specify the predict output for storing test results.")
 
-        # TODO: we should not depend on train_dataset_dir for predict
-        class_labels = collect_class_labels(train_dataset_dir)
+        # The class names (same order as training) stored in the model meta
+        model_meta = load_model_meta(args.model_dir)
 
         print("Start Vision predicting...")
         predict(
-            test_dataset_dir, args.model_dir, class_labels,
-            args.model, args.int8, args.predict_output)
+            test_dataset_dir, args.model_dir,
+            class_names=model_meta["class_names"],
+            model_name=args.model,
+            int8=args.int8,
+            output_file=args.predict_output)
         print("End Vision predicting...")
 
 

@@ -1,3 +1,5 @@
+import os
+
 import yaml
 
 
@@ -50,3 +52,26 @@ def get_subject_id(image_name):
     patient_id = "".join(image_name.split("_")[:2])[1:]
 
     return patient_id
+
+
+def label_to_id_mapping(class_labels):
+    return {class_labels[i]: i for i in range(len(class_labels))}
+
+
+def id_to_label_mapping(class_labels):
+    if class_labels is None:
+        raise ValueError("No class labels information specified.")
+    return {i: v for i, v in enumerate(class_labels)}
+
+
+def is_labeled_dataset(dataset_dir):
+    """
+    Check whether a dataset dir contains a labeled image classification
+    dataset or it's a pure prediction dataset without labels
+    """
+    for fd in os.listdir(dataset_dir):
+        if not os.path.isdir(
+                os.path.join(dataset_dir, fd)):
+            return False
+    # Only when there is no individual files, we consider labeled dataset
+    return True

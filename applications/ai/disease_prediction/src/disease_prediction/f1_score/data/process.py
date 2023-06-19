@@ -69,7 +69,9 @@ def process_vision_output(output_file):
 
     # Create a dictionary with the processed predictions.
     predictions_report = {}
-    predictions_report["label_id"] = df_results.label.to_list()
+
+    if "label" in df_results.columns:
+        predictions_report["label_id"] = df_results.label.to_list()
     predictions_report["predictions_label"] = df_results.pred.to_list()
     predictions_report["predictions_probabilities"] = df_results.pred_prob.to_list()
     predictions_report["id"] = df_results.id.to_list()

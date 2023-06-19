@@ -56,7 +56,7 @@ class Trainer(object):
             output_file: The predict output file to save. Will not save if None
         Returns:
             df_results (pandas.DataFrame):
-                a DataFrame containing the consultation predictions and the labels
+                a DataFrame containing the consultation predictions and the labels (if data contains labels)
         """
         dlsa_processed_output = process_dlsa_output(
             dlsa_predict_output, dlsa_predict_input)
@@ -90,7 +90,9 @@ class Trainer(object):
 
         # Create DataFrame with predictions and labels
         df_results = DataFrame()
-        df_results["labels"] = vision_scored_pred["labels"]
+        df_results["id"] = dlsa_scored_pred["id"]
+        if "labels" in vision_scored_pred:
+            df_results["labels"] = vision_scored_pred["labels"]
         df_results["dlsa_predictions"] = dlsa_scored_pred["predictions_label"]
         df_results["vision_predictions"] = vision_scored_pred["predictions_label"]
         df_results["consultation_predictions"] = pred_mapped

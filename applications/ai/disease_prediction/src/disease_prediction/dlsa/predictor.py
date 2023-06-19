@@ -22,7 +22,8 @@ from transformers import (
 )
 
 from disease_prediction.dlsa.utils import \
-    Benchmark, compute_metrics, save_test_metrics, save_predictions, label_to_id_mapping
+    Benchmark, compute_metrics, save_test_metrics, save_predictions
+from disease_prediction.utils import label_to_id_mapping
 
 
 class Predictor(object):

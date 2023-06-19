@@ -165,9 +165,11 @@ def _run(args):
         _args.training_args.do_train = True
         _args.training_args.do_predict = True
 
+        print("Start DLSA training...")
         kwargs = {"args": _args, "training_args": _args.training_args}
         trainer = Trainer(**kwargs)
         trainer.train()
+        print("End DLSA training.")
 
     if not args.no_predict:
         # for predict set the model name or path to model dir if there is one
@@ -181,9 +183,11 @@ def _run(args):
         _args.training_args.do_train = False
         _args.training_args.do_predict = True
 
+        print("Start DLSA predicting...")
         kwargs = {"args": _args, "training_args": _args.training_args}
         predictor = Predictor(**kwargs)
         predictor.predict()
+        print("End DLSA predicting.")
 
 
 def run(args:TrainerArguments):

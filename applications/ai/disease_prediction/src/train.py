@@ -62,10 +62,14 @@ def get_consult_model_output_dir(args):
     return get_model_output_dir(args, "consult")
 
 
-def _run_dlsa(args):
+def get_config_dir():
     this_dir = os.path.dirname(__file__)
-    config_dir = os.path.join(
+    return os.path.join(
         os.path.dirname(this_dir), "config")
+
+
+def _run_dlsa(args):
+    config_dir = get_config_dir()
     dlsa_args = DLSATrainerArguments()
 
     dlsa_modeling_config_file = os.path.join(
@@ -121,6 +125,11 @@ def _run_vision(args):
 
     vision_args.no_train = args.no_train
     vision_args.no_predict = args.no_predict
+
+    config_dir = get_config_dir()
+    vision_training_arguments_file = os.path.join(
+        config_dir, "vision-training-arguments.yaml")
+    load_config_from(vision_training_arguments_file, vision_args)
 
     run_train_vision(vision_args)
 

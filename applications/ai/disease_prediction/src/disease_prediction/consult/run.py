@@ -28,11 +28,14 @@ def run(args):
     if not args.no_train:
         # train data for inputs (set some meaningful default if not set)
         if not args.dlsa_train_input:
-            raise ValueError("Must specify DLSA train test input for consult train.")
+            raise ValueError(
+                "Must specify DLSA train test input for consult train.")
         if not args.dlsa_train_output:
-            raise ValueError("Must specify DLSA train test output for consult train.")
+            raise ValueError(
+                "Must specify DLSA train test output for consult train.")
         if not args.vision_train_output:
-            raise ValueError("Must specify vision train test output for consult train.")
+            raise ValueError(
+                "Must specify vision train test output for consult train.")
 
         if not args.model_file and args.output_dir:
             args.model_file = os.path.join(args.output_dir, "consult-model.csv")
@@ -40,11 +43,14 @@ def run(args):
                 args.model_file))
 
         consult_trainer = ConsultTrainer()
+
+        print("Start consult training...")
         consult_trainer.train(
             dlsa_train_input=args.dlsa_train_input,
             dlsa_train_output=args.dlsa_train_output,
             vision_train_output=args.vision_train_output,
             model_file=args.model_file)
+        print("End consult training.")
 
     if not args.no_predict:
         if not args.predict_output and args.output_dir:
@@ -54,27 +60,34 @@ def run(args):
 
         # predict data for inputs
         if not args.dlsa_predict_input:
-            raise ValueError("Must specify DLSA predict input for consult predict.")
+            raise ValueError(
+                "Must specify DLSA predict input for consult predict.")
         if not args.dlsa_predict_output:
-            raise ValueError("Must specify DLSA predict output for consult predict.")
+            raise ValueError(
+                "Must specify DLSA predict output for consult predict.")
         if not args.vision_predict_output:
-            raise ValueError("Must specify vision predict output for consult predict.")
+            raise ValueError(
+                "Must specify vision predict output for consult predict.")
 
         if not args.model_file:
-            raise ValueError("Must specify the model dir stored the output model.")
+            raise ValueError(
+                "Must specify the model dir stored the output model.")
         if not args.predict_output:
-            raise ValueError("Must specify the predict output for storing test results.")
+            raise ValueError(
+                "Must specify the predict output for storing test results.")
 
         consult_predictor = ConsultTrainer()
         # load model
         consult_predictor.load_model(
             args.model_file)
 
+        print("Start consult predicting...")
         consult_predictor.predict(
             dlsa_predict_input=args.dlsa_predict_input,
             dlsa_predict_output=args.dlsa_predict_output,
             vision_predict_output=args.vision_predict_output,
             output_file=args.predict_output)
+        print("End consult predicting.")
 
 
 if __name__ == "__main__":
@@ -90,13 +103,22 @@ if __name__ == "__main__":
         help="whether to do prediction on test data")
 
     parser.add_argument(
+        "--dlsa-train-input", "--dlsa_train_input",
+        type=str,
+        help="The path to the DLSA train test input")
+    parser.add_argument(
         "--dlsa-train-output", "--dlsa_train_output",
         type=str,
-        help="The path to the DLSA train output")
+        help="The path to the DLSA train test output")
     parser.add_argument(
         "--vision-train-output", "--vision_train_output",
         type=str,
-        help="The path to the vision train output")
+        help="The path to the vision train test output")
+
+    parser.add_argument(
+        "--dlsa-predict-input", "--dlsa_predict_input",
+        type=str,
+        help="The path to the DLSA predict input")
     parser.add_argument(
         "--dlsa-predict-output", "--dlsa_predict_output",
         type=str,

@@ -91,8 +91,8 @@ class Trainer(object):
         # Create DataFrame with predictions and labels
         df_results = DataFrame()
         df_results["labels"] = vision_scored_pred["labels"]
+        df_results["dlsa_predictions"] = dlsa_scored_pred["predictions_label"]
         df_results["vision_predictions"] = vision_scored_pred["predictions_label"]
-        df_results["nlp_predictions"] = dlsa_scored_pred["predictions_label"]
         df_results["consultation_predictions"] = pred_mapped
 
         if output_file:

@@ -4,7 +4,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.run \
 
 class ModelingArgs(object):
     def __init__(self):
-        self.single_node = False
+        self.single_node = True
         self.no_process_data = False
         self.no_build_graph = False
         self.no_partition_graph = False

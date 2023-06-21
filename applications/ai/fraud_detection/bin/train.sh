@@ -30,7 +30,7 @@ do
         PROCESSED_DATA_PATH=$1
         ;;
     *)
-        usage
+        break
     esac
     shift
 done

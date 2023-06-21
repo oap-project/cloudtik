@@ -60,7 +60,7 @@ def _train_on_data(
 
     on_ray = True if not args.single_node else False
 
-    print('start training model...')
+    print('Start training model...')
     if on_ray:
         ray_params = get_ray_params(args)
         from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.\
@@ -113,6 +113,14 @@ def _check_temp_dir(args):
                 "Must specify the temp-dir for storing the shared intermediate data")
 
 
+def _check_predict_output(args):
+    if not args.predict_output and args.output_dir:
+        args.predict_output = os.path.join(
+            args.output_dir, "predict_output.csv")
+        print("predict-output is not specified. Default to: {}".format(
+            args.predict_output))
+
+
 def _train(args, data_engine, train_data, test_data):
     if not args.in_memory and not args.processed_data_path:
         raise ValueError(
@@ -162,8 +170,7 @@ def _predict(args, test_data):
         args.dataset_config = os.path.join(
             _get_config_dir(), "dataset-config.yaml")
         print("dataset-config is not specified. Default to: {}. "
-              "You can set a empty value explicitly if it is not needed.".format(
-            args.dataset_config))
+              "You can set a empty value explicitly if it is not needed.".format(args.dataset_config))
 
     if not args.in_memory and not args.processed_data_path:
         raise ValueError(
@@ -181,15 +188,20 @@ def _predict(args, test_data):
         raise ValueError(
             "Must specify the model-file to predict.")
 
+    _check_predict_output(args)
+
     data_spec = load_config(
         args.dataset_config) if args.dataset_config else None
     from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression. \
         xgboost.modeling.model.predictor import predict
+
+    print('Start predicting...')
     predict(
         data, args.model_file,
         data_spec=data_spec,
         predict_output=args.predict_output
     )
+    print('End predicting.')
 
 
 def run(args):
@@ -258,6 +270,10 @@ if __name__ == "__main__":
         "--temp-dir", "--temp_dir",
         type=str,
         help="The path to the shared intermediate data")
+    parser.add_argument(
+        "--output-dir", "--output_dir",
+        type=str,
+        help="The path to the output if not specified explicitly")
     parser.add_argument(
         "--model-file", "--model_file",
         type=str,

@@ -61,12 +61,12 @@ def apply_embeddings(
     with open(tabular2graph, "r") as file:
         config = yaml.safe_load(file)
 
-    # 1. Load CSV file output of Classical ML edge featurization workflow
+    # 1. Load processed CSV file
     print("Loading processed data")
     start = time.time()
     df = pd.read_csv(processed_data_path)
     t_load_data = time.time()
-    print("Time lo load processed data", t_load_data - start)
+    print("Time to load processed data", t_load_data - start)
 
     start = time.time()
 

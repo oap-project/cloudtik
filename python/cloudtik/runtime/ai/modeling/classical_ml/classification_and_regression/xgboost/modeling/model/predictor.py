@@ -41,7 +41,7 @@ class Predictor:
             # calculate the metrics if there are label in the test data
             precision, recall, _ = precision_recall_curve(test_data[label], probs)
             test_result = auc(recall, precision)
-            print(test_result)
+            print("Accuracy for aucpr: {}".format(test_result))
         else:
             dtest = xgb.DMatrix(data=test_data)
             probs = self.model.predict(dtest)

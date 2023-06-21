@@ -2,7 +2,7 @@ import argparse
 import os
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling \
-    import (run as graph_run, ModelingArgs as GraphModelingArgs, get_mapped_embeddings_path)
+    import (run as graph_run, ModelingArgs as GraphModelingArgs, get_data_with_embeddings_path)
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling \
     import (run as xgboost_run, ModelingArgs as XGBoostModelingArgs)
 
@@ -15,6 +15,12 @@ def _process_data(args, single_node):
     xgboost_args.raw_data_path = args.raw_data_path
     xgboost_args.processed_data_path = args.processed_data_path
     xgboost_run(xgboost_args)
+
+
+def _get_data_with_embeddings(args):
+    graph_args = GraphModelingArgs()
+    graph_args.output_dir = args.output_dir
+    return get_data_with_embeddings_path(graph_args)
 
 
 def _run_graph(args, single_node):
@@ -35,10 +41,8 @@ def _run_graph(args, single_node):
     # other possible parameters user want to pass
     graph_run(graph_args)
 
-    return get_mapped_embeddings_path(graph_args)
 
-
-def _run_xgboost(args, single_node, mapped_embeddings_path):
+def _run_xgboost(args, single_node):
     # train XGBoost
     xgboost_args = XGBoostModelingArgs()
     xgboost_args.single_node = single_node
@@ -47,7 +51,7 @@ def _run_xgboost(args, single_node, mapped_embeddings_path):
     xgboost_args.no_train = args.no_train
     xgboost_args.no_predict = args.no_predict
 
-    xgboost_args.processed_data_path = mapped_embeddings_path
+    xgboost_args.processed_data_path = _get_data_with_embeddings(args)
     xgboost_args.temp_dir = args.temp_dir
     xgboost_args.model_file = args.model_file
 
@@ -76,13 +80,12 @@ def run(args):
         _process_data(args, single_node)
 
     if not args.no_graph:
-        mapped_embeddings_path = _run_graph(
+        _run_graph(
             args, single_node)
 
     if not args.no_xgboost:
         _run_xgboost(
-            args, single_node,
-            mapped_embeddings_path)
+            args, single_node)
 
 
 if __name__ == "__main__":

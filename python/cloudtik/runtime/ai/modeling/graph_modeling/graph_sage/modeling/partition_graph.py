@@ -32,6 +32,7 @@ def partition_graph(
     print("First reverse id is:  ", reverse_eids[0])
 
     # convert graph to homogeneous
+    #TODO: handle new node ids for different node types
     g = dgl.to_homogeneous(hg)
     print(g)
 

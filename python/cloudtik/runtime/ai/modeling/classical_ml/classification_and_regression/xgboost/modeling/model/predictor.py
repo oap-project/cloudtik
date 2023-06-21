@@ -27,7 +27,7 @@ class Predictor:
             if 'ignore_cols' in data_spec:
                 self.ignore_cols = data_spec['ignore_cols']
         self.model = xgb.Booster()
-        self.model.load_model(model_file)
+        self.load_model(model_file)
 
     def predict(self, test_data):
         test_data = self._process(test_data)
@@ -36,7 +36,7 @@ class Predictor:
         return probs
 
     def load_model(self, model_file):
-        self.model.save_model(model_file)
+        self.model.load_model(model_file)
 
     def _process(self, test_data):
         # drop ignore columns and target cols if exists

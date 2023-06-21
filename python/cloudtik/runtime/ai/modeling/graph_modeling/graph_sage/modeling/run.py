@@ -341,13 +341,13 @@ def run(args):
     if not args.single_node and not args.no_partition_graph:
         _partition_graph(args)
 
-    if not args.no_train_graph:
+    if not args.no_train:
         if args.single_node:
             _train(args)
         else:
             _train_distributed(args)
 
-    if not args.no_map_embeddings:
+    if not args.no_predict:
         _map_and_save_embeddings(args)
 
 
@@ -370,13 +370,13 @@ if __name__ == "__main__":
         default=False, action="store_true",
         help="whether to partition graph")
     parser.add_argument(
-        "--no-train-graph", "--no_train_graph",
+        "--no-train", "--no_train",
         default=False, action="store_true",
-        help="whether to train graph")
+        help="whether to do training")
     parser.add_argument(
-        "--no-map-embeddings", "--no_map_embeddings",
+        "--no-predict", "--no_predict",
         default=False, action="store_true",
-        help="whether to map embeddings")
+        help="whether to do predict")
 
     parser.add_argument(
         "--raw-data-path", "--raw_data_path",

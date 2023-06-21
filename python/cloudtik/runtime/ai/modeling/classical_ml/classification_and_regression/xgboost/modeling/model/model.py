@@ -27,7 +27,7 @@ class XGBoost:
         self.dtrain = xgb.DMatrix(data=train_df.drop(target_col, axis=1), label=train_df[target_col])
         self.dvalid = xgb.DMatrix(data=valid_df.drop(target_col, axis=1), label=valid_df[target_col]) 
         self.dtest = xgb.DMatrix(data=test_df.drop(target_col, axis=1), label=test_df[target_col]) 
-        self.watch_list = [(self.dtrain,'train'), (self.dvalid, 'eval'), (self.dtest, 'test')]
+        self.watch_list = [(self.dtrain, 'train'), (self.dvalid, 'eval'), (self.dtest, 'test')]
         self.model_params = model_params
         self.training_params = training_params
         try:

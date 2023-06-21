@@ -33,7 +33,7 @@ def build_graph(
     def column_index(series, offset=0):
         return {k: v + offset for v, k in enumerate(series.value_counts().index.values)}
 
-    # create dictionary of dictionary to stare node mapping for all node types
+    # create dictionary of dictionary to store node mapping for all node types
     offset = 0
     dict = OrderedDict()
     # create mapping dictionary between original IDs and incremental IDs starting at zero

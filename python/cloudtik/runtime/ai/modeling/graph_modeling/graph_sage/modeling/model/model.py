@@ -90,7 +90,7 @@ class GraphSAGEModel(nn.Module):
         )
         buffer_device = torch.device("cpu")
         pin_memory = buffer_device != device
-        # compure representations layer by layer
+        # compute representations layer by layer
         for l, layer in enumerate(self.encoder.layers):
             y = torch.empty(
                 g.num_nodes(),

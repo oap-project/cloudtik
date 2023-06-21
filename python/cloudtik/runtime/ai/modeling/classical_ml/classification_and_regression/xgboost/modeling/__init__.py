@@ -7,6 +7,7 @@ class ModelingArgs(object):
         self.single_node = False
         self.no_process_data = False
         self.no_train = False
+        self.no_predict = False
 
         self.in_memory = False
         self.raw_data_path = None
@@ -14,9 +15,11 @@ class ModelingArgs(object):
         self.no_save = False
         self.processed_data_path = None
 
+        self.dataset_config = None
         self.training_config = None
         self.temp_dir = None
         self.model_file = None
+        self.predict_output = None
 
         # ray params
         self.num_actors = 5

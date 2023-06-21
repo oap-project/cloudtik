@@ -8,6 +8,11 @@ from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgb
     existing_file, existing_path, load_config, read_csv_files, DATA_ENGINE_PANDAS, DATA_ENGINE_MODIN
 
 
+def _get_config_dir():
+    return os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "config")
+
+
 def _process_data(args, data_engine):
     if not args.raw_data_path:
         raise ValueError(
@@ -16,8 +21,7 @@ def _process_data(args, data_engine):
     if not args.data_processing_config:
         # default to the built-in data_processing_config.yaml if not specified
         args.data_processing_config = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "config/data-processing-config.yaml")
+            _get_config_dir(), "data-processing-config.yaml")
         print("data-processing-config is not specified. Default to: {}".format(
             args.data_processing_config))
 
@@ -26,7 +30,8 @@ def _process_data(args, data_engine):
     else:
         processed_data_path = args.processed_data_path
         if not processed_data_path:
-            raise RuntimeError("Please specify the file path of processed data.")
+            raise RuntimeError(
+                "Please specify the file path of processed data.")
     train_data, test_data = process_data(
         raw_data_path=args.raw_data_path,
         data_engine=data_engine,
@@ -37,13 +42,14 @@ def _process_data(args, data_engine):
 
 
 def _train_on_data(
-        args, df, training_config,
+        args, df,
+        dataset_config, training_config,
         temp_dir, model_file, in_memory):
-    print('start training model...')
-    config = load_config(training_config)
-    train_data_spec = config['data_spec']
-    hpo_spec = config.get('hpo_spec')
-    train_model_spec = config.get('model_spec')
+    train_data_spec = load_config(dataset_config)
+    training_config = load_config(training_config)
+
+    hpo_spec = training_config.get('hpo_spec')
+    train_model_spec = training_config.get('model_spec')
     if hpo_spec is None and train_model_spec is None:
         raise RuntimeError("Must specify either hpo_spec or model_spec.")
 
@@ -54,6 +60,7 @@ def _train_on_data(
 
     on_ray = True if not args.single_node else False
 
+    print('start training model...')
     if on_ray:
         ray_params = get_ray_params(args)
         from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.\
@@ -112,11 +119,17 @@ def _train(args, data_engine, train_data, test_data):
             "Must specify the processed-data-path which contains processed data to be trained.")
     _check_temp_dir(args)
 
+    if not args.dataset_config:
+        # default to the built-in training_config.yaml if not specified
+        args.dataset_config = os.path.join(
+            _get_config_dir(), "dataset-config.yaml")
+        print("dataset-config is not specified. Default to: {}".format(
+            args.dataset_config))
+
     if not args.training_config:
         # default to the built-in training_config.yaml if not specified
         args.training_config = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "config/training-config.yaml")
+            _get_config_dir(), "training-config.yaml")
         print("training-config is not specified. Default to: {}".format(
             args.training_config))
 
@@ -133,10 +146,49 @@ def _train(args, data_engine, train_data, test_data):
 
     _train_on_data(
         args, data,
+        dataset_config=args.dataset_config,
         training_config=args.training_config,
         temp_dir=args.temp_dir,
         model_file=args.model_file,
         in_memory=args.in_memory
+    )
+
+
+def _predict(args, test_data):
+    # for prediction the dataset config can be empty explicitly
+    # for indicating dataset_config is not needed
+    if args.dataset_config is None:
+        # default to the built-in training_config.yaml if None
+        args.dataset_config = os.path.join(
+            _get_config_dir(), "dataset-config.yaml")
+        print("dataset-config is not specified. Default to: {}. "
+              "You can set a empty value explicitly if it is not needed.".format(
+            args.dataset_config))
+
+    if not args.in_memory and not args.processed_data_path:
+        raise ValueError(
+            "Must specify the processed-data-path which contains processed data to predict.")
+    if args.in_memory:
+        # predict data always on pandas?
+        import pandas as pd
+        data = test_data
+    else:
+        print(f"loading data from: {args.processed_data_path}")
+        data = read_csv_files(
+            args.processed_data_path, engine=DATA_ENGINE_PANDAS)
+
+    if not args.model_file:
+        raise ValueError(
+            "Must specify the model-file to predict.")
+
+    data_spec = load_config(
+        args.dataset_config) if args.dataset_config else None
+    from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression. \
+        xgboost.modeling.model.predictor import predict
+    predict(
+        data, args.model_file,
+        data_spec=data_spec,
+        predict_output=args.predict_output
     )
 
 
@@ -153,6 +205,11 @@ def run(args):
         _train(
             args, data_engine, train_data, test_data)
 
+    if not args.no_predict:
+        _predict(
+            args, test_data,
+        )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process data")
@@ -168,6 +225,10 @@ if __name__ == "__main__":
         "--no-train", "--no_train",
         default=False, action="store_true",
         help="whether to do training")
+    parser.add_argument(
+        "--no-predict", "--no_predict",
+        default=False, action="store_true",
+        help="whether to do predict")
 
     parser.add_argument(
         "--in-memory", "--in_memory",
@@ -201,6 +262,10 @@ if __name__ == "__main__":
         "--model-file", "--model_file",
         type=str,
         help="The path to the output model file")
+    parser.add_argument(
+        "--predict-output", "--predict_output",
+        type=str,
+        help="The path to the predict output")
 
     # Ray params
     #     num_actors: 5

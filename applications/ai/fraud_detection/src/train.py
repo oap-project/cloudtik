@@ -7,6 +7,54 @@ from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgb
     import (run as xgboost_run, ModelingArgs as XGBoostModelingArgs)
 
 
+def _process_data(args, single_node):
+    xgboost_args = XGBoostModelingArgs()
+    xgboost_args.single_node = single_node
+    xgboost_args.no_train = True
+    xgboost_args.no_predict = True
+    xgboost_args.raw_data_path = args.raw_data_path
+    xgboost_args.processed_data_path = args.processed_data_path
+    xgboost_run(xgboost_args)
+
+
+def _run_graph(args, single_node):
+    # train embeddings with GraphSAGE
+    graph_args = GraphModelingArgs()
+    graph_args.single_node = single_node
+    graph_args.hosts = args.hosts
+
+    graph_args.no_process_data = True
+    graph_args.no_train = args.no_train
+    graph_args.no_predict = args.no_predict
+
+    graph_args.processed_data_path = args.processed_data_path
+    graph_args.temp_dir = args.temp_dir
+    graph_args.output_dir = args.output_dir
+    graph_args.tabular2graph = args.tabular2graph
+
+    # other possible parameters user want to pass
+    graph_run(graph_args)
+
+    return get_mapped_embeddings_path(graph_args)
+
+
+def _run_xgboost(args, single_node, mapped_embeddings_path):
+    # train XGBoost
+    xgboost_args = XGBoostModelingArgs()
+    xgboost_args.single_node = single_node
+
+    xgboost_args.no_process_data = True
+    xgboost_args.no_train = args.no_train
+    xgboost_args.no_predict = args.no_predict
+
+    xgboost_args.processed_data_path = mapped_embeddings_path
+    xgboost_args.temp_dir = args.temp_dir
+    xgboost_args.model_file = args.model_file
+
+    # other possible parameters user want to pass
+    xgboost_run(xgboost_args)
+
+
 def run(args):
     # if processed data path not specified, default to a file name to output dir.
     if not args.processed_data_path and args.temp_dir:
@@ -17,50 +65,46 @@ def run(args):
 
     if not args.model_file and args.output_dir:
         args.model_file = os.path.join(
-            args.output_dir, "output_model")
+            args.output_dir, "xgboost_model.json")
         print("Output model-file is not specified. Default to: {}".format(
             args.model_file))
 
-    single_node = True
-    if args.hosts:
-        single_node = False
+    single_node = True if args.hosts else False
 
     if args.raw_data_path:
         # process data
-        xgboost_args = XGBoostModelingArgs()
-        xgboost_args.single_node = single_node
-        xgboost_args.no_train = True
-        xgboost_args.raw_data_path = args.raw_data_path
-        xgboost_args.processed_data_path = args.processed_data_path
-        xgboost_run(xgboost_args)
+        _process_data(args, single_node)
 
-    # train embeddings with GraphSAGE
-    graph_args = GraphModelingArgs()
-    graph_args.single_node = single_node
-    graph_args.hosts = args.hosts
-    graph_args.no_process_data = True
-    graph_args.processed_data_path = args.processed_data_path
-    graph_args.temp_dir = args.temp_dir
-    graph_args.output_dir = args.output_dir
-    graph_args.tabular2graph = args.tabular2graph
-    # other possible parameters user want to pass
-    graph_run(graph_args)
+    if not args.no_graph:
+        mapped_embeddings_path = _run_graph(
+            args, single_node)
 
-    mapped_embeddings_path = get_mapped_embeddings_path(graph_args)
-
-    # train XGBoost
-    xgboost_args = XGBoostModelingArgs()
-    xgboost_args.single_node = single_node
-    xgboost_args.no_process_data = True
-    xgboost_args.processed_data_path = mapped_embeddings_path
-    xgboost_args.temp_dir = args.temp_dir
-    xgboost_args.model_file = args.model_file
-    # other possible parameters user want to pass
-    xgboost_run(xgboost_args)
+    if not args.no_xgboost:
+        _run_xgboost(
+            args, single_node,
+            mapped_embeddings_path)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run GNN Training")
+
+    parser.add_argument(
+        "--no-graph", "--no_graph",
+        default=False, action="store_true",
+        help="whether to run neural graph.")
+    parser.add_argument(
+        "--no-xgboost", "--no_xgboost",
+        default=False, action="store_true",
+        help="whether to run xgboost.")
+    parser.add_argument(
+        "--no-train", "--no_train",
+        default=False, action="store_true",
+        help="whether to train the data.")
+    parser.add_argument(
+        "--no-predict", "--no_predict",
+        default=False, action="store_true",
+        help="whether to predict on data.")
+
     parser.add_argument(
         "--raw-data-path", "--raw_data_path",
         type=str,

@@ -8,8 +8,8 @@ class ModelingArgs(object):
         self.no_process_data = False
         self.no_build_graph = False
         self.no_partition_graph = False
-        self.no_train_graph = False
-        self.no_map_embeddings = False
+        self.no_train = False
+        self.no_predict = False
 
         self.raw_data_path = None
         self.processed_data_path = None

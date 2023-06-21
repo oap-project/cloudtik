@@ -101,7 +101,10 @@ class Trainer:
         except:
             self.ignore_cols = None
         self.data_split = data_spec['data_split']
-        self.df = df.drop(columns=self.ignore_cols) if df is not None else None
+        if self.ignore_cols:
+            self.df = df.drop(columns=self.ignore_cols)
+        else:
+            self.df = df
         print(self.df.shape) 
 
         if model_spec is not None: 

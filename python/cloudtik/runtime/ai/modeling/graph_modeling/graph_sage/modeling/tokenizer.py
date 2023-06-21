@@ -26,5 +26,5 @@ def tokenize_node_ids(df, config, homogeneous=True):
         df[new_col_name] = df[config["node_columns"][i]].map(mapping[key])
         if homogeneous:
             offset = len(mapping[key])
-    print("Renumbered column map: ", col_map)
+    print("Tokenize column map: ", col_map)
     return mapping, col_map

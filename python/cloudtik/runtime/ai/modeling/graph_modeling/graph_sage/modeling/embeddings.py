@@ -73,8 +73,8 @@ def apply_embeddings(
     # 2. Renumbering - generating node/edge ids starting from zero
     # homogeneous mapping because that is how the embeddings will be returned by GNN
     mapping, col_map = tokenize_node_ids(df, config)
-    t_renum = time.time()
-    print("Time to renumerate", t_renum - t_load_data)
+    t_tokenize = time.time()
+    print("Time to tokenize", t_tokenize - t_load_data)
 
     # 3. Load node embeddings from file, add them to edge features
     # and save file for Classic ML workflow (since model is trained as homo, no mapping needed.)

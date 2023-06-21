@@ -14,6 +14,7 @@ limitations under the License.
 
 import numpy as np
 import xgboost as xgb
+from sklearn.metrics import precision_recall_curve, auc
 
 
 class Predictor:
@@ -31,8 +32,19 @@ class Predictor:
 
     def predict(self, test_data):
         test_data = self._process(test_data)
-        dtest = xgb.DMatrix(data=test_data)
-        probs = self.model.predict(dtest)
+        label = self.target_col
+        if label and label in test_data:
+            dtest = xgb.DMatrix(
+                data=test_data.drop(label, axis=1), label=test_data[label])
+            probs = self.model.predict(dtest)
+
+            # calculate the metrics if there are label in the test data
+            precision, recall, _ = precision_recall_curve(test_data[label], probs)
+            test_result = auc(recall, precision)
+            print("Accuracy for aucpr: {}".format(test_result))
+        else:
+            dtest = xgb.DMatrix(data=test_data)
+            probs = self.model.predict(dtest)
         return probs
 
     def load_model(self, model_file):
@@ -43,12 +55,10 @@ class Predictor:
         valid_columns = set(test_data.columns)
         if self.ignore_cols or self.target_col:
             columns_to_drop = []
-            if self.target_col and self.target_col in valid_columns:
-                columns_to_drop.append(self.target_col)
             if self.ignore_cols:
                 for ignore_col in self.ignore_cols:
                     if ignore_col in valid_columns:
-                        columns_to_drop.append(self.target_col)
+                        columns_to_drop.append(ignore_col)
             if columns_to_drop:
                 test_data = test_data.drop(columns=columns_to_drop)
         return test_data
@@ -62,5 +72,6 @@ def predict(data, model_file,
     if predict_output:
         # save the prediction output
         np.savetxt(predict_output, predictions)
+        print(f"Predict result is saved to {predict_output}.")
 
     return predictions

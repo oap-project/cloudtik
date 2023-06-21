@@ -26,7 +26,7 @@ def build_graph(
     start = time.time()
     df = pd.read_csv(input_file)  # , nrows=10000)
     t_load_data = time.time()
-    print("Time lo load processed data", t_load_data - start)
+    print("Time to load processed data", t_load_data - start)
 
     # 2. Renumbering - generating node/edge ids starting from zero
     print("Node renumbering")

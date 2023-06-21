@@ -18,6 +18,7 @@ class ModelingArgs(object):
         self.dataset_config = None
         self.training_config = None
         self.temp_dir = None
+        self.output_dir = None
         self.model_file = None
         self.predict_output = None
 

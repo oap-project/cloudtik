@@ -53,6 +53,7 @@ def _run_xgboost(args, single_node):
 
     xgboost_args.processed_data_path = _get_data_with_embeddings(args)
     xgboost_args.temp_dir = args.temp_dir
+    xgboost_args.output_dir = args.output_dir
     xgboost_args.model_file = args.model_file
 
     # other possible parameters user want to pass
@@ -73,7 +74,7 @@ def run(args):
         print("Output model-file is not specified. Default to: {}".format(
             args.model_file))
 
-    single_node = True if args.hosts else False
+    single_node = False if args.hosts else True
 
     if args.raw_data_path:
         # process data

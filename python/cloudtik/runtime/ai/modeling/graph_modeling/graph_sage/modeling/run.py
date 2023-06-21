@@ -5,14 +5,16 @@ import tempfile
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.data.process \
     import process_data
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.predictor \
+    import predict
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
     existing_path
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.build_graph import \
     build_graph
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.partition_graph import \
     partition_graph
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.map_embeddings import \
-    map_embeddings_distributed, map_embeddings
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.embeddings import \
+    apply_embeddings, _map_node_embeddings
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.launch import \
     launch_jobs, launch_local
 
@@ -45,18 +47,8 @@ def _get_model_file(output_dir):
     return os.path.join(output_dir, "model_graphsage_2L_64.pt")
 
 
-def _get_node_embeddings_dir(output_dir):
-    return output_dir
-
-
-def _get_node_embeddings_file(output_dir, node_embeddings_name):
-    node_embeddings_dir = _get_node_embeddings_dir(output_dir)
-    return os.path.join(
-        node_embeddings_dir, node_embeddings_name + ".pt")
-
-
-def _get_mapped_output_file(output_dir, mapped_embeddings_name):
-    return os.path.join(output_dir, mapped_embeddings_name)
+def _get_data_with_embeddings_file(output_dir, data_with_embeddings_name):
+    return os.path.join(output_dir, data_with_embeddings_name)
 
 
 def _get_hosts(hosts):
@@ -103,14 +95,32 @@ def _check_tabular2graph(args):
             args.tabular2graph))
 
 
-def get_node_embeddings_path(args):
-    return _get_node_embeddings_file(
-        args.output_dir, args.node_embeddings_name)
+def _check_model_file(args):
+    if not args.model_file:
+        args.model_file = _get_model_file(args.output_dir)
+        print("model-file is not specified. Default to: {}".format(
+            args.model_file))
 
 
-def get_mapped_embeddings_path(args):
-    return _get_mapped_output_file(
-        args.output_dir, args.mapped_embeddings_name)
+def _check_train_output(args):
+    if not args.train_output:
+        args.train_output = os.path.join(
+            args.output_dir, "train_node_embeddings.pt")
+        print("train-output is not specified. Default to: {}".format(
+            args.train_output))
+
+
+def _check_predict_output(args):
+    if not args.predict_output:
+        args.predict_output = os.path.join(
+            args.output_dir, "predict_node_embeddings.pt")
+        print("predict-output is not specified. Default to: {}".format(
+            args.predict_output))
+
+
+def get_data_with_embeddings_path(args):
+    return _get_data_with_embeddings_file(
+        args.output_dir, args.data_with_embeddings_name)
 
 
 def _process_data(args):
@@ -159,7 +169,7 @@ def _partition_graph(args):
     )
 
 
-def _train(args):
+def _train_local(args):
     if not args.temp_dir:
         raise ValueError(
             "Must specify the temp dir which stored the intermediate data.")
@@ -169,10 +179,10 @@ def _train(args):
             "Must specify the output dir for storing results.")
     os.makedirs(args.output_dir, exist_ok=True)
 
+    _check_model_file(args)
+    _check_train_output(args)
+
     # Call launch which run a single local training processes
-    model_file = _get_model_file(args.output_dir)
-    node_embeddings_file = _get_node_embeddings_file(
-        args.output_dir, args.node_embeddings_name)
     dataset_dir = _get_dataset_dir(
         args.temp_dir, args.dataset_name)
 
@@ -196,8 +206,8 @@ def _train(args):
         .format(
             python_exe=sys.executable,
             exec_script=exec_script,
-            model_file=model_file,
-            node_embeddings_file=node_embeddings_file,
+            model_file=args.model_file,
+            node_embeddings_file=args.train_output,
             dataset_dir=dataset_dir,
             num_epochs=args.num_epochs,
             num_hidden=args.num_hidden,
@@ -230,10 +240,10 @@ def _train_distributed(args):
             "Must specify the output dir for storing results.")
     os.makedirs(args.output_dir, exist_ok=True)
 
+    _check_model_file(args)
+    _check_train_output(args)
+
     # Call launch which run the distributed training processes
-    model_file = _get_model_file(args.output_dir)
-    node_embeddings_file = _get_node_embeddings_file(
-        args.output_dir, args.node_embeddings_name)
     dataset_dir = _get_dataset_dir(
         args.temp_dir, args.dataset_name)
     part_config = _get_partition_config(args.temp_dir, args.graph_name)
@@ -241,6 +251,9 @@ def _train_distributed(args):
 
     # Save IP config to shared ip config file
     _save_ip_config(ip_config, args.hosts)
+
+    node_embeddings_file = os.path.join(
+        args.output_dir, "node_embeddings.pt")
 
     workspace = GNN_HOME_PATH
     exec_script = os.path.join(GNN_HOME_PATH, "model", "distributed", "train.py")
@@ -266,7 +279,7 @@ def _train_distributed(args):
         .format(
             python_exe=sys.executable,
             exec_script=exec_script,
-            model_file=model_file,
+            model_file=args.model_file,
             node_embeddings_file=node_embeddings_file,
             dataset_dir=dataset_dir,
             graph_name=args.graph_name,
@@ -294,40 +307,76 @@ def _train_distributed(args):
         num_omp_threads=args.num_omp_threads
     )
 
+    # the train process finished, map the partitioned node embeddings to global
+    partition_dir = _get_partition_dir(args.temp_dir)
+    _map_node_embeddings(
+        node_embeddings_file,
+        partition_dir=partition_dir,
+        output_file=args.train_output)
 
-def _map_and_save_embeddings(args):
+
+def _train(args):
+    if args.single_node:
+        _train_local(args)
+    else:
+        _train_distributed(args)
+
+
+def _predict_node_embeddings(args):
+    # make sure the output dir exists
+    if not args.output_dir:
+        raise ValueError(
+            "Must specify the output dir for storing results.")
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    _check_model_file(args)
+    if not os.path.exists(args.model_file):
+        raise ValueError(
+            "The model file doesn't exist: {}.".format(args.model_file))
+    _check_predict_output(args)
+
+    dataset_dir = _get_dataset_dir(
+        args.temp_dir, args.dataset_name)
+    predict(dataset_dir,
+            num_hidden=args.num_hidden,
+            num_layers=args.num_layers,
+            model_file=args.model_file,
+            predict_output=args.predict_output,
+            batch_size=args.batch_size_eval)
+
+
+def _predict(args):
+    # The training node embeddings are not enough
+    # predict to get the node embeddings (cases such as new node added)
+    # TODO: optimize if there is no new node, we can use the trained node embeddings
+    _predict_node_embeddings(args)
+    _apply_embeddings_to_data(args)
+
+
+def _apply_embeddings_to_data(args):
     if not args.processed_data_path:
         raise ValueError(
             "Must specify the processed data file which contains the processed data.")
     if not args.output_dir:
         raise ValueError(
-            "Must specify the output dir which stored the node embeddings.")
+            "Must specify the output dir to store data with node embeddings.")
     _check_tabular2graph(args)
+    _check_predict_output(args)
 
-    mapped_output_file = _get_mapped_output_file(
-        args.output_dir, args.mapped_embeddings_name)
-    node_embeddings_dir = _get_node_embeddings_dir(args.output_dir)
-    if args.single_node:
-        map_embeddings(
-            processed_data_path=args.processed_data_path,
-            node_embeddings_dir=node_embeddings_dir,
-            node_embeddings_name=args.node_embeddings_name,
-            output_file=mapped_output_file,
-            tabular2graph=args.tabular2graph
-        )
-    else:
-        if not args.temp_dir:
-            raise ValueError(
-                "Must specify the temp dir which stored the intermediate data.")
-        partition_dir = _get_partition_dir(args.temp_dir)
-        map_embeddings_distributed(
-            processed_data_path=args.processed_data_path,
-            partition_dir=partition_dir,
-            node_embeddings_dir=node_embeddings_dir,
-            node_embeddings_name=args.node_embeddings_name,
-            output_file=mapped_output_file,
-            tabular2graph=args.tabular2graph
-        )
+    node_embeddings_file = args.predict_otuput
+    if not os.path.exists(node_embeddings_file):
+        raise ValueError(
+            "The node embeddings file doesn't exist: {}."
+            "This file is generated by predicting on a graph.".format(node_embeddings_file))
+
+    output_file = _get_data_with_embeddings_file(
+        args.output_dir, args.data_with_embeddings_name)
+    apply_embeddings(
+        processed_data_path=args.processed_data_path,
+        node_embeddings_file=node_embeddings_file,
+        output_file=output_file,
+        tabular2graph=args.tabular2graph
+    )
 
 
 def run(args):
@@ -342,13 +391,10 @@ def run(args):
         _partition_graph(args)
 
     if not args.no_train:
-        if args.single_node:
-            _train(args)
-        else:
-            _train_distributed(args)
+        _train(args)
 
     if not args.no_predict:
-        _map_and_save_embeddings(args)
+        _predict(args)
 
 
 if __name__ == "__main__":
@@ -386,7 +432,10 @@ if __name__ == "__main__":
         "--processed-data-path", "--processed_data_path",
         type=str,
         help="The path to the output processed data")
-
+    parser.add_argument(
+        "--model-file", "--model_file",
+        type=str,
+        help="The path to the output model file")
     parser.add_argument(
         "--temp-dir", "--temp_dir",
         type=str,
@@ -406,13 +455,19 @@ if __name__ == "__main__":
 
     # Train
     parser.add_argument(
-        "--node-embeddings-name", "--node_embeddings_name",
+        "--train-output", "--train_output",
         type=str, default="node_embeddings",
-        help="The path to the node embeddings file")
+        help="The path to the train output node embeddings file")
+
+    # Predict
     parser.add_argument(
-        "--mapped-embeddings-name", "--mapped_embeddings_name",
-        type=str, default="mapped_embeddings.csv",
-        help="The path to save the mapped embeddings file")
+        "--predict-output", "--predict_output",
+        type=str, default="node_embeddings",
+        help="The path to the predict output node embeddings file")
+    parser.add_argument(
+        "--data-with-embeddings-name", "--data_with_embeddings_name",
+        type=str, default="data_with_embeddings.csv",
+        help="The path to save the data with embeddings file")
 
     # Distributed training
     parser.add_argument(

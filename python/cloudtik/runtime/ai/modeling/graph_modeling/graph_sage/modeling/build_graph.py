@@ -7,7 +7,8 @@ import numpy as np
 import time
 import yaml
 import os
-from collections import OrderedDict
+
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.tokenizer import tokenize_node_ids
 
 
 def build_graph(
@@ -29,25 +30,10 @@ def build_graph(
 
     # 2. Renumbering - generating node/edge ids starting from zero
     print("Node renumbering")
+    # heterogeneous mapping where all types start from zero
+    mapping, col_map = tokenize_node_ids(df, config, homogeneous=False)
 
-    def column_index(series, offset=0):
-        return {k: v + offset for v, k in enumerate(series.value_counts().index.values)}
-
-    # create dictionary of dictionary to store node mapping for all node types
-    offset = 0
-    dict = OrderedDict()
-    # create mapping dictionary between original IDs and incremental IDs starting at zero
-    col_map = {}
-    for i, node in enumerate(config["node_columns"]):
-        key = str(node + "_2idx")
-        dict[key] = column_index(df[config["node_columns"][i]], offset=offset)
-        new_col_name = node + "_Idx"
-        col_map[node] = new_col_name
-        # add new Idx to dataframe
-        df[new_col_name] = df[config["node_columns"][i]].map(dict[key])
-        # offset = len(dict[key]) #remove if doing hetero mapping where all types start from zero
     t_renum = time.time()
-    print("Re-enumerated column map: ", col_map)
     print("Time to renumerate", t_renum - t_load_data)
 
     # 3. create masks for train, val and test splits (add new columns with masks)

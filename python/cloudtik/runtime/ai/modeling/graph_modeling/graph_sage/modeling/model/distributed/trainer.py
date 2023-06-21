@@ -33,7 +33,7 @@ class Trainer:
         rev_eids_map = th.cat([th.arange(E, 2 * E), th.arange(0, E)])
 
         # load the partitioned graph (from homogeneous)
-        print("Load prepartitioned graph")
+        print("Load partitioned graph")
         dgl.distributed.initialize(args.ip_config)
         if not args.standalone:
             th.distributed.init_process_group(backend="gloo")
@@ -300,7 +300,7 @@ class Trainer:
                 print(x.shape)
                 node_emb = model.module.inference(g, x, args.batch_size_eval, device)
             if g.rank() == 0:
-                th.save(node_emb[0 : g.num_nodes()], args.node_embeddings_file)
+                th.save(node_emb[0: g.num_nodes()], args.node_embeddings_file)
                 print("node emb shape: ", node_emb.shape)
             g._client.barrier()
         else:

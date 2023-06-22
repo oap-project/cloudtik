@@ -1,0 +1,15 @@
+# Training arguments
+num_epochs: 10
+num_hidden: 64
+num_layers: 2
+fan_out: "55,65"
+batch_size: 2048
+batch_size_eval: 1000000
+eval_every: 1
+lr: 0.0005
+
+# distributed
+log_every: 20
+
+# local
+num_dl_workers: 4

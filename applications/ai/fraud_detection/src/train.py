@@ -5,6 +5,13 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling \
     import (run as graph_run, ModelingArgs as GraphModelingArgs, get_data_with_embeddings_path)
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling \
     import (run as xgboost_run, ModelingArgs as XGBoostModelingArgs)
+from cloudtik.runtime.ai.util.utils import load_config_from
+
+
+def get_config_dir():
+    this_dir = os.path.dirname(__file__)
+    return os.path.join(
+        os.path.dirname(this_dir), "config")
 
 
 def _process_data(args, single_node):
@@ -26,6 +33,17 @@ def _get_data_with_embeddings(args):
 def _run_graph(args, single_node):
     # train embeddings with GraphSAGE
     graph_args = GraphModelingArgs()
+
+    config_dir = get_config_dir()
+    training_arguments_file = os.path.join(
+        config_dir, "graph-training-arguments.yaml")
+    load_config_from(training_arguments_file, graph_args)
+
+    if not single_node:
+        distributed_config_file = os.path.join(
+            config_dir, "graph-distributed-config.yaml")
+        load_config_from(distributed_config_file, graph_args)
+
     graph_args.single_node = single_node
     graph_args.hosts = args.hosts
 

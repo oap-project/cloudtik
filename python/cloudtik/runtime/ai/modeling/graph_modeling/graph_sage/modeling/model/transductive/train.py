@@ -9,7 +9,7 @@ import dgl
 import numpy as np
 import torch
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.trainer \
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.transductive.trainer \
     import Trainer
 
 

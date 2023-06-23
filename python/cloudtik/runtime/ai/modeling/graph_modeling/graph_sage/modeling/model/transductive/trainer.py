@@ -18,7 +18,7 @@ from dgl.dataloading import (
     negative_sampler,
 )
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.model import \
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.transductive.model import \
     GraphSAGEModel
 
 

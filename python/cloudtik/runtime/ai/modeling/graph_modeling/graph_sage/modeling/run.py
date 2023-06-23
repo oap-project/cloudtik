@@ -5,7 +5,7 @@ import tempfile
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.data.process \
     import process_data
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.predictor \
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.transductive.predictor \
     import predict
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
     existing_path
@@ -187,7 +187,7 @@ def _train_local(args):
         args.temp_dir, args.dataset_name)
 
     workspace = GNN_HOME_PATH
-    exec_script = os.path.join(GNN_HOME_PATH, "model", "train.py")
+    exec_script = os.path.join(GNN_HOME_PATH, "model", "transductive", "train.py")
     job_command = (
         'numactl -N 0 {python_exe} -u '
         '{exec_script} '
@@ -256,7 +256,7 @@ def _train_distributed(args):
         args.output_dir, "node_embeddings.pt")
 
     workspace = GNN_HOME_PATH
-    exec_script = os.path.join(GNN_HOME_PATH, "model", "distributed", "train.py")
+    exec_script = os.path.join(GNN_HOME_PATH, "model", "transductive", "distributed", "train.py")
     job_command = (
         'numactl -N 0 {python_exe} '
         '{exec_script} '

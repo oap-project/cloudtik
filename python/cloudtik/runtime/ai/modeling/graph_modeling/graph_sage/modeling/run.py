@@ -349,6 +349,7 @@ def _predict(args):
     # The training node embeddings are not enough
     # predict to get the node embeddings (cases such as new node added)
     # TODO: optimize if there is no new node, we can use the trained node embeddings
+    # The current impl path assumes transductive learning
     _predict_node_embeddings(args)
     _apply_embeddings_to_data(args)
 

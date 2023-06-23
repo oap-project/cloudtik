@@ -40,10 +40,6 @@ def main(args):
     trainer = Trainer()
     model = trainer.train(dataset, device, args)
     graph = trainer.graph
-    # to load pretrained model if you just want to do inference
-    #    model.load_state_dict(torch.load(args.model_file))
-    #    node_emb = model.emb.weight.data
-    #    torch.save(node_emb, args.node_embeddings_file)
 
     print("Inference to generate node representations...")
     model.eval()

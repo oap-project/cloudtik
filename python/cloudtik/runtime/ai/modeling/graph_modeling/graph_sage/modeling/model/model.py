@@ -28,7 +28,9 @@ class GraphSAGE(nn.Module):
         # output layer
         self.layers.append(
             SAGEConv(hidden_size, out_feats, aggregator_type)
-        )  # activation None
+        )
+        self.hidden_size = hidden_size
+        self.out_feats = out_feats
 
     def forward(self, graphs, inputs):
         h = inputs
@@ -40,25 +42,25 @@ class GraphSAGE(nn.Module):
 
 
 class GraphSAGEModel(nn.Module):
-    def __init__(self, vocab_size, hid_size, n_layers):
+    def __init__(self, vocab_size, hidden_size, n_layers):
         super().__init__()
 
-        self.hid_size = hid_size
+        self.hidden_size = hidden_size
 
         # node embedding
-        self.emb = torch.nn.Embedding(vocab_size, hid_size)
+        self.emb = torch.nn.Embedding(vocab_size, hidden_size)
         # encoder is a 1-layer GraphSAGE model
-        self.encoder = GraphSAGE(hid_size, hid_size, hid_size, n_layers, F.relu, "mean")
+        self.encoder = GraphSAGE(hidden_size, hidden_size, hidden_size, n_layers, F.relu, "mean")
         # decoder is a 3-layer MLP
         self.decoder = nn.Sequential(
-            nn.Linear(hid_size, hid_size),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hid_size, hid_size),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hid_size, 1),
+            nn.Linear(hidden_size, 1),
         )
         # cosine similarity with linear
-        # self.predictor=dglnn.EdgePredictor('cos',hid_size,1)
+        # self.predictor=dglnn.EdgePredictor('cos',hidden_size,1)
 
     def forward(self, pair_graph, neg_pair_graph, blocks, x):
         h = self.emb(x)
@@ -73,7 +75,19 @@ class GraphSAGEModel(nn.Module):
         return h_pos, h_neg
 
     def inference(self, g, device, batch_size):
-        """Layer-wise inference algorithm to compute GNN node embeddings."""
+        """Layer-wise inference algorithm to compute node embeddings.
+        for the nodes of the entire graph.
+        Inference with the GraphSAGE model on full neighbors (i.e. without
+        neighbor sampling).
+
+        g : the entire graph.
+        """
+        # During inference with sampling, multi-layer blocks are very
+        # inefficient because lots of computations in the first few layers
+        # are repeated. Therefore, we compute the representation of all nodes
+        # layer by layer.  The nodes on each layer are of course splitted in
+        # batches.
+
         # feat = g.ndata['feat']
         # use pretrained embedding as node features
         feat = self.emb.weight.data
@@ -94,7 +108,8 @@ class GraphSAGEModel(nn.Module):
         for l, layer in enumerate(self.encoder.layers):
             y = torch.empty(
                 g.num_nodes(),
-                self.hid_size,
+                self.encoder.hidden_size if l != len(
+                    self.encoder.layers) - 1 else self.encoder.out_feats,
                 device=buffer_device,
                 pin_memory=pin_memory,
             )
@@ -110,4 +125,62 @@ class GraphSAGEModel(nn.Module):
                         h = F.relu(h)
                     y[output_nodes] = h.to(buffer_device)
                 feat = y
+        return y
+
+    def inference_nodes(self, g, nids, device, batch_size):
+        """Layer-wise inference algorithm to compute GNN node embeddings.
+        Inference with the GraphSAGE model on full neighbors (i.e. without
+        neighbor sampling).
+
+        g : the entire graph.
+        nids : Tensor of the indices of the node ids to be computed
+        """
+        # for batch, we don't compute representations layer by layer
+        # instead we do it with batch and then layers
+
+        # feat = g.ndata['feat']
+        # use pretrained embedding as node features
+        num_nodes = nids.size(dim=0)
+        if batch_size == 0:
+            batch_size = num_nodes
+
+        feat = self.emb.weight.data
+        sampler = MultiLayerFullNeighborSampler(
+            num_layers=self.encoder.layers)
+        dataloader = DataLoader(
+            g,
+            nids.to(g.device),
+            sampler,
+            device=device,
+            batch_size=batch_size,
+            shuffle=False,
+            drop_last=False,
+            num_workers=4,
+        )
+        buffer_device = torch.device("cpu")
+        pin_memory = buffer_device != device
+
+        y = torch.empty(
+            num_nodes,
+            self.encoder.out_feats,
+            device=buffer_device,
+            pin_memory=pin_memory,
+        )
+        y_start = 0
+        # first iterating over the mini batches
+        with dataloader.enable_cpu_affinity():
+            for input_nodes, output_nodes, blocks in tqdm.tqdm(
+                    dataloader, desc="Inference"
+            ):
+                h = feat[input_nodes]
+                for l, layer in enumerate(self.encoder.layers):
+                    h = layer(blocks[l], h)
+                    if l != len(self.encoder.layers) - 1:
+                        h = F.relu(h)
+
+                # store the final output
+                num_output = output_nodes.size(dim=0)
+                y[y_start:y_start+num_output] = h.to(buffer_device)
+                y_start += num_output
+
         return y

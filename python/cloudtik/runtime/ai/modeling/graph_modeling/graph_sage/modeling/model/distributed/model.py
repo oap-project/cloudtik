@@ -29,7 +29,9 @@ class DistGraphSAGE(nn.Module):
         # output layer
         self.layers.append(
             SAGEConv(hidden_size, out_feats, aggregator_type)
-        )  # activation None
+        )
+        self.hidden_size = hidden_size
+        self.out_feats = out_feats
 
     def forward(self, graphs, inputs):
         h = inputs
@@ -41,24 +43,24 @@ class DistGraphSAGE(nn.Module):
 
 
 class DistGraphSAGEModel(nn.Module):
-    def __init__(self, vocab_size, hid_size, num_layers):
+    def __init__(self, vocab_size, hidden_size, num_layers):
         super().__init__()
 
-        self.hid_size = hid_size
+        self.hidden_size = hidden_size
         # node embedding
-        self.emb = th.nn.Embedding(vocab_size, hid_size)
+        self.emb = th.nn.Embedding(vocab_size, hidden_size)
 
         # encoder is a 1-layer GraphSAGE model
         self.encoder = DistGraphSAGE(
-            hid_size, hid_size, hid_size, num_layers, F.relu, "mean"
+            hidden_size, hidden_size, hidden_size, num_layers, F.relu, "mean"
         )
         # decoder is a 3-layer MLP
         self.decoder = nn.Sequential(
-            nn.Linear(hid_size, hid_size),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hid_size, hid_size),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hid_size, 1),
+            nn.Linear(hidden_size, 1),
         )
 
     def forward(self, pair_graph, neg_pair_graph, blocks, x):
@@ -91,7 +93,7 @@ class DistGraphSAGEModel(nn.Module):
             force_even=True,
         )
         y = dgl.distributed.DistTensor(
-            (g.num_nodes(), self.hid_size),
+            (g.num_nodes(), self.encoder.hidden_size),
             th.float32,
             "h",
             persistent=True,
@@ -99,7 +101,7 @@ class DistGraphSAGEModel(nn.Module):
         for i, layer in enumerate(self.encoder.layers):
             if i == len(self.encoder.layers) - 1:
                 y = dgl.distributed.DistTensor(
-                    (g.num_nodes(), self.hid_size),
+                    (g.num_nodes(), self.encoder.out_feats),
                     th.float32,
                     "h_last",
                     persistent=True,

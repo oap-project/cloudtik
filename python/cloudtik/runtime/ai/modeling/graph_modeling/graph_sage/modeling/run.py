@@ -363,7 +363,7 @@ def _apply_embeddings_to_data(args):
     _check_tabular2graph(args)
     _check_predict_output(args)
 
-    node_embeddings_file = args.predict_otuput
+    node_embeddings_file = args.predict_output
     if not os.path.exists(node_embeddings_file):
         raise ValueError(
             "The node embeddings file doesn't exist: {}."

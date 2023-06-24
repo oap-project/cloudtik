@@ -16,7 +16,7 @@ import torch
 import dgl
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.transductive.model import GraphSAGEModel
+    homogeneous.transductive.model import TransductiveGraphSAGEModel as GraphSAGEModel
 
 
 class Predictor:

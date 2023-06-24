@@ -2,77 +2,28 @@
 # SPDX-License-Identifier: MIT
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import tqdm
 from dgl.dataloading import (
     DataLoader,
     MultiLayerFullNeighborSampler,
 )
-from dgl.nn import SAGEConv
+
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.model import GraphSAGEModel
 
 
-class GraphSAGE(nn.Module):
-    def __init__(
-        self, in_feats, hidden_size, out_feats, n_layers, activation, aggregator_type
-    ):
-        super(GraphSAGE, self).__init__()
-        self.layers = nn.ModuleList()
-        self.activation = activation
-
-        # input layer
-        self.layers.append(SAGEConv(in_feats, hidden_size, aggregator_type))
-        # hidden layers
-        for i in range(1, n_layers - 1):
-            self.layers.append(SAGEConv(hidden_size, hidden_size, aggregator_type))
-        # output layer
-        self.layers.append(
-            SAGEConv(hidden_size, out_feats, aggregator_type)
-        )
-        self.hidden_size = hidden_size
-        self.out_feats = out_feats
-
-    def forward(self, graphs, inputs):
-        h = inputs
-        for l, (layer, block) in enumerate(zip(self.layers, graphs)):
-            h = layer(block, h)
-            if l != len(self.layers) - 1:
-                h = self.activation(h)
-        return h
-
-
-class GraphSAGEModel(nn.Module):
-    def __init__(self, vocab_size, hidden_size, n_layers):
-        super().__init__()
-
-        self.hidden_size = hidden_size
+class TransductiveGraphSAGEModel(GraphSAGEModel):
+    def __init__(self, vocab_size, hidden_size, num_layers):
+        super().__init__(hidden_size, hidden_size, num_layers)
 
         # node embedding
         self.emb = torch.nn.Embedding(vocab_size, hidden_size)
-        # encoder is a 1-layer GraphSAGE model
-        self.encoder = GraphSAGE(hidden_size, hidden_size, hidden_size, n_layers, F.relu, "mean")
-        # decoder is a 3-layer MLP
-        self.decoder = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, 1),
-        )
-        # cosine similarity with linear
-        # self.predictor=dglnn.EdgePredictor('cos',hidden_size,1)
 
     def forward(self, pair_graph, neg_pair_graph, blocks, x):
         h = self.emb(x)
-        h = self.encoder(blocks, h)
-
-        pos_src, pos_dst = pair_graph.edges()
-        neg_src, neg_dst = neg_pair_graph.edges()
-        # h_pos = self.predictor(h[pos_src], h[pos_dst])
-        # h_neg = self.predictor(h[neg_src], h[neg_dst])
-        h_pos = self.decoder(h[pos_src] * h[pos_dst])
-        h_neg = self.decoder(h[neg_src] * h[neg_dst])
-        return h_pos, h_neg
+        return super().forward(
+            pair_graph, neg_pair_graph, blocks, h)
 
     def inference(self, g, device, batch_size):
         """Layer-wise inference algorithm to compute node embeddings.
@@ -87,10 +38,7 @@ class GraphSAGEModel(nn.Module):
         # are repeated. Therefore, we compute the representation of all nodes
         # layer by layer.  The nodes on each layer are of course splitted in
         # batches.
-
-        # feat = g.ndata['feat']
-        # use pretrained embedding as node features
-        feat = self.emb.weight.data
+        x = self.emb.weight.data
         sampler = MultiLayerFullNeighborSampler(1)
         dataloader = DataLoader(
             g,
@@ -113,18 +61,18 @@ class GraphSAGEModel(nn.Module):
                 device=buffer_device,
                 pin_memory=pin_memory,
             )
-            feat = feat.to(device)
+            x = x.to(device)
             # within a layer iterate over nodes in batches
             with dataloader.enable_cpu_affinity():
                 for input_nodes, output_nodes, blocks in tqdm.tqdm(
                     dataloader, desc="Inference"
                 ):
-                    x = feat[input_nodes]
-                    h = layer(blocks[0], x)
+                    h = x[input_nodes]
+                    h = layer(blocks[0], h)
                     if l != len(self.encoder.layers) - 1:
                         h = F.relu(h)
                     y[output_nodes] = h.to(buffer_device)
-                feat = y
+                x = y
         return y
 
     def inference_nodes(self, g, nids, device, batch_size):

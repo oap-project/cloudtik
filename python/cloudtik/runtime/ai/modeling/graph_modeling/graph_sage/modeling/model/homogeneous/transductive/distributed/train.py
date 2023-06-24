@@ -8,8 +8,8 @@ import dgl
 import numpy as np
 import torch as th
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.transductive.distributed.trainer \
-    import Trainer
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.transductive.distributed.trainer import Trainer
 
 
 def main(args):
@@ -26,8 +26,8 @@ def main(args):
     print("Loading original data to get the global train/test/val masks")
     dataset = dgl.data.CSVDataset(args.dataset_dir, force_reload=False)
 
-    trainer = Trainer()
-    trainer.train(dataset, args)
+    trainer = Trainer(args)
+    trainer.train(dataset)
 
 
 if __name__ == "__main__":

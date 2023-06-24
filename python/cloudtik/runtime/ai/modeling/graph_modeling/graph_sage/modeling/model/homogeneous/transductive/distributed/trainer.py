@@ -12,15 +12,17 @@ import dgl
 import tqdm
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.transductive.distributed.model \
-    import DistGraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.transductive.distributed.model import DistGraphSAGEModel
 
 
 class Trainer:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, args) -> None:
+        self.args = args
 
-    def train(self, dataset, args):
+    def train(self, dataset):
+        args = self.args
+
         hg = dataset[0]  # only one graph
         print(hg)
         print("etype to read train/test/val from: ", hg.canonical_etypes[0][1])

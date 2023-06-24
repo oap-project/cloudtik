@@ -17,10 +17,12 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
 
 
 class Trainer:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, args) -> None:
+        self.args = args
 
-    def train(self, dataset, args):
+    def train(self, dataset):
+        args = self.args
+
         hg = dataset[0]  # only one graph
         print(hg)
         print("etype to read train/test/val from: ", hg.canonical_etypes[0][1])

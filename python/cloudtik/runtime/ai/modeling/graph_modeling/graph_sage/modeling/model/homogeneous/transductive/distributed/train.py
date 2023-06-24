@@ -8,8 +8,8 @@ import dgl
 import numpy as np
 import torch as th
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.transductive.distributed.trainer \
-    import Trainer
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.transductive.distributed.trainer import Trainer
 
 
 def main(args):

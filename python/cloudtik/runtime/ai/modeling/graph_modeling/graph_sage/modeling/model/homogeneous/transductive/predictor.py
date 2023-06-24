@@ -15,8 +15,8 @@ limitations under the License.
 import torch
 import dgl
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.transductive.model import \
-    GraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.transductive.model import GraphSAGEModel
 
 
 class Predictor:

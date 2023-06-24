@@ -9,8 +9,8 @@ import dgl
 import numpy as np
 import torch
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.transductive.trainer \
-    import Trainer
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.transductive.trainer import Trainer
 
 
 def main(args):
@@ -37,8 +37,8 @@ def main(args):
     dataset = dgl.data.CSVDataset(args.dataset_dir, force_reload=False)
     print("Time to load data from CSVs: ", time.time() - start)
 
-    trainer = Trainer()
-    model = trainer.train(dataset, device, args)
+    trainer = Trainer(args)
+    model = trainer.train(dataset, device)
     graph = trainer.graph
 
     print("Inference to generate node representations...")

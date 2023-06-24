@@ -18,16 +18,19 @@ from dgl.dataloading import (
     negative_sampler,
 )
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.transductive.model import \
-    GraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.transductive.model import GraphSAGEModel
 
 
 class Trainer:
-    def __init__(self) -> None:
+    def __init__(self, args) -> None:
+        self.args = args
         self.graph = None
         self.model = None
 
-    def train(self, dataset, device, args):
+    def train(self, dataset, device):
+        args = self.args
+
         hg = dataset[0]  # only one graph
         print(hg)
         print("etype to read train/test/val from: ", hg.canonical_etypes[0][1])
@@ -126,8 +129,8 @@ class Trainer:
                 for it, (input_nodes, pair_graph, neg_pair_graph, blocks) in enumerate(
                     tqdm.tqdm(test_dataloader)
                 ):
-                    x = blocks[0].srcdata[dgl.NID]
-                    pos_score, neg_score = model(pair_graph, neg_pair_graph, blocks, x)
+                    # x = blocks[0].srcdata[dgl.NID]  # this is the same as input_nodes for homogeneous only
+                    pos_score, neg_score = model(pair_graph, neg_pair_graph, blocks, input_nodes)
                     score = torch.cat([pos_score, neg_score])
                     pos_label = torch.ones_like(pos_score)
                     neg_label = torch.zeros_like(neg_score)
@@ -154,7 +157,7 @@ class Trainer:
                 for it, (input_nodes, pair_graph, neg_pair_graph, blocks) in enumerate(
                     train_dataloader
                 ):
-                    # x = blocks[0].srcdata[dgl.NID] #this is equal to input_nodes
+                    # x = blocks[0].srcdata[dgl.NID]  # this is the same as input_nodes for homogeneous only
                     pos_score, neg_score = model(
                         pair_graph, neg_pair_graph, blocks, input_nodes
                     )
@@ -179,7 +182,7 @@ class Trainer:
                     for it2, (input_nodes, pair_graph, neg_pair_graph, blocks) in enumerate(
                         val_dataloader
                     ):
-                        # x = blocks[0].srcdata[dgl.NID] this is same as input_nodes
+                        # x = blocks[0].srcdata[dgl.NID]  # this is the same as input_nodes for homogeneous only
                         pos_score, neg_score = model(
                             pair_graph, neg_pair_graph, blocks, input_nodes
                         )

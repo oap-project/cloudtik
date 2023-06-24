@@ -19,7 +19,7 @@ from dgl.dataloading import (
 )
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.transductive.model import GraphSAGEModel
+    homogeneous.transductive.model import TransductiveGraphSAGEModel
 
 
 class Trainer:
@@ -110,7 +110,7 @@ class Trainer:
         )
 
         self.graph = g
-        self.model = GraphSAGEModel(
+        self.model = TransductiveGraphSAGEModel(
             vocab_size, args.num_hidden, args.num_layers).to(device)
 
         # model training

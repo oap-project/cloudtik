@@ -16,7 +16,7 @@ import torch
 import dgl
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.transductive.model import TransductiveGraphSAGEModel as GraphSAGEModel
+    homogeneous.transductive.model import TransductiveGraphSAGEModel
 
 
 class Predictor:
@@ -27,7 +27,7 @@ class Predictor:
         self.batch_size = batch_size
         self.device = torch.device("cpu" if mode == "cpu" else "cuda")
 
-        self.model = GraphSAGEModel(
+        self.model = TransductiveGraphSAGEModel(
             vocab_size, num_hidden, num_layers).to(self.device)
         self.model.eval()
         self.load_model(model_file)

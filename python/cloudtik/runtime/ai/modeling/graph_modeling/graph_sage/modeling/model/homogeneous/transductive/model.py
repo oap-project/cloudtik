@@ -25,20 +25,23 @@ class TransductiveGraphSAGEModel(GraphSAGEModel):
         return super().forward(
             pair_graph, neg_pair_graph, blocks, h)
 
-    def inference(self, g, device, batch_size):
+    def get_input_embeddings(self):
+        return self.emb.weight.data
+
+    def inference(self, g, x, device, batch_size):
         """Layer-wise inference algorithm to compute node embeddings.
         for the nodes of the entire graph.
         Inference with the GraphSAGE model on full neighbors (i.e. without
         neighbor sampling).
 
         g : the entire graph.
+        x : the input of entire node set.
         """
         # During inference with sampling, multi-layer blocks are very
         # inefficient because lots of computations in the first few layers
         # are repeated. Therefore, we compute the representation of all nodes
         # layer by layer.  The nodes on each layer are of course splitted in
         # batches.
-        x = self.emb.weight.data
         sampler = MultiLayerFullNeighborSampler(1)
         dataloader = DataLoader(
             g,

@@ -293,12 +293,12 @@ class Trainer:
         # train is complete, save node embeddings of the best model
         # sync for eval and test
         best_model_path = args.model_file
-        model.module.load_state_dict(th.load(best_model_path))
         if not args.standalone:
+            model.module.load_state_dict(th.load(best_model_path))
             # save node embeddings into file
             th.nn.Module.eval(model)  # model.eval()
             with th.no_grad():
-                x = model.module.emb.weight.data
+                x = model.module.get_input_embeddings()
                 print(x.shape)
                 node_emb = model.module.inference(g, x, args.batch_size_eval, device)
             if g.rank() == 0:
@@ -306,12 +306,13 @@ class Trainer:
                 print("node emb shape: ", node_emb.shape)
             g._client.barrier()
         else:
+            model.load_state_dict(th.load(best_model_path))
             th.nn.Module.eval(model)  # model.eval()
             # save node embeddings into file
             with th.no_grad():
-                x = model.emb.weight.data
+                x = model.get_input_embeddings()
                 # print(x.shape)
-                node_emb = model.module.inference(g, x, args.batch_size_eval, device)
+                node_emb = model.inference(g, x, args.batch_size_eval, device)
 
                 th.save(node_emb, args.node_embeddings_file)
 

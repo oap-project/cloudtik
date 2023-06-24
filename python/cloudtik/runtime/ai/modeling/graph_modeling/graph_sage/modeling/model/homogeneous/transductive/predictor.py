@@ -38,8 +38,11 @@ class Predictor:
         g = g.to("cpu" if self.mode == "cpu" else "cuda")
 
         print("Inference to generate node representations...")
+
+        # Since it is transductive, the entire embedding includes all nodes
+        x = model.get_input_embeddings()
         node_emb = model.inference(
-            g, self.device, self.batch_size)
+            g, x, self.device, self.batch_size)
         print("Node embeddings shape: ", node_emb.shape)
         return node_emb
 

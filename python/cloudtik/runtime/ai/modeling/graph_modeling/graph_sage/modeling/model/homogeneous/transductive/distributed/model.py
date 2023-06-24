@@ -69,7 +69,7 @@ class DistGraphSAGEModel(TransductiveGraphSAGEModel):
                 h = layer(block, (h, h_dst))
                 if i != len(self.encoder.layers) - 1:
                     h = self.encoder.activation(h)
-                #                    h = self.dropout(h)
+                    # h = self.dropout(h)
 
                 y[output_nodes] = h.cpu()
 

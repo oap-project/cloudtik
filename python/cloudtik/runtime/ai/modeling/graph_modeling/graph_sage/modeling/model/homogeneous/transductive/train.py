@@ -44,7 +44,11 @@ def main(args):
     print("Inference to generate node representations...")
     model.eval()
     model.load_state_dict(torch.load(args.model_file))
-    node_emb = model.inference(graph, device, args.batch_size_eval)
+
+    # Since it is transductive, the entire embedding includes all nodes
+    x = model.get_input_embeddings()
+    node_emb = model.inference(
+        graph, x, device, args.batch_size_eval)
     print("Node embeddings shape: ", node_emb.shape)
     torch.save(node_emb, args.node_embeddings_file)
 

@@ -36,6 +36,23 @@ class GraphSAGE(nn.Module):
         return h
 
 
+class EdgeDecoder(nn.Module):
+    def __init__(self, hidden_size):
+        super().__init__()
+        # decoder is a 3-layer MLP
+        self.decoder = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, 1),
+        )
+
+    def forward(self, edge_subgraph, x):
+        src, dst = edge_subgraph.edges()
+        return self.decoder(x[src] * x[dst])
+
+
 class GraphSAGEModel(nn.Module):
     def __init__(self, in_feats, hidden_size, num_layers):
         super().__init__()
@@ -46,20 +63,16 @@ class GraphSAGEModel(nn.Module):
         self.encoder = GraphSAGE(
             in_feats, hidden_size, hidden_size, num_layers, F.relu, "mean"
         )
-        # decoder is a 3-layer MLP
-        self.decoder = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, 1),
-        )
+        self.decoder = EdgeDecoder(hidden_size)
 
     def forward(self, pair_graph, neg_pair_graph, blocks, x):
         h = self.encoder(blocks, x)
-
-        pos_src, pos_dst = pair_graph.edges()
-        neg_src, neg_dst = neg_pair_graph.edges()
-        h_pos = self.decoder(h[pos_src] * h[pos_dst])
-        h_neg = self.decoder(h[neg_src] * h[neg_dst])
+        h_pos = self.decoder(pair_graph, h)
+        h_neg = self.decoder(neg_pair_graph, h)
         return h_pos, h_neg
+
+    def get_inputs(self, input_nodes, blocks):
+        raise NotImplementedError("The final model must implement this method.")
+
+    def get_inference_inputs(self, g):
+        raise NotImplementedError("The final model must implement this method.")

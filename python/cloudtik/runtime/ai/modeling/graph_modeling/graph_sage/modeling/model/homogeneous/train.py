@@ -10,7 +10,11 @@ import numpy as np
 import torch
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.transductive.trainer import Trainer
+    homogeneous.trainer import Trainer
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.transductive.model import TransductiveGraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.inductive.model import InductiveGraphSAGEModel
 
 
 def main(args):
@@ -37,18 +41,31 @@ def main(args):
     dataset = dgl.data.CSVDataset(args.dataset_dir, force_reload=False)
     print("Time to load data from CSVs: ", time.time() - start)
 
-    trainer = Trainer(args)
+    # Only one graph
+    graph = dataset[0]
+    print(graph)
+
+    # create model
+    if args.inductive:
+        model = InductiveGraphSAGEModel(
+            args.node_feature, args.num_hidden, args.num_layers).to(device)
+    else:
+        vocab_size = graph.num_nodes()
+        model = TransductiveGraphSAGEModel(
+            vocab_size, args.num_hidden, args.num_layers).to(device)
+
+    # train
+    trainer = Trainer(model, args)
     model = trainer.train(dataset, device)
-    graph = trainer.graph
+    g = trainer.graph
 
     print("Inference to generate node representations...")
     model.eval()
     model.load_state_dict(torch.load(args.model_file))
 
-    # Since it is transductive, the entire embedding includes all nodes
-    x = model.get_input_embeddings()
+    x = model.get_inference_inputs(g)
     node_emb = model.inference(
-        graph, x, device, args.batch_size_eval)
+        g, x, device, args.batch_size_eval)
     print("Node embeddings shape: ", node_emb.shape)
     torch.save(node_emb, args.node_embeddings_file)
 
@@ -97,6 +114,17 @@ if __name__ == "__main__":
 
     parser.add_argument("--num-dl-workers", "--num_dl_workers",
                         type=int, default=4)
+
+    # Inductive
+    parser.add_argument(
+        "--inductive",
+        action="store_true", default=False,
+        help="Train an inductive model"
+    )
+    parser.add_argument(
+        "--node-feature", "--node_feature",
+        type=str,
+        help="The feature name to use for node. If not set, will use node id.")
 
     args = parser.parse_args()
     print(args)

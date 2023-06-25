@@ -40,7 +40,7 @@ class Predictor:
         print("Inference to generate node representations...")
 
         # Since it is transductive, the entire embedding includes all nodes
-        x = model.get_input_embeddings()
+        x = model.get_inference_inputs(g)
         node_emb = model.inference(
             g, x, self.device, self.batch_size)
         print("Node embeddings shape: ", node_emb.shape)

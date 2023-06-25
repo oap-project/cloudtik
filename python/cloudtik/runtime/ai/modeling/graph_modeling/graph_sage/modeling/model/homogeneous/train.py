@@ -56,7 +56,7 @@ def main(args):
 
     # train
     trainer = Trainer(model, args)
-    model = trainer.train(dataset, device)
+    model = trainer.train(graph, device)
     g = trainer.graph
 
     print("Inference to generate node representations...")

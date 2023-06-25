@@ -6,7 +6,7 @@ import tempfile
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.data.process \
     import process_data
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.transductive.predictor import predict
+    homogeneous.predict import predict
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
     existing_path
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.build_graph import \

@@ -48,11 +48,11 @@ def main(args):
     # create model
     if args.inductive:
         model = InductiveGraphSAGEModel(
-            args.node_feature, args.num_hidden, args.num_layers).to(device)
+            args.node_feature, args.num_hidden, args.num_layers)
     else:
         vocab_size = graph.num_nodes()
         model = TransductiveGraphSAGEModel(
-            vocab_size, args.num_hidden, args.num_layers).to(device)
+            vocab_size, args.num_hidden, args.num_layers)
 
     # train
     trainer = Trainer(model, args)

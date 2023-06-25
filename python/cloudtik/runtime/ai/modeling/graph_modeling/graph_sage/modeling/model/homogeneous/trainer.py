@@ -135,7 +135,7 @@ class Trainer:
 
     def _train(
             self, args, device, g, train_dataloader, val_dataloader, test_dataloader):
-        model = self.model
+        model = self.model.to(device)
         best_rocauc = 0
         best_model_path = args.model_file
         print("learning rate: ", args.lr)

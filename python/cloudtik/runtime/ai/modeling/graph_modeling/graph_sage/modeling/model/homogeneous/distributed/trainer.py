@@ -12,12 +12,11 @@ import dgl
 import tqdm
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.transductive.distributed.model import DistGraphSAGEModel
-
 
 class Trainer:
-    def __init__(self, args) -> None:
+    def __init__(self, model, model_eval, args):
+        self.model = model
+        self.model_eval = model_eval
         self.args = args
 
     def train(self, graph):
@@ -139,8 +138,7 @@ class Trainer:
             drop_last=False,
         )
 
-        # encoder/decoder with DistGraphSAGE
-        model = DistGraphSAGEModel(g.num_nodes(), args.num_hidden, args.num_layers).to(device)
+        model = self.model.to(device)
         if not args.standalone:
             if args.num_gpus == -1:
                 model = th.nn.parallel.DistributedDataParallel(
@@ -256,13 +254,13 @@ class Trainer:
                 g.rank() == 0 and epoch == args.num_epochs - 1
             ):
                 # load weights into single rank model
-                model_noDDP = DistGraphSAGEModel(g.num_nodes(), args.num_hidden, args.num_layers).to(
+                model_eval = self.model_eval.to(
                     device
                 )
-                model_noDDP.load_state_dict(graph_model.state_dict())
+                model_eval.load_state_dict(graph_model.state_dict())
                 # calculate test score on full test set
                 with th.no_grad():
-                    rocauc, ap_score = self.evaluate(model_noDDP, test_dataloader)
+                    rocauc, ap_score = self.evaluate(model_eval, test_dataloader)
                 print("Epoch {:05d} | roc_auc {:.4f}".format(epoch, rocauc))
                 # update best model if needed
                 if best_rocauc < rocauc:

@@ -10,6 +10,8 @@ import torch as th
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.distributed.trainer import Trainer
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.transductive.distributed.model import DistTransductiveGraphSAGEModel
 
 
 def main(args):
@@ -31,8 +33,16 @@ def main(args):
     print(graph)
 
     # create model here
+    if args.inductive:
+        # TODO: create inductive model
+        pass
+    else:
+        vocab_size = graph.num_nodes()
+        # use two models, one for distributed training, one for local evaluation
+        model = DistTransductiveGraphSAGEModel(vocab_size, args.num_hidden, args.num_layers)
+        model_eval = DistTransductiveGraphSAGEModel(vocab_size, args.num_hidden, args.num_layers)
 
-    trainer = Trainer(args)
+    trainer = Trainer(model, model_eval, args)
     trainer.train(graph)
 
 

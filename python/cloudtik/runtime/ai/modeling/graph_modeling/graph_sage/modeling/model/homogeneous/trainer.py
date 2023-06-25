@@ -20,7 +20,7 @@ from dgl.dataloading import (
 
 
 class Trainer:
-    def __init__(self, model, args) -> None:
+    def __init__(self, model, args):
         self.args = args
         self.graph = None
         self.model = model

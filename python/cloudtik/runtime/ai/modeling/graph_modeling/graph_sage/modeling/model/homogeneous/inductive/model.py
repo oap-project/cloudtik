@@ -1,5 +1,18 @@
-# Copyright (C) 2023 Intel Corporation
-# SPDX-License-Identifier: MIT
+"""
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Author: Chen Haifeng
+"""
 
 import torch
 import torch.nn.functional as F
@@ -15,7 +28,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
 
 
 class InductiveGraphSAGEModel(GraphSAGEModel):
-    def __init__(self, node_feature, in_feats, hidden_size, num_layers):
+    def __init__(self, in_feats, hidden_size, num_layers, node_feature):
         # Inductive: embedding layer cannot be used
         # and the input dimension will be the input feature size
         self.node_feature = node_feature
@@ -36,6 +49,7 @@ class InductiveGraphSAGEModel(GraphSAGEModel):
             # is [0, 1, 2, 0, 1, 2] while srcdata[dgl.NID] here
             # is [0, 1, 2, 3, 4, 5] which is the converted id
             x = input_block.srcdata[dgl.NID]
+            # reshape from 1D int tensor to 2D float tensor
             x = x.reshape((x.size(dim=0), 1)).float()
         return x
 

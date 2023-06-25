@@ -1,5 +1,19 @@
-# Copyright (C) 2023 Intel Corporation
-# SPDX-License-Identifier: MIT
+"""
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Author: Chen Haifeng
+"""
+
 
 import argparse
 import random
@@ -52,7 +66,8 @@ def main(args):
         if args.node_feature:
             in_feats = graph.ndata[args.node_feature].shape[1]
         model = InductiveGraphSAGEModel(
-            args.node_feature, in_feats, args.num_hidden, args.num_layers)
+            in_feats, args.num_hidden, args.num_layers,
+            node_feature=args.node_feature)
     else:
         print("Training a transductive model on homogeneous graph")
         vocab_size = graph.num_nodes()

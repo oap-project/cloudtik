@@ -10,6 +10,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Author: Chen Haifeng
 """
 
 import torch
@@ -19,21 +21,20 @@ class Predictor:
     def __init__(
             self, model, model_file,
             mode, batch_size=10240):
-        self.model = model
         self.mode = mode
         self.batch_size = batch_size
         self.device = torch.device("cpu" if mode == "cpu" else "cuda")
+        self.model = model.to(self.device)
         self.model.eval()
         self.load_model(model_file)
 
     def predict(self, g):
-        model = self.model.to(self.device)
+        model = self.model
 
         g = g.to("cpu" if self.mode == "cpu" else "cuda")
 
         print("Inference to generate node representations...")
 
-        # Since it is transductive, the entire embedding includes all nodes
         x = model.get_inference_inputs(g)
         node_emb = model.inference(
             g, x, self.device, self.batch_size)

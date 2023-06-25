@@ -18,41 +18,34 @@ from dgl.dataloading import (
     negative_sampler,
 )
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.transductive.model import TransductiveGraphSAGEModel
-
 
 class Trainer:
-    def __init__(self, args) -> None:
+    def __init__(self, model, args):
         self.args = args
         self.graph = None
-        self.model = None
+        self.model = model
 
-    def train(self, dataset, device):
+    def train(self, graph, device):
         args = self.args
+        print("etype to read train/test/val from: ", graph.canonical_etypes[0][1])
 
-        hg = dataset[0]  # only one graph
-        print(hg)
-        print("etype to read train/test/val from: ", hg.canonical_etypes[0][1])
-        train_mask = hg.edges[hg.canonical_etypes[0][1]].data["train_mask"]
-        val_mask = hg.edges[hg.canonical_etypes[0][1]].data["val_mask"]
-        test_mask = hg.edges[hg.canonical_etypes[0][1]].data["test_mask"]
+        train_mask = graph.edges[graph.canonical_etypes[0][1]].data["train_mask"]
+        val_mask = graph.edges[graph.canonical_etypes[0][1]].data["val_mask"]
+        test_mask = graph.edges[graph.canonical_etypes[0][1]].data["test_mask"]
         train_eidx = torch.nonzero(train_mask, as_tuple=False).squeeze()
         val_eidx = torch.nonzero(val_mask, as_tuple=False).squeeze()
         test_eidx = torch.nonzero(test_mask, as_tuple=False).squeeze()
 
-        E = hg.num_edges(hg.canonical_etypes[0][1])
+        E = graph.num_edges(graph.canonical_etypes[0][1])
         reverse_eids = torch.cat([torch.arange(E, 2 * E), torch.arange(0, E)])
         print("First reverse id is:  ", reverse_eids[0])
 
-        g = dgl.to_homogeneous(hg)
+        g = dgl.to_homogeneous(graph)
         g = g.to("cuda" if args.mode == "gpu" else "cpu")
 
         train_eidx.to(device)
         val_eidx.to(device)
         test_eidx.to(device)
-
-        vocab_size = g.num_nodes()
 
         # create sampler & dataloaders
         sampler = NeighborSampler([int(fanout) for fanout in args.fan_out.split(",")])
@@ -110,8 +103,6 @@ class Trainer:
         )
 
         self.graph = g
-        self.model = TransductiveGraphSAGEModel(
-            vocab_size, args.num_hidden, args.num_layers).to(device)
 
         # model training
         print("Training...")
@@ -130,7 +121,9 @@ class Trainer:
                     tqdm.tqdm(test_dataloader)
                 ):
                     # x = blocks[0].srcdata[dgl.NID]  # this is the same as input_nodes for homogeneous only
-                    pos_score, neg_score = model(pair_graph, neg_pair_graph, blocks, input_nodes)
+                    x = model.get_inputs(input_nodes, blocks)
+                    pos_score, neg_score = model(
+                        pair_graph, neg_pair_graph, blocks, x)
                     score = torch.cat([pos_score, neg_score])
                     pos_label = torch.ones_like(pos_score)
                     neg_label = torch.zeros_like(neg_score)
@@ -142,7 +135,7 @@ class Trainer:
 
     def _train(
             self, args, device, g, train_dataloader, val_dataloader, test_dataloader):
-        model = self.model
+        model = self.model.to(device)
         best_rocauc = 0
         best_model_path = args.model_file
         print("learning rate: ", args.lr)
@@ -158,8 +151,9 @@ class Trainer:
                     train_dataloader
                 ):
                     # x = blocks[0].srcdata[dgl.NID]  # this is the same as input_nodes for homogeneous only
+                    x = model.get_inputs(input_nodes, blocks)
                     pos_score, neg_score = model(
-                        pair_graph, neg_pair_graph, blocks, input_nodes
+                        pair_graph, neg_pair_graph, blocks, x
                     )
                     score = torch.cat([pos_score, neg_score])
                     pos_label = torch.ones_like(pos_score)
@@ -183,8 +177,9 @@ class Trainer:
                         val_dataloader
                     ):
                         # x = blocks[0].srcdata[dgl.NID]  # this is the same as input_nodes for homogeneous only
+                        x = model.get_inputs(input_nodes, blocks)
                         pos_score, neg_score = model(
-                            pair_graph, neg_pair_graph, blocks, input_nodes
+                            pair_graph, neg_pair_graph, blocks, x
                         )
                         score = torch.cat([pos_score, neg_score])
                         pos_label = torch.ones_like(pos_score)

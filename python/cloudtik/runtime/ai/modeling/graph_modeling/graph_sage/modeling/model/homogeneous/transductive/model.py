@@ -28,6 +28,12 @@ class TransductiveGraphSAGEModel(GraphSAGEModel):
     def get_input_embeddings(self):
         return self.emb.weight.data
 
+    def get_inputs(self, input_nodes, blocks):
+        return input_nodes
+
+    def get_inference_inputs(self, g):
+        return self.get_input_embeddings()
+
     def inference(self, g, x, device, batch_size):
         """Layer-wise inference algorithm to compute node embeddings.
         for the nodes of the entire graph.

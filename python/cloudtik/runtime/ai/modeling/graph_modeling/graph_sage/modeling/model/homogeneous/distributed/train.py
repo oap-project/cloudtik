@@ -9,7 +9,9 @@ import numpy as np
 import torch as th
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.transductive.distributed.trainer import Trainer
+    homogeneous.distributed.trainer import Trainer
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.transductive.distributed.model import DistTransductiveGraphSAGEModel
 
 
 def main(args):
@@ -26,8 +28,22 @@ def main(args):
     print("Loading original data to get the global train/test/val masks")
     dataset = dgl.data.CSVDataset(args.dataset_dir, force_reload=False)
 
-    trainer = Trainer(args)
-    trainer.train(dataset)
+    # Only one graph
+    graph = dataset[0]
+    print(graph)
+
+    # create model here
+    if args.inductive:
+        # TODO: create inductive model
+        pass
+    else:
+        vocab_size = graph.num_nodes()
+        # use two models, one for distributed training, one for local evaluation
+        model = DistTransductiveGraphSAGEModel(vocab_size, args.num_hidden, args.num_layers)
+        model_eval = DistTransductiveGraphSAGEModel(vocab_size, args.num_hidden, args.num_layers)
+
+    trainer = Trainer(model, model_eval, args)
+    trainer.train(graph)
 
 
 if __name__ == "__main__":
@@ -126,6 +142,17 @@ if __name__ == "__main__":
         "--sparse-lr", "--sparse_lr",
         type=float, default=1e-2,
         help="sparse lr rate")
+
+    # Inductive
+    parser.add_argument(
+        "--inductive",
+        action="store_true", default=False,
+        help="Train an inductive model"
+    )
+    parser.add_argument(
+        "--node-feature", "--node_feature",
+        type=str,
+        help="The feature name to use for node. If not set, will use node id.")
 
     args = parser.parse_args()
     print(args)

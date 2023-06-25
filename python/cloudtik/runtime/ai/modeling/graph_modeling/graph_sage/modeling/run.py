@@ -169,6 +169,16 @@ def _partition_graph(args):
     )
 
 
+def _get_optional_train_args(args):
+    optional_args = ""
+    if args.inductive:
+        optional_args += " --inductive"
+        if args.node_feature:
+            optional_args += ' --node_feature "{node_feature}"'.format(
+                node_feature=args.node_feature)
+    return optional_args
+
+
 def _train_local(args):
     if not args.temp_dir:
         raise ValueError(
@@ -188,7 +198,7 @@ def _train_local(args):
 
     workspace = GNN_HOME_PATH
     exec_script = os.path.join(GNN_HOME_PATH, "model",
-                               "homogeneous", "transductive", "train.py")
+                               "homogeneous", "train.py")
     job_command = (
         'numactl -N 0 {python_exe} -u '
         '{exec_script} '
@@ -221,6 +231,10 @@ def _train_local(args):
             num_dl_workers=args.num_dl_workers,
         )
     )
+
+    optional_args = _get_optional_train_args(args)
+    if optional_args:
+        job_command += optional_args
 
     launch_local(
         job_command, workspace,
@@ -258,7 +272,7 @@ def _train_distributed(args):
 
     workspace = GNN_HOME_PATH
     exec_script = os.path.join(GNN_HOME_PATH, "model",
-                               "homogeneous", "transductive", "distributed", "train.py")
+                               "homogeneous", "distributed", "train.py")
     job_command = (
         'numactl -N 0 {python_exe} '
         '{exec_script} '
@@ -298,6 +312,11 @@ def _train_distributed(args):
             log_every=args.log_every,
         )
     )
+
+    optional_args = _get_optional_train_args(args)
+    if optional_args:
+        job_command += optional_args
+
     launch_jobs(
         job_command, workspace,
         ip_config=ip_config,
@@ -544,6 +563,24 @@ if __name__ == "__main__":
     # single only
     parser.add_argument("--num-dl-workers", "--num_dl_workers",
                         type=int, default=4)
+
+    # inductive or transductive training
+    parser.add_argument(
+        "--inductive",
+        action="store_true", default=False,
+        help="Train an inductive model"
+    )
+    parser.add_argument(
+        "--heterogeneous",
+        action="store_true", default=False,
+        help="Train on heterogeneous graph"
+    )
+
+    # Inductive
+    parser.add_argument(
+        "--node-feature", "--node_feature",
+        type=str,
+        help="The feature name to use for node. If not set, will use node id.")
 
     args = parser.parse_args()
     print(args)

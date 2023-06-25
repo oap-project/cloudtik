@@ -12,25 +12,23 @@ import dgl
 import tqdm
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.transductive.distributed.model import DistGraphSAGEModel
-
 
 class Trainer:
-    def __init__(self, args) -> None:
+    def __init__(self, model, model_eval, args):
+        self.model = model
+        self.model_eval = model_eval
         self.args = args
 
-    def train(self, dataset):
+    def train(self, graph):
         args = self.args
 
-        hg = dataset[0]  # only one graph
-        print(hg)
-        print("etype to read train/test/val from: ", hg.canonical_etypes[0][1])
-        train_mask = hg.edges[hg.canonical_etypes[0][1]].data["train_mask"]
-        val_mask = hg.edges[hg.canonical_etypes[0][1]].data["val_mask"]
-        test_mask = hg.edges[hg.canonical_etypes[0][1]].data["test_mask"]
+        print("etype to read train/test/val from: ", graph.canonical_etypes[0][1])
 
-        E = hg.num_edges(hg.canonical_etypes[0][1])
+        train_mask = graph.edges[graph.canonical_etypes[0][1]].data["train_mask"]
+        val_mask = graph.edges[graph.canonical_etypes[0][1]].data["val_mask"]
+        test_mask = graph.edges[graph.canonical_etypes[0][1]].data["test_mask"]
+
+        E = graph.num_edges(graph.canonical_etypes[0][1])
         # The i-th element indicates the ID of the i-th edge’s reverse edge.
         rev_eids_map = th.cat([th.arange(E, 2 * E), th.arange(0, E)])
 
@@ -140,8 +138,7 @@ class Trainer:
             drop_last=False,
         )
 
-        # encoder/decoder with DistGraphSAGE
-        model = DistGraphSAGEModel(g.num_nodes(), args.num_hidden, args.num_layers).to(device)
+        model = self.model.to(device)
         if not args.standalone:
             if args.num_gpus == -1:
                 model = th.nn.parallel.DistributedDataParallel(
@@ -155,17 +152,9 @@ class Trainer:
                     output_device=dev_id,
                 )
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
-        if not args.standalone:
-            node_emb = model.module.emb.weight.data
-            # print(node_emb.shape)
-        else:
-            node_emb = model.emb.weight.data
-            # print(node_emb.shape)
+        graph_model = self._get_graph_model(model)
 
-        # define copy of model not DDP for single node evaluation
-        model_noDDP = DistGraphSAGEModel(g.num_nodes(), args.num_hidden, args.num_layers).to(device)
-
-        # # Training loop
+        # Training loop
         epoch = 0
         best_model_path = args.model_file
         best_rocauc = 0
@@ -198,7 +187,8 @@ class Trainer:
                     copy_time = time.time()
 
                     # Compute loss and prediction
-                    pos_score, neg_score = model(pos_graph, neg_graph, blocks, input_nodes)
+                    x = graph_model.get_inputs(input_nodes, blocks)
+                    pos_score, neg_score = model(pos_graph, neg_graph, blocks, x)
                     score = th.cat([pos_score, neg_score])
                     pos_label = th.ones_like(pos_score)
                     neg_label = th.zeros_like(neg_score)
@@ -264,19 +254,19 @@ class Trainer:
                 g.rank() == 0 and epoch == args.num_epochs - 1
             ):
                 # load weights into single rank model
-                model_noDDP = DistGraphSAGEModel(g.num_nodes(), args.num_hidden, args.num_layers).to(
+                model_eval = self.model_eval.to(
                     device
                 )
-                model_noDDP.load_state_dict(model.module.state_dict())
+                model_eval.load_state_dict(graph_model.state_dict())
                 # calculate test score on full test set
                 with th.no_grad():
-                    rocauc, ap_score = self.evaluate(model_noDDP, test_dataloader)
+                    rocauc, ap_score = self.evaluate(model_eval, test_dataloader)
                 print("Epoch {:05d} | roc_auc {:.4f}".format(epoch, rocauc))
                 # update best model if needed
                 if best_rocauc < rocauc:
                     print("updating best model")
                     best_rocauc = rocauc
-                    th.save(model.module.state_dict(), best_model_path)
+                    th.save(graph_model.state_dict(), best_model_path)
 
             # print average epoch loss  per rank
             print(
@@ -293,26 +283,26 @@ class Trainer:
         # train is complete, save node embeddings of the best model
         # sync for eval and test
         best_model_path = args.model_file
+        graph_model = self._get_graph_model(model)
+        graph_model.load_state_dict(th.load(best_model_path))
         if not args.standalone:
-            model.module.load_state_dict(th.load(best_model_path))
             # save node embeddings into file
             th.nn.Module.eval(model)  # model.eval()
             with th.no_grad():
-                x = model.module.get_input_embeddings()
+                x = graph_model.get_inference_inputs(g)
                 print(x.shape)
-                node_emb = model.module.inference(g, x, args.batch_size_eval, device)
+                node_emb = graph_model.inference(g, x, args.batch_size_eval, device)
             if g.rank() == 0:
                 th.save(node_emb[0: g.num_nodes()], args.node_embeddings_file)
                 print("node emb shape: ", node_emb.shape)
             g._client.barrier()
         else:
-            model.load_state_dict(th.load(best_model_path))
             th.nn.Module.eval(model)  # model.eval()
             # save node embeddings into file
             with th.no_grad():
-                x = model.get_input_embeddings()
+                x = graph_model.get_inference_inputs(g)
                 # print(x.shape)
-                node_emb = model.inference(g, x, args.batch_size_eval, device)
+                node_emb = graph_model.inference(g, x, args.batch_size_eval, device)
 
                 th.save(node_emb, args.node_embeddings_file)
 
@@ -329,8 +319,9 @@ class Trainer:
             for it, (input_nodes, pair_graph, neg_pair_graph, blocks) in enumerate(
                 tqdm.tqdm(test_dataloader)
             ):
+                x = model.get_inputs(input_nodes, blocks)
                 pos_score, neg_score = model(
-                    pair_graph, neg_pair_graph, blocks, input_nodes
+                    pair_graph, neg_pair_graph, blocks, x
                 )
                 score = th.cat([pos_score, neg_score])
                 pos_label = th.ones_like(pos_score)
@@ -341,3 +332,10 @@ class Trainer:
             rocauc = roc_auc_score(labels_all, score_all)
             ap_score = average_precision_score(labels_all, score_all)
             return rocauc, ap_score
+
+    def _get_graph_model(self, model):
+        """Return the real graph model"""
+        if not self.args.standalone:
+            return model.module
+        else:
+            return model

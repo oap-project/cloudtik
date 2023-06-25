@@ -13,7 +13,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.transductive.model import TransductiveGraphSAGEModel
 
 
-class DistGraphSAGEModel(TransductiveGraphSAGEModel):
+class DistTransductiveGraphSAGEModel(TransductiveGraphSAGEModel):
     def __init__(self, vocab_size, hidden_size, num_layers):
         super().__init__(vocab_size, hidden_size, num_layers)
 

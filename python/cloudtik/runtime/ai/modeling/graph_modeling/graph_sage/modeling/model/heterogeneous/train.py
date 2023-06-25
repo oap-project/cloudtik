@@ -132,7 +132,7 @@ if __name__ == "__main__":
         "--reverse-edges", "--reverse_edges",
         type=str,
         help="The comma separated list of reverse edges mappings if has. "
-             "For example, follow:followby,followby:follow,")
+             "For example, follow:follow-by,follow-by:follow,")
 
     # Inductive
     parser.add_argument(

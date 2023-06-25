@@ -16,7 +16,6 @@ Author: Chen Haifeng
 
 import time
 
-import dgl
 import numpy as np
 import torch
 import torch.nn.functional as F

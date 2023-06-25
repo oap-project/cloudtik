@@ -105,7 +105,6 @@ class GraphSAGEModel(nn.Module):
 
     def forward(self, pair_graph, neg_pair_graph, blocks, x):
         h = self.encoder(blocks, x)
-
         h_pos = self.decoder(pair_graph, h)
         h_neg = self.decoder(neg_pair_graph, h)
         return h_pos, h_neg

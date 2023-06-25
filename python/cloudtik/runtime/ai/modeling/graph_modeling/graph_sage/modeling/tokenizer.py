@@ -30,12 +30,12 @@ def tokenize_node_ids(df, config, homogeneous=True):
     # each unique real node id will be assigned a indexed id.
     # all the node types indexed ids are fatten numbered in the order defined in "node_columns"
     # key in dict: node + "_2idx" stores a unique mapping from real id -> indexed id  mapping
-    # column new_col_name: node + "_Idx" stores the indexed id
+    # column new_col_name: node + "_idx" stores the indexed id
     col_map = {}
     for i, node in enumerate(config["node_columns"]):
         key = str(node + "_2idx")
         mapping[key] = column_index(df[config["node_columns"][i]], offset=offset)
-        new_col_name = node + "_Idx"
+        new_col_name = node + "_idx"
         col_map[node] = new_col_name
         # add new Idx to dataframe
         df[new_col_name] = df[config["node_columns"][i]].map(mapping[key])

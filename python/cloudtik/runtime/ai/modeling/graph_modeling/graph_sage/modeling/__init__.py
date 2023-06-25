@@ -48,8 +48,9 @@ class ModelingArgs(object):
         self.log_every = 20
         self.num_dl_workers = 4
 
-        self.inductive = False
         self.heterogeneous = False
+        self.relations = None
+        self.inductive = False
         self.node_feature = None
 
 

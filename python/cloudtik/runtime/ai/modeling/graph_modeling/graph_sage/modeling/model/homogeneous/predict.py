@@ -10,6 +10,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Author: Chen Haifeng
 """
 
 import torch
@@ -37,9 +39,7 @@ def predict(dataset_dir, model_file,
     dataset = dgl.data.CSVDataset(dataset_dir, force_reload=False)
     graph = dataset[0]  # only one graph
 
-    # Assuming we are doing transductive training and prediction
-    # to be consistent if there are new data
-    # shall we join the new data into the graph for predicting?
+    # Shall we force convert or upon the user to decide?
     g = dgl.to_homogeneous(graph)
 
     # create model
@@ -49,7 +49,8 @@ def predict(dataset_dir, model_file,
         if node_feature:
             in_feats = graph.ndata[node_feature].shape[1]
         model = InductiveGraphSAGEModel(
-            node_feature, in_feats, num_hidden, num_layers)
+            in_feats, num_hidden, num_layers,
+            node_feature=node_feature)
     else:
         print("Predicting with a transductive model on homogeneous graph")
         vocab_size = g.num_nodes()

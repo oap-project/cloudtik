@@ -1,5 +1,18 @@
-# Copyright (C) 2023 Intel Corporation
-# SPDX-License-Identifier: MIT
+"""
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Author: Chen Haifeng
+"""
 
 import torch
 import torch.nn.functional as F
@@ -94,14 +107,12 @@ class TransductiveGraphSAGEModel(GraphSAGEModel):
         """
         # for batch, we don't compute representations layer by layer
         # instead we do it with batch and then layers
-
-        # feat = g.ndata['feat']
-        # use pretrained embedding as node features
         num_nodes = nids.size(dim=0)
         if batch_size == 0:
             batch_size = num_nodes
 
-        feat = self.emb.weight.data
+        # use pretrained embedding as node features
+        x = self.emb.weight.data
         sampler = MultiLayerFullNeighborSampler(
             num_layers=self.encoder.layers)
         dataloader = DataLoader(
@@ -129,7 +140,7 @@ class TransductiveGraphSAGEModel(GraphSAGEModel):
             for input_nodes, output_nodes, blocks in tqdm.tqdm(
                     dataloader, desc="Inference"
             ):
-                h = feat[input_nodes]
+                h = x[input_nodes]
                 for l, layer in enumerate(self.encoder.layers):
                     h = layer(blocks[l], h)
                     if l != len(self.encoder.layers) - 1:

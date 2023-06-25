@@ -25,7 +25,7 @@ class TransductiveGraphSAGEModel(GraphSAGEModel):
         return super().forward(
             pair_graph, neg_pair_graph, blocks, h)
 
-    def get_input_embeddings(self, g):
+    def get_input_embeddings(self):
         return self.emb.weight.data
 
     def get_inputs(self, input_nodes, blocks):

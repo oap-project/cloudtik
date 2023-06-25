@@ -33,6 +33,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.embeddings 
     apply_embeddings, _map_node_embeddings
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.launch import \
     launch_jobs, launch_local
+from cloudtik.runtime.ai.util.utils import load_config_from
 
 GNN_HOME_PATH = os.path.abspath(os.path.dirname(__file__))
 
@@ -187,6 +188,19 @@ def _partition_graph(args):
 
 def _get_optional_train_args(args):
     optional_args = ""
+    if args.heterogeneous:
+        if args.relations:
+            optional_args += ' --relations "{relations}"'.format(
+                relations=args.relations)
+        # passing in the reverse-edges if exists in config
+        tabular2graph = load_config_from(args.tabular2graph)
+        reverse_edges = tabular2graph.get("reverse_edges")
+        if reverse_edges:
+            reverse_edges_str = ",".join(
+                ["{}:{}".format(k, v) for k, v in reverse_edges.items()])
+            optional_args += ' --reverse_edges "{reverse_edges}"'.format(
+                reverse_edges=reverse_edges_str)
+
     if args.inductive:
         optional_args += " --inductive"
         if args.node_feature:
@@ -213,8 +227,12 @@ def _train_local(args):
         args.temp_dir, args.dataset_name)
 
     workspace = GNN_HOME_PATH
-    exec_script = os.path.join(GNN_HOME_PATH, "model",
-                               "homogeneous", "train.py")
+    if args.heterogeneous:
+        exec_script = os.path.join(
+            GNN_HOME_PATH, "model", "heterogeneous", "train.py")
+    else:
+        exec_script = os.path.join(
+            GNN_HOME_PATH, "model", "homogeneous", "train.py")
     job_command = (
         'numactl -N 0 {python_exe} -u '
         '{exec_script} '
@@ -353,6 +371,8 @@ def _train_distributed(args):
 
 
 def _train(args):
+    _check_tabular2graph(args)
+
     if args.single_node:
         _train_local(args)
     else:

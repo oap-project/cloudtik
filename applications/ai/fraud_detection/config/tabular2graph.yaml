@@ -7,8 +7,11 @@ node_columns:
 #provide the column names in your CSV file that contain the entity (node) IDs
 #Edge type name in string triplet: [source node type, relation type, destination node type].
 edge_types:
-  - [card_id, transaction, merchant_id]
-  - [merchant_id, sym_transaction, card_id]
+  - [card_id, pay, merchant_id]
+  - [merchant_id, charge, card_id]
+reverse_edges:
+  pay: charge
+  charge: pay
 #list of column names you want to include in graph as edge features
 #if column names have special characters or spaces wrap in double quotes
 edge_features: [year,month,day,time,amount,merchant_name,merchant_city,merchant_state,zip,mcc,"use_chip_Chip Transaction","use_chip_Online Transaction","use_chip_Swipe Transaction","Bad CVV","Bad Card Number","Bad Expiration","Bad PIN","Bad Zipcode","Insufficient Balance","Technical Glitch"]

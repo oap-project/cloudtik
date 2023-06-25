@@ -36,6 +36,7 @@ class InductiveGraphSAGEModel(GraphSAGEModel):
             # is [0, 1, 2, 0, 1, 2] while srcdata[dgl.NID] here
             # is [0, 1, 2, 3, 4, 5] which is the converted id
             x = input_block.srcdata[dgl.NID]
+            x = x.reshape((x.size(dim=0), 1)).float()
         return x
 
     def get_inference_inputs(self, g):
@@ -90,7 +91,7 @@ class InductiveGraphSAGEModel(GraphSAGEModel):
                         h = x[input_nodes]
                     else:
                         # The first layer will come to here if x is None
-                        h = self.get_inputs(blocks)
+                        h = self.get_inputs(input_nodes, blocks)
                     h = layer(blocks[0], h)
                     if l != len(self.encoder.layers) - 1:
                         h = F.relu(h)
@@ -140,7 +141,7 @@ class InductiveGraphSAGEModel(GraphSAGEModel):
                     dataloader, desc="Inference"
             ):
                 # Inductive: use node feature or id
-                h = self.get_inputs(blocks)
+                h = self.get_inputs(input_nodes, blocks)
                 for l, layer in enumerate(self.encoder.layers):
                     h = layer(blocks[l], h)
                     if l != len(self.encoder.layers) - 1:

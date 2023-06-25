@@ -12,6 +12,8 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.distributed.trainer import Trainer
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.transductive.distributed.model import DistTransductiveGraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.inductive.distributed.model import DistInductiveGraphSAGEModel
 
 
 def main(args):
@@ -34,8 +36,14 @@ def main(args):
 
     # create model here
     if args.inductive:
-        # TODO: create inductive model
-        pass
+        print("Training an inductive model on homogeneous graph")
+        in_feats = 1
+        if args.node_feature:
+            in_feats = graph.ndata[args.node_feature].shape[1]
+        model = DistInductiveGraphSAGEModel(
+            args.node_feature, in_feats, args.num_hidden, args.num_layers)
+        model_eval = DistInductiveGraphSAGEModel(
+            args.node_feature, in_feats, args.num_hidden, args.num_layers)
     else:
         vocab_size = graph.num_nodes()
         # use two models, one for distributed training, one for local evaluation

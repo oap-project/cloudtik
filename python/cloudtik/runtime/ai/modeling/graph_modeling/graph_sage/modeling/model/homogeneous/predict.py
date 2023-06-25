@@ -44,9 +44,14 @@ def predict(dataset_dir, model_file,
 
     # create model
     if inductive:
+        print("Predicting with an inductive model on homogeneous graph")
+        in_feats = 1
+        if node_feature:
+            in_feats = graph.ndata[node_feature].shape[1]
         model = InductiveGraphSAGEModel(
-            node_feature, num_hidden, num_layers)
+            node_feature, in_feats, num_hidden, num_layers)
     else:
+        print("Predicting with a transductive model on homogeneous graph")
         vocab_size = g.num_nodes()
         model = TransductiveGraphSAGEModel(
             vocab_size, num_hidden, num_layers)

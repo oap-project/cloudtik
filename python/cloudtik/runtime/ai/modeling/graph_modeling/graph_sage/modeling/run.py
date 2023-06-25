@@ -359,9 +359,11 @@ def _predict_node_embeddings(args):
     dataset_dir = _get_dataset_dir(
         args.temp_dir, args.dataset_name)
     predict(dataset_dir,
+            model_file=args.model_file,
             num_hidden=args.num_hidden,
             num_layers=args.num_layers,
-            model_file=args.model_file,
+            inductive=args.inductive,
+            node_feature=args.node_feature,
             predict_output=args.predict_output,
             batch_size=args.batch_size_eval)
 

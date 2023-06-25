@@ -47,9 +47,14 @@ def main(args):
 
     # create model
     if args.inductive:
+        print("Training an inductive model on homogeneous graph")
+        in_feats = 1
+        if args.node_feature:
+            in_feats = graph.ndata[args.node_feature].shape[1]
         model = InductiveGraphSAGEModel(
-            args.node_feature, args.num_hidden, args.num_layers)
+            args.node_feature, in_feats, args.num_hidden, args.num_layers)
     else:
+        print("Training a transductive model on homogeneous graph")
         vocab_size = graph.num_nodes()
         model = TransductiveGraphSAGEModel(
             vocab_size, args.num_hidden, args.num_layers)

@@ -22,7 +22,9 @@ import tempfile
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.data.process \
     import process_data
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.predict import predict
+    homogeneous.predict import predict as predict_homogeneous
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    heterogeneous.predict import predict as predict_heterogeneous
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import \
     existing_path
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.build_graph import \
@@ -394,7 +396,21 @@ def _predict_node_embeddings(args):
 
     dataset_dir = _get_dataset_dir(
         args.temp_dir, args.dataset_name)
-    predict(dataset_dir,
+
+    if args.heterogeneous:
+        predict_heterogeneous(
+            dataset_dir,
+            model_file=args.model_file,
+            num_hidden=args.num_hidden,
+            num_layers=args.num_layers,
+            relations=args.relations,
+            inductive=args.inductive,
+            node_feature=args.node_feature,
+            predict_output=args.predict_output,
+            batch_size=args.batch_size_eval)
+    else:
+        predict_homogeneous(
+            dataset_dir,
             model_file=args.model_file,
             num_hidden=args.num_hidden,
             num_layers=args.num_layers,

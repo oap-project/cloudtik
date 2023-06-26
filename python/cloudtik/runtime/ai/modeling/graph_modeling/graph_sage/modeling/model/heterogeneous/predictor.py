@@ -16,6 +16,9 @@ Author: Chen Haifeng
 
 import torch
 
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    heterogeneous.utils import tensor_dict_shape
+
 
 class Predictor:
     def __init__(
@@ -37,7 +40,7 @@ class Predictor:
         x = model.get_inference_inputs(g)
         node_emb = model.inference(
             g, x, self.device, self.batch_size)
-        print("Node embeddings shape: ", node_emb.shape)
+        print("Node embeddings shape: ", str(tensor_dict_shape(node_emb)))
         return node_emb
 
     def load_model(self, model_file):

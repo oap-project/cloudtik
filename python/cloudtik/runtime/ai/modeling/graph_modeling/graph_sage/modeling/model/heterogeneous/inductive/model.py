@@ -54,6 +54,12 @@ class InductiveGraphSAGEModel(GraphSAGEModel):
             x = {k: v.reshape((v.size(dim=0), 1)).float() for k, v in x.items()}
         return x
 
+    def get_inference_inputs(self, g):
+        # base on the node feature, we can return all nodes feature tensor
+        # or the node id tensor
+        # None indicate it will get from the block directly
+        return None
+
     def inference(self, g, x, device, batch_size):
         """Layer-wise inference algorithm to compute node embeddings.
         for the nodes of the entire graph.

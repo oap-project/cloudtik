@@ -96,6 +96,10 @@ def tensor_dict_flatten(x):
     return torch.cat([v for k, v in sorted(x.items())])
 
 
+def tensor_dict_shape(x):
+    return {k: v.shape for k, v in x.items()}
+
+
 def parse_reverse_edges(reverse_edges_str):
     reverse_edge_dict = {}
     reverse_edges = [x.strip() for x in reverse_edges_str.split(",")]

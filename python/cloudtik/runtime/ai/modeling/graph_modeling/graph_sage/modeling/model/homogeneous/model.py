@@ -146,7 +146,7 @@ class GraphSAGEModel(nn.Module):
                     else:
                         # The first layer will come to here if x is None
                         h = self.get_encoder_inputs(input_nodes, blocks)
-                        h = h.to(device)
+                    h = h.to(device)
                     h = layer(blocks[0], h)
                     if l != len(self.encoder.layers) - 1:
                         h = F.relu(h)
@@ -202,7 +202,7 @@ class GraphSAGEModel(nn.Module):
                     h = x[input_nodes]
                 else:
                     h = self.get_encoder_inputs(input_nodes, blocks)
-                    h = h.to(device)
+                h = h.to(device)
                 for l, layer in enumerate(self.encoder.layers):
                     h = layer(blocks[l], h)
                     if l != len(self.encoder.layers) - 1:

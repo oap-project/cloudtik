@@ -45,7 +45,8 @@ def build_graph(
     # 2. Renumbering - generating node/edge ids starting from zero
     print("Node renumbering")
     # heterogeneous mapping where all types start from zero
-    mapping, col_map = tokenize_node_ids(df, config, homogeneous=False)
+    mapping, col_map = tokenize_node_ids(
+        df, config, heterogeneous=True)
 
     t_renum = time.time()
     print("Time to renumerate", t_renum - t_load_data)

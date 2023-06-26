@@ -451,7 +451,8 @@ def _apply_embeddings_to_data(args):
         processed_data_path=args.processed_data_path,
         node_embeddings_file=node_embeddings_file,
         output_file=output_file,
-        tabular2graph=args.tabular2graph
+        tabular2graph=args.tabular2graph,
+        heterogeneous=args.heterogeneous
     )
 
 

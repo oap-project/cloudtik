@@ -52,6 +52,7 @@ class ModelingArgs(object):
         self.relations = None
         self.inductive = False
         self.node_feature = None
+        self.exclude_reverse_edges = True
 
 
 def run(args: ModelingArgs):

@@ -204,6 +204,9 @@ def _get_optional_train_args(args):
         optional_args += ' --reverse_edges "{reverse_edges}"'.format(
             reverse_edges=reverse_edges_str)
 
+        if args.exclude_reverse_edges:
+            optional_args += ' --exclude_reverse_edges'
+
     if args.inductive:
         optional_args += " --inductive"
         if args.node_feature:
@@ -251,7 +254,6 @@ def _train_local(args):
         '--batch_size_eval {batch_size_eval} '
         '--eval_every {eval_every} '
         '--num_dl_workers {num_dl_workers} '
-        '--exclude_reverse_edges '
         .format(
             python_exe=sys.executable,
             exec_script=exec_script,
@@ -329,7 +331,6 @@ def _train_distributed(args):
         '--batch_size_eval {batch_size_eval} '
         '--eval_every {eval_every} '
         '--log_every {log_every} '
-        '--exclude_reverse_edges '
         .format(
             python_exe=sys.executable,
             exec_script=exec_script,
@@ -644,6 +645,12 @@ if __name__ == "__main__":
         "--node-feature", "--node_feature",
         type=str,
         help="The feature name to use for node. If not set, will use node id.")
+
+    parser.add_argument(
+        "--exclude-reverse-edges", "--exclude_reverse_edges",
+        default=False, action="store_true",
+        help="whether to exclude reverse edges during sampling",
+    )
 
     args = parser.parse_args()
     print(args)

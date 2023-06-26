@@ -194,14 +194,18 @@ def _get_optional_train_args(args):
         if args.relations:
             optional_args += ' --relations "{relations}"'.format(
                 relations=args.relations)
-        # passing in the reverse-edges if exists in config
-        tabular2graph = load_config_from(args.tabular2graph)
-        reverse_edges = tabular2graph.get("reverse_edges")
-        if reverse_edges:
-            reverse_edges_str = ",".join(
-                ["{}:{}".format(k, v) for k, v in reverse_edges.items()])
-            optional_args += ' --reverse_edges "{reverse_edges}"'.format(
-                reverse_edges=reverse_edges_str)
+
+    # passing in the reverse-edges if exists in config
+    tabular2graph = load_config_from(args.tabular2graph)
+    reverse_edges = tabular2graph.get("reverse_edges")
+    if reverse_edges:
+        reverse_edges_str = ",".join(
+            ["{}:{}".format(k, v) for k, v in reverse_edges.items()])
+        optional_args += ' --reverse_edges "{reverse_edges}"'.format(
+            reverse_edges=reverse_edges_str)
+
+        if args.exclude_reverse_edges:
+            optional_args += ' --exclude_reverse_edges'
 
     if args.inductive:
         optional_args += " --inductive"
@@ -327,7 +331,6 @@ def _train_distributed(args):
         '--batch_size_eval {batch_size_eval} '
         '--eval_every {eval_every} '
         '--log_every {log_every} '
-        '--remove_edge '
         .format(
             python_exe=sys.executable,
             exec_script=exec_script,
@@ -642,6 +645,12 @@ if __name__ == "__main__":
         "--node-feature", "--node_feature",
         type=str,
         help="The feature name to use for node. If not set, will use node id.")
+
+    parser.add_argument(
+        "--exclude-reverse-edges", "--exclude_reverse_edges",
+        default=False, action="store_true",
+        help="whether to exclude reverse edges during sampling",
+    )
 
     args = parser.parse_args()
     print(args)

@@ -94,6 +94,8 @@ def _map_node_embeddings(
     print("Mapping from partition ids to full graph ids")
     nmap = torch.load(nmap_file)
 
+    # nmap stores the mappings between the remapped node/edge IDs and their original ones
+    # the ith element stores the original id of shuffle id i.
     orig_node_emb = torch.zeros(node_emb.shape, dtype=node_emb.dtype)
     orig_node_emb[nmap] = node_emb
 
@@ -115,7 +117,7 @@ def apply_embeddings(
     start = time.time()
     df = pd.read_csv(processed_data_path)
     t_load_data = time.time()
-    print("Time to load processed data", t_load_data - start)
+    print("Time to load processed data:", t_load_data - start)
 
     start = time.time()
 
@@ -124,19 +126,21 @@ def apply_embeddings(
     mapping, col_map = tokenize_node_ids(
         df, config, heterogeneous=heterogeneous)
     t_tokenize = time.time()
-    print("Time to tokenize", t_tokenize - t_load_data)
+    print("Time to tokenize:", t_tokenize - t_load_data)
 
     # 3. Load node embeddings from file, add them to edge features
     # and save file for Classic ML workflow (since model is trained as homo, no mapping needed.)
-    print("Loading embeddings from file and adding to preprocessed CSV file")
+    print("Loading embeddings from file")
     if not os.path.isfile(node_embeddings_file):
         raise argparse.ArgumentTypeError(
             '"{}" is not an existing file'.format(node_embeddings_file)
         )
     node_emb = torch.load(node_embeddings_file)
 
+    print("Applying node embeddings to data")
     df = _apply_embeddings(df, node_emb, col_map)
 
     # write output combining the original columns with the new node embeddings as columns
     df.to_csv(output_file, index=False)
-    print("Time to append node embeddings to edge features CSV", time.time() - start)
+    print("Data with embeddings save to:", output_file)
+    print("Time to apply node embeddings:", time.time() - start)

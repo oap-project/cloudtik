@@ -17,7 +17,7 @@ Author: Chen Haifeng
 from contextlib import contextmanager
 
 import numpy as np
-import torch as th
+import torch
 import dgl
 
 import tqdm
@@ -50,7 +50,7 @@ class DistGraphSAGEModel(GraphSAGEModel):
         )
         y = dgl.distributed.DistTensor(
             (g.num_nodes(), self.encoder.hidden_size),
-            th.float32,
+            torch.float32,
             "h",
             persistent=True,
         )
@@ -58,7 +58,7 @@ class DistGraphSAGEModel(GraphSAGEModel):
             if i == len(self.encoder.layers) - 1:
                 y = dgl.distributed.DistTensor(
                     (g.num_nodes(), self.encoder.out_feats),
-                    th.float32,
+                    torch.float32,
                     "h_last",
                     persistent=True,
                 )

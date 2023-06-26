@@ -16,6 +16,22 @@ Author: Chen Haifeng
 
 import torch
 
+from dgl.dataloading import (
+    as_edge_prediction_sampler,
+    negative_sampler,
+)
+
+
+def _create_edge_prediction_sampler(sampler, reverse_etypes):
+    exclude = "reverse_types" if reverse_etypes is not None else None
+    sampler = as_edge_prediction_sampler(
+        sampler,
+        exclude=exclude,
+        reverse_etypes=reverse_etypes,
+        negative_sampler=negative_sampler.Uniform(1),
+    )
+    return sampler
+
 
 # Most functions operating for heterogeneous graph are on dict of tensors
 
@@ -98,18 +114,6 @@ def tensor_dict_flatten(x):
 
 def tensor_dict_shape(x):
     return {k: v.shape for k, v in x.items()}
-
-
-def parse_reverse_edges(reverse_edges_str):
-    reverse_edge_dict = {}
-    reverse_edges = [x.strip() for x in reverse_edges_str.split(",")]
-    for reverse_edge in reverse_edges:
-        reverse_edge_parts = [x.strip() for x in reverse_edge.split(":")]
-        if len(reverse_edge_parts) != 2:
-            raise ValueError(
-                "Invalid reverse edge specification. Format: edge_type:reverse_edge_type")
-        reverse_edge_dict[reverse_edge_parts[0]] = reverse_edge_parts[1]
-    return reverse_edge_dict
 
 
 def get_edix_from_mask(g, mask_name):

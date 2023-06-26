@@ -19,7 +19,7 @@ import random
 
 import dgl
 import numpy as np
-import torch as th
+import torch
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.distributed.trainer import Trainer
@@ -36,8 +36,8 @@ def main(args):
     np.random.seed(seed)
     dgl.seed(seed)
     dgl.random.seed(seed)
-    th.random.manual_seed(seed)
-    th.manual_seed(seed)
+    torch.random.manual_seed(seed)
+    torch.manual_seed(seed)
 
     # load original full graph to get the train/test/val id sets
     print("Loading original data to get the global train/test/val masks")
@@ -152,11 +152,6 @@ if __name__ == "__main__":
         help="sharing neg nodes for positive nodes",
     )
     parser.add_argument(
-        "--remove-edge", "--remove_edge",
-        default=False, action="store_true",
-        help="whether to remove edges during sampling",
-    )
-    parser.add_argument(
         "--dgl-sparse", "--dgl_sparse",
         action="store_true",
         help="Whether to use DGL sparse embedding",
@@ -165,6 +160,18 @@ if __name__ == "__main__":
         "--sparse-lr", "--sparse_lr",
         type=float, default=1e-2,
         help="sparse lr rate")
+
+    # Reverse edges to exclude during training
+    parser.add_argument(
+        "--reverse-edges", "--reverse_edges",
+        type=str,
+        help="The comma separated list of reverse edges mappings if has. "
+             "For example, follow:follow-by,follow-by:follow,")
+    parser.add_argument(
+        "--exclude-reverse-edges", "--exclude_reverse_edges",
+        default=False, action="store_true",
+        help="whether to exclude reverse edges during sampling",
+    )
 
     # Inductive
     parser.add_argument(

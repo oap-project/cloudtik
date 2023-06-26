@@ -66,7 +66,7 @@ def main(args):
         relations = graph.etypes
 
     if args.inductive:
-        print("Training an inductive model on homogeneous graph")
+        print("Training an inductive model on heterogeneous graph")
         in_feats = 1
         if args.node_feature:
             in_feats = graph.ndata[args.node_feature].shape[1]

@@ -17,7 +17,7 @@ Author: Chen Haifeng
 from collections import OrderedDict
 
 
-def tokenize_node_ids(df, config, homogeneous=True):
+def tokenize_node_ids(df, config, heterogeneous):
     def column_index(series, offset=0):
         return {k: v + offset for v, k in enumerate(series.value_counts().index.values)}
 
@@ -39,7 +39,7 @@ def tokenize_node_ids(df, config, homogeneous=True):
         col_map[node] = new_col_name
         # add new Idx to dataframe
         df[new_col_name] = df[config["node_columns"][i]].map(mapping[key])
-        if homogeneous:
+        if not heterogeneous:
             offset = len(mapping[key])
     print("Tokenize column map: ", col_map)
     return mapping, col_map

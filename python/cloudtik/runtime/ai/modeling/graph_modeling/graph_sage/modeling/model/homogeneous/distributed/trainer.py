@@ -17,13 +17,18 @@ Author: Chen Haifeng
 import time
 import os
 import numpy as np
-import torch as th
+import torch
 import torch.nn.functional as F
 import torch.optim as optim
 import dgl
 
 import tqdm
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
+
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    homogeneous.distributed.utils import get_mask_padded, get_edix_from_mask
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.homogeneous.utils import get_reverse_eids
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import parse_reverse_edges
 
 
 class Trainer:
@@ -32,45 +37,44 @@ class Trainer:
         self.model_eval = model_eval
         self.args = args
 
+    def _get_graph_model(self, model):
+        """Return the real graph model"""
+        if not self.args.standalone:
+            return model.module
+        else:
+            return model
+
     def train(self, graph):
         args = self.args
-
-        print("etype to read train/test/val from: ", graph.canonical_etypes[0][1])
-
-        train_mask = graph.edges[graph.canonical_etypes[0][1]].data["train_mask"]
-        val_mask = graph.edges[graph.canonical_etypes[0][1]].data["val_mask"]
-        test_mask = graph.edges[graph.canonical_etypes[0][1]].data["test_mask"]
-
-        E = graph.num_edges(graph.canonical_etypes[0][1])
-        # The i-th element indicates the ID of the i-th edge’s reverse edge.
-        rev_eids_map = th.cat([th.arange(E, 2 * E), th.arange(0, E)])
 
         # load the partitioned graph (from homogeneous)
         print("Load partitioned graph")
         dgl.distributed.initialize(args.ip_config)
         if not args.standalone:
-            th.distributed.init_process_group(backend="gloo")
+            torch.distributed.init_process_group(backend="gloo")
         g = dgl.distributed.DistGraph(args.graph_name, part_config=args.part_config)
 
-        train_mask_padded = th.zeros((g.num_edges(),), dtype=th.bool)
-        train_mask_padded[: train_mask.shape[0]] = train_mask
-        val_mask_padded = th.zeros((g.num_edges(),), dtype=th.bool)
-        val_mask_padded[: val_mask.shape[0]] = val_mask
-        test_mask_padded = th.zeros((g.num_edges(),), dtype=th.bool)
-        test_mask_padded[: test_mask.shape[0]] = test_mask
-
+        print("Read train/test/val from: ", graph.canonical_etypes[0][1])
         print("shuffle edges according to emap from global")
-        shuffled_val_mask = th.zeros((g.num_edges(),), dtype=th.bool)
-        shuffled_test_mask = th.zeros((g.num_edges(),), dtype=th.bool)
-        shuffled_rev_eids_map = th.zeros_like(rev_eids_map)
-        emap = th.load(os.path.join(os.path.dirname(args.part_config), "emap.pt"))
+        emap = torch.load(os.path.join(os.path.dirname(args.part_config), "emap.pt"))
         print("emap shape: ", emap.shape)
-        shuffled_val_mask[emap] = val_mask_padded
-        shuffled_val_eidx = th.nonzero(shuffled_val_mask, as_tuple=False).squeeze()
-        shuffled_test_mask[emap] = test_mask_padded
-        shuffled_test_eidx = th.nonzero(shuffled_test_mask, as_tuple=False).squeeze()
-        shuffled_rev_eids_map[emap] = rev_eids_map
 
+        num_edges = g.num_edges()
+        train_mask_padded = get_mask_padded(graph, "train_mask", num_edges)
+        shuffled_val_eidx = get_edix_from_mask(graph, "val_mask", num_edges, emap)
+        shuffled_test_eidx = get_edix_from_mask(graph, "test_mask", num_edges, emap)
+
+        shuffled_reverse_eids = None
+        if args.exclude_reverse_edges and args.reverse_edges:
+            reverse_etypes = parse_reverse_edges(args.reverse_edges)
+            print("Reverse edges be excluded during the training:", reverse_etypes)
+            # The i-th element indicates the ID of the i-th edge’s reverse edge.
+            reverse_eids = get_reverse_eids(graph, reverse_etypes)
+            # Mapping to shuffled id
+            shuffled_reverse_eids = torch.zeros_like(reverse_eids)
+            shuffled_reverse_eids[emap] = reverse_eids
+
+        # The ids here are original id
         train_eids = dgl.distributed.edge_split(
             train_mask_padded,
             g.get_partition_book(),
@@ -78,17 +82,17 @@ class Trainer:
         )
 
         if args.num_gpus == -1:
-            device = th.device("cpu")
+            device = torch.device("cpu")
         else:
             dev_id = g.rank() % args.num_gpus
-            device = th.device("cuda:" + str(dev_id))
+            device = torch.device("cuda:" + str(dev_id))
 
         # Pack data
         data = (
             train_eids,
             shuffled_val_eidx,
             shuffled_test_eidx,
-            shuffled_rev_eids_map,
+            shuffled_reverse_eids,
             g,
         )
         self._train(args, device, data)
@@ -113,8 +117,7 @@ class Trainer:
         # Create dataloader
         # "reverse_id" exclude not only edges in minibatch but their reverse edges according to reverse_eids mapping
         # reverse_eids - The i-th element indicates the ID of the i-th edge’s reverse edge.
-        exclude = "reverse_id" if args.remove_edge else None
-        # reverse_eids = th.arange(g.num_edges()) if args.remove_edge else None
+        exclude = "reverse_id" if reverse_eids is not None else None
         train_dataloader = dgl.dataloading.DistEdgeDataLoader(
             g,
             train_eids,
@@ -154,12 +157,12 @@ class Trainer:
         model = self.model.to(device)
         if not args.standalone:
             if args.num_gpus == -1:
-                model = th.nn.parallel.DistributedDataParallel(
+                model = torch.nn.parallel.DistributedDataParallel(
                     model,
                 )
             else:
                 dev_id = g.rank() % args.num_gpus
-                model = th.nn.parallel.DistributedDataParallel(
+                model = torch.nn.parallel.DistributedDataParallel(
                     model,
                     device_ids=[dev_id],
                     output_device=dev_id,
@@ -202,10 +205,10 @@ class Trainer:
                     # Compute loss and prediction
                     x = graph_model.get_inputs(input_nodes, blocks)
                     pos_score, neg_score = model(pos_graph, neg_graph, blocks, x)
-                    score = th.cat([pos_score, neg_score])
-                    pos_label = th.ones_like(pos_score)
-                    neg_label = th.zeros_like(neg_score)
-                    labels = th.cat([pos_label, neg_label])
+                    score = torch.cat([pos_score, neg_score])
+                    pos_label = torch.ones_like(pos_score)
+                    neg_label = torch.zeros_like(neg_score)
+                    labels = torch.cat([pos_label, neg_label])
                     loss = F.binary_cross_entropy_with_logits(score, labels)
                     forward_end = time.time()
                     optimizer.zero_grad()
@@ -272,14 +275,14 @@ class Trainer:
                 )
                 model_eval.load_state_dict(graph_model.state_dict())
                 # calculate test score on full test set
-                with th.no_grad():
+                with torch.no_grad():
                     rocauc, ap_score = self.evaluate(model_eval, test_dataloader)
                 print("Epoch {:05d} | roc_auc {:.4f}".format(epoch, rocauc))
                 # update best model if needed
                 if best_rocauc < rocauc:
                     print("updating best model")
                     best_rocauc = rocauc
-                    th.save(graph_model.state_dict(), best_model_path)
+                    torch.save(graph_model.state_dict(), best_model_path)
 
             # print average epoch loss  per rank
             print(
@@ -291,42 +294,42 @@ class Trainer:
 
         # sync the status for all ranks
         if not args.standalone:
-            th.distributed.barrier()
+            torch.distributed.barrier()
 
         # train is complete, save node embeddings of the best model
         # sync for eval and test
         best_model_path = args.model_file
         graph_model = self._get_graph_model(model)
-        graph_model.load_state_dict(th.load(best_model_path))
+        graph_model.load_state_dict(torch.load(best_model_path))
         if not args.standalone:
             # save node embeddings into file
-            th.nn.Module.eval(model)  # model.eval()
-            with th.no_grad():
+            torch.nn.Module.eval(model)  # model.eval()
+            with torch.no_grad():
                 x = graph_model.get_inference_inputs(g)
                 node_emb = graph_model.inference(g, x, args.batch_size_eval, device)
             if g.rank() == 0:
-                th.save(node_emb[0: g.num_nodes()], args.node_embeddings_file)
+                torch.save(node_emb[0: g.num_nodes()], args.node_embeddings_file)
                 print("node emb shape: ", node_emb.shape)
             g._client.barrier()
         else:
-            th.nn.Module.eval(model)  # model.eval()
+            torch.nn.Module.eval(model)  # model.eval()
             # save node embeddings into file
-            with th.no_grad():
+            with torch.no_grad():
                 x = graph_model.get_inference_inputs(g)
                 node_emb = graph_model.inference(g, x, args.batch_size_eval, device)
 
-                th.save(node_emb, args.node_embeddings_file)
+                torch.save(node_emb, args.node_embeddings_file)
 
         if not args.standalone:
-            th.distributed.barrier()
-            # th.distributed.monitored_barrier(timeout=timedelta(minutes=60))
+            torch.distributed.barrier()
+            # torch.distributed.monitored_barrier(timeout=timedelta(minutes=60))
 
     def evaluate(self, model, test_dataloader):
         # evaluate the embeddings on test set
-        th.nn.Module.eval(model)  # model.eval()
-        score_all = th.tensor(())
-        labels_all = th.tensor(())
-        with th.no_grad():
+        torch.nn.Module.eval(model)  # model.eval()
+        score_all = torch.tensor(())
+        labels_all = torch.tensor(())
+        with torch.no_grad():
             for it, (input_nodes, pair_graph, neg_pair_graph, blocks) in enumerate(
                 tqdm.tqdm(test_dataloader)
             ):
@@ -334,19 +337,12 @@ class Trainer:
                 pos_score, neg_score = model(
                     pair_graph, neg_pair_graph, blocks, x
                 )
-                score = th.cat([pos_score, neg_score])
-                pos_label = th.ones_like(pos_score)
-                neg_label = th.zeros_like(neg_score)
-                labels = th.cat([pos_label, neg_label])
-                score_all = th.cat([score_all, score])
-                labels_all = th.cat([labels_all, labels])
+                score = torch.cat([pos_score, neg_score])
+                pos_label = torch.ones_like(pos_score)
+                neg_label = torch.zeros_like(neg_score)
+                labels = torch.cat([pos_label, neg_label])
+                score_all = torch.cat([score_all, score])
+                labels_all = torch.cat([labels_all, labels])
             rocauc = roc_auc_score(labels_all, score_all)
             ap_score = average_precision_score(labels_all, score_all)
             return rocauc, ap_score
-
-    def _get_graph_model(self, model):
-        """Return the real graph model"""
-        if not self.args.standalone:
-            return model.module
-        else:
-            return model

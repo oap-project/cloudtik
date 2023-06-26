@@ -26,12 +26,13 @@ from dgl.dataloading import (
     DataLoader,
     NeighborSampler,
     MultiLayerFullNeighborSampler,
-    as_edge_prediction_sampler,
-    negative_sampler,
 )
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.heterogeneous.utils import tensor_dict_to, \
-    parse_reverse_edges, get_edix_from_mask, tensor_dict_flatten
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
+    heterogeneous.utils import tensor_dict_to, tensor_dict_flatten, get_edix_from_mask, \
+    _create_edge_prediction_sampler
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import \
+    parse_reverse_edges
 
 
 class Trainer:
@@ -43,8 +44,8 @@ class Trainer:
 
     def train(self, graph, device):
         args = self.args
-        print("etype to read train/test/val from: ", graph.canonical_etypes[0][1])
 
+        print("Read train/test/val from:", graph.canonical_etypes)
         # different on handling the masks for heterogeneous graph
         train_eidx = get_edix_from_mask(graph, "train_mask")
         val_eidx = get_edix_from_mask(graph, "val_mask")
@@ -52,9 +53,9 @@ class Trainer:
 
         # The reverse types must guarantee a reverse edge has the same id
         reverse_etypes = {}
-        if args.reverse_edges:
+        if args.exclude_reverse_edges and args.reverse_edges:
             reverse_etypes = parse_reverse_edges(args.reverse_edges)
-            print("Reverse edges be excluded during the training: {}", reverse_etypes)
+            print("Reverse edges be excluded during the training:", reverse_etypes)
 
         g = graph.to("cuda" if args.mode == "gpu" else "cpu")
 
@@ -64,12 +65,12 @@ class Trainer:
 
         # create sampler & dataloaders
         sampler = NeighborSampler([int(fanout) for fanout in args.fan_out.split(",")])
-        sampler = self._create_edge_prediction_sampler(
+        sampler = _create_edge_prediction_sampler(
             sampler, reverse_etypes)
 
         # no neighbor sampling during test
         test_sampler = MultiLayerFullNeighborSampler(1)
-        test_sampler = self._create_edge_prediction_sampler(
+        test_sampler = _create_edge_prediction_sampler(
             test_sampler, reverse_etypes)
 
         use_uva = args.mode == "mixed"
@@ -223,19 +224,3 @@ class Trainer:
                         best_rocauc = rocauc
                         torch.save(model.state_dict(), best_model_path)
                     print("Epoch {:05d} | Test roc_auc_score {:.4f}".format(epoch, rocauc))
-
-    @staticmethod
-    def _create_edge_prediction_sampler(sampler, reverse_etypes):
-        if reverse_etypes:
-            sampler = as_edge_prediction_sampler(
-                sampler,
-                exclude="reverse_types",
-                reverse_etypes=reverse_etypes,
-                negative_sampler=negative_sampler.Uniform(1),
-            )
-        else:
-            sampler = as_edge_prediction_sampler(
-                sampler,
-                negative_sampler=negative_sampler.Uniform(1),
-            )
-        return sampler

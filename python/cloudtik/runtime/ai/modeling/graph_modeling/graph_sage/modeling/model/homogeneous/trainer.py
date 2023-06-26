@@ -28,9 +28,12 @@ from dgl.dataloading import (
     DataLoader,
     NeighborSampler,
     MultiLayerFullNeighborSampler,
-    as_edge_prediction_sampler,
-    negative_sampler,
 )
+
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
+    homogeneous.utils import get_edix_from_mask, _create_edge_prediction_sampler, get_reverse_eids
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import \
+    parse_reverse_edges
 
 
 class Trainer:
@@ -41,18 +44,18 @@ class Trainer:
 
     def train(self, graph, device):
         args = self.args
-        print("etype to read train/test/val from: ", graph.canonical_etypes[0][1])
 
-        train_mask = graph.edges[graph.canonical_etypes[0][1]].data["train_mask"]
-        val_mask = graph.edges[graph.canonical_etypes[0][1]].data["val_mask"]
-        test_mask = graph.edges[graph.canonical_etypes[0][1]].data["test_mask"]
-        train_eidx = torch.nonzero(train_mask, as_tuple=False).squeeze()
-        val_eidx = torch.nonzero(val_mask, as_tuple=False).squeeze()
-        test_eidx = torch.nonzero(test_mask, as_tuple=False).squeeze()
+        print("Read train/test/val from: ", graph.canonical_etypes[0][1])
+        train_eidx = get_edix_from_mask(graph, "train_mask")
+        val_eidx = get_edix_from_mask(graph, "val_mask")
+        test_eidx = get_edix_from_mask(graph, "test_mask")
 
-        E = graph.num_edges(graph.canonical_etypes[0][1])
-        reverse_eids = torch.cat([torch.arange(E, 2 * E), torch.arange(0, E)])
-        print("First reverse id is:  ", reverse_eids[0])
+        reverse_eids = None
+        if args.exclude_reverse_edges and args.reverse_edges:
+            reverse_etypes = parse_reverse_edges(args.reverse_edges)
+            print("Reverse edges be excluded during the training:", reverse_etypes)
+            # The i-th element indicates the ID of the i-th edge’s reverse edge.
+            reverse_eids = get_reverse_eids(graph, reverse_etypes)
 
         g = dgl.to_homogeneous(graph)
         g = g.to("cuda" if args.mode == "gpu" else "cpu")
@@ -63,19 +66,13 @@ class Trainer:
 
         # create sampler & dataloaders
         sampler = NeighborSampler([int(fanout) for fanout in args.fan_out.split(",")])
-        sampler = as_edge_prediction_sampler(
-            sampler,
-            exclude="reverse_id",
-            reverse_eids=reverse_eids,
-            negative_sampler=negative_sampler.Uniform(1),
+        sampler = _create_edge_prediction_sampler(
+            sampler, reverse_eids=reverse_eids
         )
         # no neighbor sampling during test
         test_sampler = MultiLayerFullNeighborSampler(1)
-        test_sampler = as_edge_prediction_sampler(
-            test_sampler,
-            exclude="reverse_id",
-            reverse_eids=reverse_eids,
-            negative_sampler=negative_sampler.Uniform(1),
+        test_sampler = _create_edge_prediction_sampler(
+            test_sampler, reverse_eids=reverse_eids
         )
 
         use_uva = args.mode == "mixed"
@@ -121,7 +118,8 @@ class Trainer:
         # model training
         print("Training...")
         self._train(
-            args, device, g, train_dataloader, val_dataloader, test_dataloader)
+            args, device, g,
+            train_dataloader, val_dataloader, test_dataloader)
 
         return self.model
 

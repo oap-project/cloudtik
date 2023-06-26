@@ -148,6 +148,11 @@ if __name__ == "__main__":
         type=str,
         help="The comma separated list of reverse edges mappings if has. "
              "For example, follow:follow-by,follow-by:follow,")
+    parser.add_argument(
+        "--exclude-reverse-edges", "--exclude_reverse_edges",
+        default=False, action="store_true",
+        help="whether to exclude reverse edges during sampling",
+    )
 
     # Inductive
     parser.add_argument(

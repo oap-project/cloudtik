@@ -31,7 +31,7 @@ from dgl.dataloading import (
 )
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
-    homogeneous.utils import get_edix_from_mask, _create_edge_prediction_sampler, get_reverse_eids
+    homogeneous.utils import get_eids_from_mask, _create_edge_prediction_sampler, get_reverse_eids
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import \
     parse_reverse_edges
 
@@ -46,9 +46,9 @@ class Trainer:
         args = self.args
 
         print("Read train/test/val from: ", graph.canonical_etypes[0][1])
-        train_eidx = get_edix_from_mask(graph, "train_mask")
-        val_eidx = get_edix_from_mask(graph, "val_mask")
-        test_eidx = get_edix_from_mask(graph, "test_mask")
+        train_eids = get_eids_from_mask(graph, "train_mask")
+        val_eids = get_eids_from_mask(graph, "val_mask")
+        test_eids = get_eids_from_mask(graph, "test_mask")
 
         reverse_eids = None
         if args.exclude_reverse_edges and args.reverse_edges:
@@ -59,10 +59,27 @@ class Trainer:
 
         g = dgl.to_homogeneous(graph)
         g = g.to("cuda" if args.mode == "gpu" else "cpu")
+        self.graph = g
 
-        train_eidx.to(device)
-        val_eidx.to(device)
-        test_eidx.to(device)
+        train_eids.to(device)
+        val_eids.to(device)
+        test_eids.to(device)
+
+        train_dataloader, val_dataloader, test_dataloader = self._create_data_loaders(
+            g, device, train_eids, val_eids, test_eids, reverse_eids
+        )
+
+        # model training
+        print("Training...")
+        self._train(
+            args, device, g,
+            train_dataloader, val_dataloader, test_dataloader)
+
+        return self.model
+
+    def _create_data_loaders(
+            self, g, device, train_eids, val_eids, test_eids, reverse_eids):
+        args = self.args
 
         # create sampler & dataloaders
         sampler = NeighborSampler([int(fanout) for fanout in args.fan_out.split(",")])
@@ -79,7 +96,7 @@ class Trainer:
 
         train_dataloader = DataLoader(
             g,
-            train_eidx,
+            train_eids,
             sampler,
             device=device,
             batch_size=args.batch_size,
@@ -91,7 +108,7 @@ class Trainer:
 
         val_dataloader = DataLoader(
             g,
-            val_eidx,
+            val_eids,
             sampler,
             device=device,
             batch_size=args.batch_size_eval,
@@ -103,7 +120,7 @@ class Trainer:
 
         test_dataloader = DataLoader(
             g,
-            test_eidx,
+            test_eids,
             test_sampler,
             device=device,
             batch_size=args.batch_size_eval,
@@ -113,15 +130,7 @@ class Trainer:
             use_uva=use_uva,
         )
 
-        self.graph = g
-
-        # model training
-        print("Training...")
-        self._train(
-            args, device, g,
-            train_dataloader, val_dataloader, test_dataloader)
-
-        return self.model
+        return train_dataloader, val_dataloader, test_dataloader
 
     def evaluate(self, model, test_dataloader):
         model.eval()

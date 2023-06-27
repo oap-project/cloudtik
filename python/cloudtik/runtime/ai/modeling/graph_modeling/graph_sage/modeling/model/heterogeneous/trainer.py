@@ -29,7 +29,7 @@ from dgl.dataloading import (
 )
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
-    heterogeneous.utils import tensor_dict_to, tensor_dict_flatten, get_edix_from_mask, \
+    heterogeneous.utils import tensor_dict_to, tensor_dict_flatten, get_eids_from_mask, \
     _create_edge_prediction_sampler
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import \
     parse_reverse_edges
@@ -47,9 +47,9 @@ class Trainer:
 
         print("Read train/test/val from:", graph.canonical_etypes)
         # different on handling the masks for heterogeneous graph
-        train_eidx = get_edix_from_mask(graph, "train_mask")
-        val_eidx = get_edix_from_mask(graph, "val_mask")
-        test_eidx = get_edix_from_mask(graph, "test_mask")
+        train_eids = get_eids_from_mask(graph, "train_mask")
+        val_eids = get_eids_from_mask(graph, "val_mask")
+        test_eids = get_eids_from_mask(graph, "test_mask")
 
         # The reverse types must guarantee a reverse edge has the same id
         reverse_etypes = {}
@@ -58,10 +58,27 @@ class Trainer:
             print("Reverse edges be excluded during the training:", reverse_etypes)
 
         g = graph.to("cuda" if args.mode == "gpu" else "cpu")
+        self.graph = g
 
-        tensor_dict_to(train_eidx, device)
-        tensor_dict_to(val_eidx, device)
-        tensor_dict_to(test_eidx, device)
+        tensor_dict_to(train_eids, device)
+        tensor_dict_to(val_eids, device)
+        tensor_dict_to(test_eids, device)
+
+        train_dataloader, val_dataloader, test_dataloader = self._create_data_loaders(
+            g, device, train_eids, val_eids, test_eids, reverse_etypes
+        )
+
+        # model training
+        print("Training...")
+        self._train(
+            args, device, g,
+            train_dataloader, val_dataloader, test_dataloader)
+
+        return self.model
+
+    def _create_data_loaders(
+            self, g, device, train_eids, val_eids, test_eids, reverse_etypes):
+        args = self.args
 
         # create sampler & dataloaders
         sampler = NeighborSampler([int(fanout) for fanout in args.fan_out.split(",")])
@@ -77,7 +94,7 @@ class Trainer:
 
         train_dataloader = DataLoader(
             g,
-            train_eidx,
+            train_eids,
             sampler,
             device=device,
             batch_size=args.batch_size,
@@ -89,7 +106,7 @@ class Trainer:
 
         val_dataloader = DataLoader(
             g,
-            val_eidx,
+            val_eids,
             sampler,
             device=device,
             batch_size=args.batch_size_eval,
@@ -101,7 +118,7 @@ class Trainer:
 
         test_dataloader = DataLoader(
             g,
-            test_eidx,
+            test_eids,
             test_sampler,
             device=device,
             batch_size=args.batch_size_eval,
@@ -111,14 +128,7 @@ class Trainer:
             use_uva=use_uva,
         )
 
-        self.graph = g
-
-        # model training
-        print("Training...")
-        self._train(
-            args, device, g, train_dataloader, val_dataloader, test_dataloader)
-
-        return self.model
+        return train_dataloader, val_dataloader, test_dataloader
 
     def evaluate(self, model, test_dataloader):
         model.eval()

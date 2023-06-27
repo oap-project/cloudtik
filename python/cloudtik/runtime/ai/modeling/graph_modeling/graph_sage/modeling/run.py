@@ -311,8 +311,13 @@ def _train_distributed(args):
         args.output_dir, "node_embeddings.pt")
 
     workspace = GNN_HOME_PATH
-    exec_script = os.path.join(GNN_HOME_PATH, "model",
-                               "homogeneous", "distributed", "train.py")
+
+    if args.heterogeneous:
+        exec_script = os.path.join(GNN_HOME_PATH, "model",
+                                   "heterogeneous", "distributed", "train.py")
+    else:
+        exec_script = os.path.join(GNN_HOME_PATH, "model",
+                                   "homogeneous", "distributed", "train.py")
     job_command = (
         'numactl -N 0 {python_exe} '
         '{exec_script} '

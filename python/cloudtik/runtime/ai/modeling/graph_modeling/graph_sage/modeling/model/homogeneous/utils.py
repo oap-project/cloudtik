@@ -21,11 +21,74 @@ from dgl.dataloading import (
     negative_sampler,
 )
 
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import \
+    exclude_reverse_edge_types
 
-def get_eids_from_mask(g, mask_name):
-    etype = g.canonical_etypes[0]
-    edge_name = etype[1]
-    mask = g.edges[edge_name].data[mask_name]
+
+def get_effective_edge_types(g, reverse_etypes):
+    return exclude_reverse_edge_types(g.etypes, reverse_etypes)
+
+
+def get_eids_mask(
+        g, mask_name, reverse_etypes=None, full_padded=False):
+    # we include all the edges or first half of the reverse edges
+    # we need to padding the spaces if there are more than one pair of reverse etypes
+    effective = get_effective_edge_types(g, reverse_etypes)
+    mask_list = []
+    padding_num_edges = 0
+    for etype in g.canonical_etypes:
+        edge_type = etype[1]
+        if edge_type not in effective:
+            padding_num_edges += g.num_edges(edge_type)
+        else:
+            if padding_num_edges > 0:
+                # padding zeros
+                mask = torch.zeros((padding_num_edges,), dtype=torch.bool)
+                mask_list.append(mask)
+                # clear the padding list
+                padding_num_edges = 0
+            # append mask after the padding
+            mask = g.edges[edge_type].data[mask_name]
+            mask_list.append(mask)
+
+    # handle the final padding if full padded is needed
+    if full_padded and padding_num_edges > 0:
+        # padding zeros
+        mask = torch.zeros((padding_num_edges,), dtype=torch.bool)
+        mask_list.append(mask)
+
+    if len(mask_list) == 1:
+        full_mask = mask_list[0]
+    else:
+        full_mask = torch.cat(mask_list)
+    return full_mask
+
+
+def get_eids_mask_full_padded(
+        g, mask_name, reverse_etypes=None):
+    # Optimize implementation of a full padded mask
+    num_edges = g.num_edges()
+    # we include all the edges or first half of the reverse edges
+    # we need to padding the spaces if there are more than one pair of reverse etypes
+    effective = get_effective_edge_types(g, reverse_etypes)
+    # the full mask will all the edges
+    full_mask = torch.zeros((num_edges,), dtype=torch.bool)
+    base_idx = 0
+    for etype in g.canonical_etypes:
+        edge_type = etype[1]
+        n = g.num_edges(edge_type)
+        if edge_type not in effective:
+            pass
+        else:
+            mask = g.edges[edge_type].data[mask_name]
+            full_mask[base_idx: base_idx + n] = mask
+        base_idx += n
+    return full_mask
+
+
+def get_eids_from_mask(
+        g, mask_name, reverse_etypes=None, full_padded=False):
+    mask = get_eids_mask(g, mask_name, reverse_etypes, full_padded)
     return torch.nonzero(mask, as_tuple=False).squeeze()
 
 

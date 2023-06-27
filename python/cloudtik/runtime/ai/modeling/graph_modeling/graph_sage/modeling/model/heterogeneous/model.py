@@ -186,7 +186,7 @@ class GraphSAGEModel(nn.Module):
                     else:
                         # The first layer will come to here if x is None
                         h = self.get_encoder_inputs(input_nodes, blocks)
-                    tensor_dict_to(h, device)
+                    h = tensor_dict_to(h, device)
                     h = layer(blocks[0], h)
                     if l != len(self.encoder.layers) - 1:
                         h = {k: F.relu(v) for k, v in h.items()}
@@ -243,7 +243,7 @@ class GraphSAGEModel(nn.Module):
                     h = tensor_dict_collect(x, input_nodes)
                 else:
                     h = self.get_encoder_inputs(input_nodes, blocks)
-                tensor_dict_to(h, device)
+                h = tensor_dict_to(h, device)
                 for l, layer in enumerate(self.encoder.layers):
                     h = layer(blocks[l], h)
                     if l != len(self.encoder.layers) - 1:

@@ -44,25 +44,30 @@ class Trainer:
 
     def train(self, graph, device):
         args = self.args
+        relations = args.relations
 
-        print("Read train/test/val from:", graph.canonical_etypes)
-        # different on handling the masks for heterogeneous graph
-        train_eids = get_eids_from_mask(graph, "train_mask")
-        val_eids = get_eids_from_mask(graph, "val_mask")
-        test_eids = get_eids_from_mask(graph, "test_mask")
+        print("Read train/test/val from:", relations)
 
         # The reverse types must guarantee a reverse edge has the same id
-        reverse_etypes = {}
+        reverse_etypes = None
         if args.exclude_reverse_edges and args.reverse_edges:
             reverse_etypes = parse_reverse_edges(args.reverse_edges)
             print("Reverse edges be excluded during the training:", reverse_etypes)
 
+        # different on handling the masks for heterogeneous graph
+        train_eids = get_eids_from_mask(
+            graph, relations, "train_mask", reverse_etypes)
+        val_eids = get_eids_from_mask(
+            graph, relations, "val_mask", reverse_etypes)
+        test_eids = get_eids_from_mask(
+            graph, relations, "test_mask", reverse_etypes)
+
         g = graph.to("cuda" if args.mode == "gpu" else "cpu")
         self.graph = g
 
-        tensor_dict_to(train_eids, device)
-        tensor_dict_to(val_eids, device)
-        tensor_dict_to(test_eids, device)
+        train_eids = tensor_dict_to(train_eids, device)
+        val_eids = tensor_dict_to(val_eids, device)
+        test_eids = tensor_dict_to(test_eids, device)
 
         train_dataloader, val_dataloader, test_dataloader = self._create_data_loaders(
             g, device, train_eids, val_eids, test_eids, reverse_etypes

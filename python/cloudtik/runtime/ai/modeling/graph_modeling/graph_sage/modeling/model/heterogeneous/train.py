@@ -62,9 +62,9 @@ def main(args):
 
     # Heterogeneous: create node indices based on the relations
     if args.relations:
-        relations = [relation for relation in args.relations.split(",")]
+        args.relations = [relation for relation in args.relations.split(",")]
     else:
-        relations = graph.etypes
+        args.relations = graph.etypes
 
     if args.inductive:
         print("Training an inductive model on heterogeneous graph")
@@ -74,7 +74,7 @@ def main(args):
 
         model = InductiveGraphSAGEModel(
             in_feats, args.num_hidden, args.num_layers,
-            relations=relations, node_feature=args.node_feature)
+            relations=args.relations, node_feature=args.node_feature)
     else:
         raise NotImplementedError("Transductive model on heterogeneous graph not supported")
 

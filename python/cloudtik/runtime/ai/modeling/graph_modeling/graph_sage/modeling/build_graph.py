@@ -105,7 +105,7 @@ def build_graph(
 
     # write edges_.csv files
     for i, edge_type in enumerate(meta_yaml["edge_data"]):
-        print("\nWriting: ", edge_type["file_name"])
+        print("\nWriting:", edge_type["file_name"])
         edge_header = ["src_id", "dst_id"]  # minimum required
         edge_df_cols = [edge_type["etype"][0], edge_type["etype"][2]]
         if config["edge_label"]:
@@ -119,11 +119,11 @@ def build_graph(
             # edge_df_cols.extend(["masks_0"])
         if config["edge_features"]:
             edge_features = config["edge_features"]
-            print("Features for edges: ", edge_features)
+            print("Features for edges:", edge_features)
             data_columns = set(df.columns)
             feat_keys = [feature for feature in edge_features if feature in data_columns]
             if len(feat_keys) != len(edge_features):
-                print("Valid features for edges: ", feat_keys)
+                print("Valid features for edges:", feat_keys)
             # Note: feat_as_str needs to be a string of comma separated values
             # enclosed in double quotes for dgl default parser to work
             df["edge_feat_as_str"] = df[feat_keys].astype(str).apply(",".join, axis=1)
@@ -137,7 +137,7 @@ def build_graph(
         )
     # write nodes_.csv files
     for i, node in enumerate(meta_yaml["node_data"]):
-        print("\nWriting: ", meta_yaml["node_data"][i]["file_name"])
+        print("\nWriting:", meta_yaml["node_data"][i]["file_name"])
         print(df[meta_yaml["node_data"][i]["ntype"]].unique())
         np.savetxt(
             os.path.join(output_dataset_dir, meta_yaml["node_data"][i]["file_name"]),

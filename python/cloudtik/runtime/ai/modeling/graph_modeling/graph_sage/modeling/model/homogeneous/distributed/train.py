@@ -31,7 +31,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
 
 def main(args):
     seed = 7
-    print("random seed set to: ", seed)
+    print("random seed set to:", seed)
     random.seed(seed)
     np.random.seed(seed)
     dgl.seed(seed)

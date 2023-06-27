@@ -40,7 +40,7 @@ class Predictor:
         x = model.get_inference_inputs(g)
         node_emb = model.inference(
             g, x, self.device, self.batch_size)
-        print("Node embeddings shape: ", str(tensor_dict_shape(node_emb)))
+        print("Node embeddings shape:", str(tensor_dict_shape(node_emb)))
         return node_emb
 
     def load_model(self, model_file):

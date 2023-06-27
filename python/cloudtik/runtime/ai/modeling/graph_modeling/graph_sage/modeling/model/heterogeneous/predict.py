@@ -33,7 +33,7 @@ def predict(dataset_dir, model_file,
             batch_size=10240):
     if not torch.cuda.is_available():
         mode = "cpu"
-    print(f"Training in {mode} mode.")
+    print(f"Predicting in {mode} mode.")
 
     dataset = dgl.data.CSVDataset(dataset_dir, force_reload=False)
     graph = dataset[0]  # only one graph

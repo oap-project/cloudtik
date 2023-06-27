@@ -25,3 +25,19 @@ def parse_reverse_edges(reverse_edges_str):
                 "Invalid reverse edge specification. Format: edge_type:reverse_edge_type")
         reverse_edge_dict[reverse_edge_parts[0]] = reverse_edge_parts[1]
     return reverse_edge_dict
+
+
+def exclude_reverse_edge_types(etypes, reverse_etypes):
+    if not reverse_etypes:
+        return set(etypes)
+
+    valid = set()
+    exclude = set()
+    for edge_type in etypes:
+        if edge_type in exclude:
+            continue
+        valid.add(edge_type)
+        reverse_edge_type = reverse_etypes.get(edge_type)
+        if reverse_edge_type:
+            exclude.add(reverse_edge_type)
+    return valid

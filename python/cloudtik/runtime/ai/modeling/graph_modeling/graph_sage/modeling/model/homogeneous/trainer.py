@@ -45,15 +45,19 @@ class Trainer:
     def train(self, graph, device):
         args = self.args
 
-        print("Read train/test/val from: ", graph.canonical_etypes[0][1])
-        train_eids = get_eids_from_mask(graph, "train_mask")
-        val_eids = get_eids_from_mask(graph, "val_mask")
-        test_eids = get_eids_from_mask(graph, "test_mask")
+        print("Read train/test/val from: ", graph.etypes)
 
-        reverse_eids = None
+        reverse_etypes = None
         if args.exclude_reverse_edges and args.reverse_edges:
             reverse_etypes = parse_reverse_edges(args.reverse_edges)
             print("Reverse edges be excluded during the training:", reverse_etypes)
+
+        train_eids = get_eids_from_mask(graph, "train_mask", reverse_etypes)
+        val_eids = get_eids_from_mask(graph, "val_mask", reverse_etypes)
+        test_eids = get_eids_from_mask(graph, "test_mask", reverse_etypes)
+
+        reverse_eids = None
+        if args.exclude_reverse_edges and reverse_etypes:
             # The i-th element indicates the ID of the i-th edge’s reverse edge.
             reverse_eids = get_reverse_eids(graph, reverse_etypes)
 
@@ -61,9 +65,9 @@ class Trainer:
         g = g.to("cuda" if args.mode == "gpu" else "cpu")
         self.graph = g
 
-        train_eids.to(device)
-        val_eids.to(device)
-        test_eids.to(device)
+        train_eids = train_eids.to(device)
+        val_eids = val_eids.to(device)
+        test_eids = test_eids.to(device)
 
         train_dataloader, val_dataloader, test_dataloader = self._create_data_loaders(
             g, device, train_eids, val_eids, test_eids, reverse_eids

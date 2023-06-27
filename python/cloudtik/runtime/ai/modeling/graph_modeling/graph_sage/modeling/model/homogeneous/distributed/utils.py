@@ -16,18 +16,13 @@ Author: Chen Haifeng
 
 import torch
 
-
-def get_mask_padded(g, mask_name, num_pad):
-    etype = g.canonical_etypes[0]
-    edge_name = etype[1]
-    mask = g.edges[edge_name].data[mask_name]
-    mask_padded = torch.zeros((num_pad,), dtype=torch.bool)
-    mask_padded[: mask.shape[0]] = mask
-    return mask_padded
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.homogeneous.utils import \
+    get_eids_mask_full_padded
 
 
-def get_edix_from_mask(g, mask_name, num_pad, mapping):
-    mask_padded = get_mask_padded(g, mask_name, num_pad)
-    shuffled_mask = torch.zeros((num_pad,), dtype=torch.bool)
+def get_eids_from_mask(g, mask_name, mapping, reverse_etypes=None):
+    num_edges = g.num_edges()
+    mask_padded = get_eids_mask_full_padded(g, mask_name, reverse_etypes)
+    shuffled_mask = torch.zeros((num_edges,), dtype=torch.bool)
     shuffled_mask[mapping] = mask_padded
     return torch.nonzero(shuffled_mask, as_tuple=False).squeeze()

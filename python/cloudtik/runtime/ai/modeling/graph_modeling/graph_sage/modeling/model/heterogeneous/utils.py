@@ -21,6 +21,9 @@ from dgl.dataloading import (
     negative_sampler,
 )
 
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import \
+    exclude_reverse_edge_types
+
 
 def _create_edge_prediction_sampler(sampler, reverse_etypes):
     exclude = "reverse_types" if reverse_etypes is not None else None
@@ -33,12 +36,16 @@ def _create_edge_prediction_sampler(sampler, reverse_etypes):
     return sampler
 
 
-def get_eids_from_mask(g, mask_name):
+def get_eids_from_mask(g, relations, mask_name, reverse_etypes):
     eids_dict = {}
-    for etype in g.canonical_etypes:
-        edge_name = etype[1]
-        mask = g.edges[edge_name].data[mask_name]
-        eids_dict[edge_name] = torch.nonzero(mask, as_tuple=False).squeeze()
+    # we include only the eids from relations
+    # we include all the edges or first half of the reverse edges
+    effective = get_effective_edge_types(relations, reverse_etypes)
+    for edge_type in relations:
+        if edge_type not in effective:
+            continue
+        mask = g.edges[edge_type].data[mask_name]
+        eids_dict[edge_type] = torch.nonzero(mask, as_tuple=False).squeeze()
     return eids_dict
 
 
@@ -51,6 +58,10 @@ def get_node_types(g, relations):
             node_types.add(etype[0])
             node_types.add(etype[2])
     return node_types
+
+
+def get_effective_edge_types(relations, reverse_etypes):
+    return exclude_reverse_edge_types(relations, reverse_etypes)
 
 
 def get_node_indices(g, relations):

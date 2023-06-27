@@ -26,8 +26,9 @@ import tqdm
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.distributed.utils import get_mask_padded, get_edix_from_mask
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.homogeneous.utils import get_reverse_eids
+    homogeneous.distributed.utils import get_eids_from_mask
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.homogeneous.utils import get_reverse_eids, \
+    get_eids_mask_full_padded
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import parse_reverse_edges
 
 
@@ -54,20 +55,27 @@ class Trainer:
             torch.distributed.init_process_group(backend="gloo")
         g = dgl.distributed.DistGraph(args.graph_name, part_config=args.part_config)
 
-        print("Read train/test/val from: ", graph.canonical_etypes[0][1])
-        print("shuffle edges according to emap from global")
+        print("Read train/test/val from: ", graph.etypes)
+        print("Will shuffle edges according to emap from global")
         emap = torch.load(os.path.join(os.path.dirname(args.part_config), "emap.pt"))
         print("emap shape: ", emap.shape)
 
-        num_edges = g.num_edges()
-        train_mask_padded = get_mask_padded(graph, "train_mask", num_edges)
-        shuffled_val_eidx = get_edix_from_mask(graph, "val_mask", num_edges, emap)
-        shuffled_test_eidx = get_edix_from_mask(graph, "test_mask", num_edges, emap)
-
-        shuffled_reverse_eids = None
+        reverse_etypes = None
         if args.exclude_reverse_edges and args.reverse_edges:
             reverse_etypes = parse_reverse_edges(args.reverse_edges)
             print("Reverse edges be excluded during the training:", reverse_etypes)
+
+        # because edge_split and shuffle mapping needs the total number of edges
+        # we need to padding the mask to the total number of edges
+        train_mask_padded = get_eids_mask_full_padded(
+            graph, "train_mask", reverse_etypes)
+        shuffled_val_eids = get_eids_from_mask(
+            graph, "val_mask", emap, reverse_etypes)
+        shuffled_test_eids = get_eids_from_mask(
+            graph, "test_mask", emap, reverse_etypes)
+
+        shuffled_reverse_eids = None
+        if args.exclude_reverse_edges and reverse_etypes:
             # The i-th element indicates the ID of the i-th edge’s reverse edge.
             reverse_eids = get_reverse_eids(graph, reverse_etypes)
             # Mapping to shuffled id
@@ -82,7 +90,7 @@ class Trainer:
         )
 
         train_dataloader, val_dataloader, test_dataloader = self._create_data_loaders(
-            g, train_eids, shuffled_val_eidx, shuffled_test_eidx, shuffled_reverse_eids
+            g, train_eids, shuffled_val_eids, shuffled_test_eids, shuffled_reverse_eids
         )
 
         if args.num_gpus == -1:

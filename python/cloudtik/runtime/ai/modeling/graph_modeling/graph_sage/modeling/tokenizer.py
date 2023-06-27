@@ -41,5 +41,5 @@ def tokenize_node_ids(df, config, heterogeneous):
         df[new_col_name] = df[config["node_columns"][i]].map(mapping[key])
         if not heterogeneous:
             offset = len(mapping[key])
-    print("Tokenize column map: ", col_map)
+    print("Tokenize column map:", col_map)
     return mapping, col_map

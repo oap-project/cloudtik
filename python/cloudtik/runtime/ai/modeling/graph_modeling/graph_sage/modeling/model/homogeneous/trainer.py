@@ -45,7 +45,7 @@ class Trainer:
     def train(self, graph, device):
         args = self.args
 
-        print("Read train/test/val from: ", graph.etypes)
+        print("Read train/test/val from:", graph.etypes)
 
         reverse_etypes = None
         if args.exclude_reverse_edges and args.reverse_edges:
@@ -163,7 +163,7 @@ class Trainer:
         model = self.model.to(device)
         best_rocauc = 0
         best_model_path = args.model_file
-        print("learning rate: ", args.lr)
+        print("learning rate:", args.lr)
         opt = torch.optim.Adam(model.parameters(), lr=args.lr)
         with train_dataloader.enable_cpu_affinity():
             for epoch in range(args.num_epochs):

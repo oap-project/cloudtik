@@ -197,7 +197,7 @@ class TFHubTextClassificationModel(TensorflowTextClassificationModel):
             self._model = None
 
         self._model = self._get_hub_model(dataset_num_classes, extra_layers)
-        print("Num dataset classes: ", dataset_num_classes)
+        print("Num dataset classes:", dataset_num_classes)
 
         callbacks, train_data, val_data = self._get_train_callbacks(
             dataset, output_dir, initial_checkpoints, do_eval,

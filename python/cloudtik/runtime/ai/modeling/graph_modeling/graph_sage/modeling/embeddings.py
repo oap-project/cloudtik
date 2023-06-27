@@ -58,7 +58,7 @@ def _apply_homogeneous_embeddings(df, node_embeddings, col_map):
         df = _apply_embeddings_to_column(
             df, col_map[node], node_emb_dict, i)
 
-    print("CSV output shape: ", df.shape)
+    print("CSV output shape:", df.shape)
     return df
 
 
@@ -73,7 +73,7 @@ def _apply_heterogeneous_embeddings(df, node_embeddings, col_map):
         node_emb_dict = {idx: val for idx, val in enumerate(node_emb_arr)}
         df = _apply_embeddings_to_column(df, column_idx, node_emb_dict, i)
 
-    print("CSV output shape: ", df.shape)
+    print("CSV output shape:", df.shape)
     return df
 
 

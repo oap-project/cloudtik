@@ -34,7 +34,7 @@ def main(args):
     # random seeds for testing
     seed = 7
 
-    print("Random seed set to: ", seed)
+    print("Random seed set to:", seed)
     random.seed(seed)
     np.random.seed(seed)
     dgl.seed(seed)
@@ -52,7 +52,7 @@ def main(args):
     start = time.time()
     # set force_reload=False if no changes on input graph (much faster otherwise ingestion ~30min)
     dataset = dgl.data.CSVDataset(args.dataset_dir, force_reload=False)
-    print("Time to load data from CSVs: ", time.time() - start)
+    print("Time to load data from CSVs:", time.time() - start)
 
     # Only one graph
     graph = dataset[0]  # only one graph
@@ -90,7 +90,7 @@ def main(args):
     x = model.get_inference_inputs(g)
     node_emb = model.inference(
         g, x, device, args.batch_size_eval)
-    print("Node embeddings shape: ", str(tensor_dict_shape(node_emb)))
+    print("Node embeddings shape:", str(tensor_dict_shape(node_emb)))
     torch.save(node_emb, args.node_embeddings_file)
 
     # roc_auc on the different splits after training completion

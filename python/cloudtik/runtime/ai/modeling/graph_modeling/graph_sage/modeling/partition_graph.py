@@ -35,11 +35,11 @@ def partition_graph(
     start = time.time()
     # set force_reload=False if no changes on input graph (much faster otherwise ingestion ~30min)
     dataset = dgl.data.CSVDataset(dataset_dir, force_reload=False)
-    print("time to load dataset from CSVs: ", time.time() - start)
+    print("time to load dataset from CSVs:", time.time() - start)
 
     hg = dataset[0]  # only one graph
     print(hg)
-    print("etype to read train/test/val from: ", hg.canonical_etypes[0][1])
+    print("etype to read train/test/val from:", hg.canonical_etypes[0][1])
 
     E = hg.num_edges(hg.canonical_etypes[0][1])
     reverse_eids = torch.cat([torch.arange(E, 2 * E), torch.arange(0, E)])

@@ -25,10 +25,10 @@ import dgl
 import tqdm
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
 
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
+    homogeneous.distributed.utils import get_eids_from_mask, save_node_embeddings
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    homogeneous.distributed.utils import get_eids_from_mask
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.homogeneous.utils import get_reverse_eids, \
-    get_eids_mask_full_padded
+    homogeneous.utils import get_reverse_eids, get_eids_mask_full_padded
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import parse_reverse_edges
 
 
@@ -55,10 +55,10 @@ class Trainer:
             torch.distributed.init_process_group(backend="gloo")
         g = dgl.distributed.DistGraph(args.graph_name, part_config=args.part_config)
 
-        print("Read train/test/val from: ", graph.etypes)
-        print("Will shuffle edges according to emap from global")
+        print("Read train/test/val from:", graph.etypes)
+        print("Will shuffle edges according to edge mapping from global")
         emap = torch.load(os.path.join(os.path.dirname(args.part_config), "emap.pt"))
-        print("emap shape: ", emap.shape)
+        print("Edge mapping shape:", emap.shape)
 
         reverse_etypes = None
         if args.exclude_reverse_edges and args.reverse_edges:
@@ -313,8 +313,7 @@ class Trainer:
                 x = graph_model.get_inference_inputs(g)
                 node_emb = graph_model.inference(g, x, args.batch_size_eval, device)
             if g.rank() == 0:
-                torch.save(node_emb[0: g.num_nodes()], args.node_embeddings_file)
-                print("node emb shape: ", node_emb.shape)
+                save_node_embeddings(node_emb, args.node_embeddings_file)
             g._client.barrier()
         else:
             torch.nn.Module.eval(model)  # model.eval()
@@ -322,8 +321,7 @@ class Trainer:
             with torch.no_grad():
                 x = graph_model.get_inference_inputs(g)
                 node_emb = graph_model.inference(g, x, args.batch_size_eval, device)
-
-                torch.save(node_emb, args.node_embeddings_file)
+                save_node_embeddings(node_emb, args.node_embeddings_file)
 
         if not args.standalone:
             torch.distributed.barrier()

@@ -165,7 +165,7 @@ class Trainer:
 
         best_rocauc = 0
         best_model_path = args.model_file
-        print("learning rate: ", args.lr)
+        print("learning rate:", args.lr)
         opt = torch.optim.Adam(model.parameters(), lr=args.lr)
         with train_dataloader.enable_cpu_affinity():
             for epoch in range(args.num_epochs):

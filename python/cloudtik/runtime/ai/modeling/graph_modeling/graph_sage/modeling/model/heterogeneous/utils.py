@@ -33,6 +33,15 @@ def _create_edge_prediction_sampler(sampler, reverse_etypes):
     return sampler
 
 
+def get_eids_from_mask(g, mask_name):
+    eids_dict = {}
+    for etype in g.canonical_etypes:
+        edge_name = etype[1]
+        mask = g.edges[edge_name].data[mask_name]
+        eids_dict[edge_name] = torch.nonzero(mask, as_tuple=False).squeeze()
+    return eids_dict
+
+
 # Most functions operating for heterogeneous graph are on dict of tensors
 
 def get_node_types(g, relations):
@@ -116,10 +125,5 @@ def tensor_dict_shape(x):
     return {k: v.shape for k, v in x.items()}
 
 
-def get_edix_from_mask(g, mask_name):
-    edix_dict = {}
-    for etype in g.canonical_etypes:
-        edge_name = etype[1]
-        mask = g.edges[edge_name].data[mask_name]
-        edix_dict[edge_name] = torch.nonzero(mask, as_tuple=False).squeeze()
-    return edix_dict
+def tensor_dict_truncate(x, size):
+    return {k: x[: size[k]] for k, v in x.items()}

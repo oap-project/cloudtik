@@ -59,6 +59,7 @@ def main(args):
     print(graph)
 
     # create model
+
     # Heterogeneous: create node indices based on the relations
     if args.relations:
         relations = [relation for relation in args.relations.split(",")]
@@ -143,6 +144,8 @@ if __name__ == "__main__":
         "--relations",
         type=str,
         help="The comma separated list of edge relations for the heterogeneous model.")
+
+    # Reverse edges to exclude during training
     parser.add_argument(
         "--reverse-edges", "--reverse_edges",
         type=str,

@@ -22,7 +22,7 @@ from dgl.dataloading import (
 )
 
 
-def get_edix_from_mask(g, mask_name):
+def get_eids_from_mask(g, mask_name):
     etype = g.canonical_etypes[0]
     edge_name = etype[1]
     mask = g.edges[edge_name].data[mask_name]

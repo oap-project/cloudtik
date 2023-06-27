@@ -81,34 +81,26 @@ class Trainer:
             force_even=True,
         )
 
+        train_dataloader, val_dataloader, test_dataloader = self._create_data_loaders(
+            g, train_eids, shuffled_val_eidx, shuffled_test_eidx, shuffled_reverse_eids
+        )
+
         if args.num_gpus == -1:
             device = torch.device("cpu")
         else:
             dev_id = g.rank() % args.num_gpus
             device = torch.device("cuda:" + str(dev_id))
 
-        # Pack data
-        data = (
-            train_eids,
-            shuffled_val_eidx,
-            shuffled_test_eidx,
-            shuffled_reverse_eids,
-            g,
-        )
-        self._train(args, device, data)
+        self._train(
+            args, device, g,
+            train_dataloader, val_dataloader, test_dataloader)
         print("Train ends")
 
-    def _train(self, args, device, data):
-        # Unpack data
-        (
-            train_eids,
-            val_eids,
-            test_eids,
-            reverse_eids,
-            g,
-        ) = data
-        # Create sampler
+    def _create_data_loaders(
+            self, g, train_eids, val_eids, test_eids, reverse_eids):
+        args = self.args
 
+        # Create sampler
         neg_sampler = dgl.dataloading.negative_sampler.Uniform(args.num_negs)
         sampler = dgl.dataloading.NeighborSampler(
             [int(fanout) for fanout in args.fan_out.split(",")]
@@ -154,6 +146,11 @@ class Trainer:
             drop_last=False,
         )
 
+        return train_dataloader, val_dataloader, test_dataloader
+
+    def _train(
+            self, args, device, g,
+            train_dataloader, val_dataloader, test_dataloader):
         model = self.model.to(device)
         if not args.standalone:
             if args.num_gpus == -1:

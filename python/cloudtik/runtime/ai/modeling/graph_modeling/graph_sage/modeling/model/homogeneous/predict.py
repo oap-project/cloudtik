@@ -53,6 +53,8 @@ def predict(dataset_dir, model_file,
             node_feature=node_feature)
     else:
         print("Predicting with a transductive model on homogeneous graph")
+        # TODO (haifeng): Is the embeddings in the model getting from the distributed
+        #  training applicable without mapping with the partition nmap?
         vocab_size = g.num_nodes()
         model = TransductiveGraphSAGEModel(
             vocab_size, num_hidden, num_layers)

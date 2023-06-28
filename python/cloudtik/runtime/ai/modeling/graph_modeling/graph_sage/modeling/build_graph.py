@@ -35,6 +35,7 @@ def build_graph(
     node_types = config["node_types"]
     edge_types = config["edge_types"]
     edge_features = config["edge_features"]
+    node_columns = config["node_columns"]
     print("Build graph for:")
     print("    node types:", node_types)
     print("    edge types:", edge_types)
@@ -85,8 +86,8 @@ def build_graph(
 
     list_of_e_dict = []
     for i, edge_type in enumerate(edge_types):
-        src_node_type = get_node_type_of_column(edge_type[0])
-        dst_node_type = get_node_type_of_column(edge_type[2])
+        src_node_type = get_node_type_of_column(edge_type[0], node_columns)
+        dst_node_type = get_node_type_of_column(edge_type[2], node_columns)
         etype = [src_node_type, edge_type[1], dst_node_type]
         list_of_e_dict.append(
             {"file_name": "edges_" + str(i) + ".csv", "etype": etype}
@@ -116,8 +117,8 @@ def build_graph(
         file_name = edge_meta["file_name"]
         print("\nWriting {} edge: {}".format(edge_type, file_name))
         edge_header = ["src_id", "dst_id"]  # minimum required
-        src_id = get_mapped_column_of(etype[0], col_map, config)
-        dst_id = get_mapped_column_of(etype[2], col_map, config)
+        src_id = get_mapped_column_of(etype[0], col_map, node_columns)
+        dst_id = get_mapped_column_of(etype[2], col_map, node_columns)
         edge_df_cols = [src_id, dst_id]
         if config["edge_label"]:
             edge_header.append("label")
@@ -147,7 +148,7 @@ def build_graph(
             header=edge_header,
         )
     # write nodes_.csv files
-    node_type_columns = get_node_type_columns(config["node_columns"])
+    node_type_columns = get_node_type_columns(node_columns)
     for i, node_meta in enumerate(meta_yaml["node_data"]):
         node_type = node_meta["ntype"]
         file_name = node_meta["file_name"]

@@ -49,12 +49,14 @@ def _get_dataset_dir(temp_dir, dataset_name):
     return os.path.join(dataset_output_dir, dataset_name)
 
 
-def _get_partition_dir(temp_dir):
-    return os.path.join(temp_dir, "partition")
+def _get_partition_dir(temp_dir, heterogeneous):
+    dir_name = "{type}_partition".format(
+        type=_get_graph_type(heterogeneous))
+    return os.path.join(temp_dir, dir_name)
 
 
-def _get_partition_config(temp_dir, graph_name):
-    partition_dir = _get_partition_dir(temp_dir)
+def _get_partition_config(temp_dir, graph_name, heterogeneous):
+    partition_dir = _get_partition_dir(temp_dir, heterogeneous)
     return os.path.join(partition_dir, graph_name + ".json")
 
 
@@ -62,12 +64,29 @@ def _get_ip_config(temp_dir):
     return os.path.join(temp_dir,  "ip_config.txt")
 
 
-def _get_model_file(output_dir):
-    return os.path.join(output_dir, "model_graphsage_2L_64.pt")
+def _get_model_file(output_dir, args):
+    model_file_name = "graphsage_{type}_{num_layers}L_{num_hidden}.pt".format(
+        type=_get_model_type(args.inductive),
+        num_layers=args.num_layers,
+        num_hidden=args.num_hidden)
+    return os.path.join(output_dir, model_file_name)
 
 
-def _get_data_with_embeddings_file(output_dir, data_with_embeddings_name):
-    return os.path.join(output_dir, data_with_embeddings_name)
+def _get_graph_type(heterogeneous):
+    return "heterogeneous" if heterogeneous else "homogeneous"
+
+
+def _get_model_type(inductive):
+    return "inductive" if inductive else "transductive"
+
+
+def _get_data_with_embeddings_file(args):
+    data_with_embeddings_name = args.data_with_embeddings_name
+    if not data_with_embeddings_name:
+        data_with_embeddings_name = "data_with_{}_embeddings.csv".format(
+            _get_model_type(args.inductive))
+
+    return os.path.join(args.output_dir, data_with_embeddings_name)
 
 
 def _get_hosts(hosts):
@@ -116,30 +135,31 @@ def _check_tabular2graph(args):
 
 def _check_model_file(args):
     if not args.model_file:
-        args.model_file = _get_model_file(args.output_dir)
+        args.model_file = _get_model_file(args.output_dir, args)
         print("model-file is not specified. Default to: {}".format(
             args.model_file))
 
 
 def _check_train_output(args):
     if not args.train_output:
+        graph_type = _get_graph_type(args.heterogeneous)
         args.train_output = os.path.join(
-            args.output_dir, "train_node_embeddings.pt")
+            args.output_dir, "train_{}_node_embeddings.pt".format(graph_type))
         print("train-output is not specified. Default to: {}".format(
             args.train_output))
 
 
 def _check_predict_output(args):
     if not args.predict_output:
+        graph_type = _get_graph_type(args.heterogeneous)
         args.predict_output = os.path.join(
-            args.output_dir, "predict_node_embeddings.pt")
+            args.output_dir, "predict_{}_node_embeddings.pt".format(graph_type))
         print("predict-output is not specified. Default to: {}".format(
             args.predict_output))
 
 
 def get_data_with_embeddings_path(args):
-    return _get_data_with_embeddings_file(
-        args.output_dir, args.data_with_embeddings_name)
+    return _get_data_with_embeddings_file(args)
 
 
 def _process_data(args):
@@ -174,7 +194,7 @@ def _partition_graph(args):
     if not args.temp_dir:
         raise ValueError(
             "Must specify the temp dir which stored the intermediate data.")
-    partition_dir = _get_partition_dir(args.temp_dir)
+    partition_dir = _get_partition_dir(args.temp_dir, args.heterogeneous)
     dataset_dir = _get_dataset_dir(
         args.temp_dir, args.dataset_name)
     if not args.num_parts:
@@ -234,12 +254,9 @@ def _train_local(args):
         args.temp_dir, args.dataset_name)
 
     workspace = GNN_HOME_PATH
-    if args.heterogeneous:
-        exec_script = os.path.join(
-            GNN_HOME_PATH, "model", "heterogeneous", "train.py")
-    else:
-        exec_script = os.path.join(
-            GNN_HOME_PATH, "model", "homogeneous", "train.py")
+    graph_type = _get_graph_type(args.heterogeneous)
+    exec_script = os.path.join(
+        GNN_HOME_PATH, "model", graph_type, "train.py")
     job_command = (
         'numactl -N 0 {python_exe} -u '
         '{exec_script} '
@@ -302,23 +319,20 @@ def _train_distributed(args):
     # Call launch which run the distributed training processes
     dataset_dir = _get_dataset_dir(
         args.temp_dir, args.dataset_name)
-    part_config = _get_partition_config(args.temp_dir, args.graph_name)
+    part_config = _get_partition_config(
+        args.temp_dir, args.graph_name, args.heterogeneous)
     ip_config = _get_ip_config(args.temp_dir)
 
     # Save IP config to shared ip config file
     _save_ip_config(ip_config, args.hosts)
 
-    node_embeddings_file = os.path.join(
-        args.output_dir, "node_embeddings.pt")
-
     workspace = GNN_HOME_PATH
+    graph_type = _get_graph_type(args.heterogeneous)
+    node_embeddings_file = os.path.join(
+        args.output_dir, "{}_node_embeddings.pt".format(graph_type))
+    exec_script = os.path.join(GNN_HOME_PATH, "model",
+                               graph_type, "distributed", "train.py")
 
-    if args.heterogeneous:
-        exec_script = os.path.join(GNN_HOME_PATH, "model",
-                                   "heterogeneous", "distributed", "train.py")
-    else:
-        exec_script = os.path.join(GNN_HOME_PATH, "model",
-                                   "homogeneous", "distributed", "train.py")
     job_command = (
         'numactl -N 0 {python_exe} '
         '{exec_script} '
@@ -374,7 +388,7 @@ def _train_distributed(args):
     )
 
     # the train process finished, map the partitioned node embeddings to global
-    partition_dir = _get_partition_dir(args.temp_dir)
+    partition_dir = _get_partition_dir(args.temp_dir, args.heterogeneous)
     _map_node_embeddings(
         node_embeddings_file,
         partition_dir=partition_dir,
@@ -433,7 +447,6 @@ def _predict(args):
     # The training node embeddings are not enough
     # predict to get the node embeddings (cases such as new node added)
     # TODO: optimize if there is no new node, we can use the trained node embeddings
-    # The current impl path assumes transductive learning
     _predict_node_embeddings(args)
     _apply_embeddings_to_data(args)
 
@@ -454,8 +467,7 @@ def _apply_embeddings_to_data(args):
             "The node embeddings file doesn't exist: {}."
             "This file is generated by predicting on a graph.".format(node_embeddings_file))
 
-    output_file = _get_data_with_embeddings_file(
-        args.output_dir, args.data_with_embeddings_name)
+    output_file = _get_data_with_embeddings_file(args)
     apply_embeddings(
         processed_data_path=args.processed_data_path,
         node_embeddings_file=node_embeddings_file,
@@ -542,17 +554,17 @@ if __name__ == "__main__":
     # Train
     parser.add_argument(
         "--train-output", "--train_output",
-        type=str, default="node_embeddings",
+        type=str,
         help="The path to the train output node embeddings file")
 
     # Predict
     parser.add_argument(
         "--predict-output", "--predict_output",
-        type=str, default="node_embeddings",
+        type=str,
         help="The path to the predict output node embeddings file")
     parser.add_argument(
         "--data-with-embeddings-name", "--data_with_embeddings_name",
-        type=str, default="data_with_embeddings.csv",
+        type=str,
         help="The path to save the data with embeddings file")
 
     # Distributed training

@@ -22,7 +22,7 @@ class ModelingArgs(object):
         self.train_output = None
         self.predict_output = None
 
-        self.data_with_embeddings_name = "data_with_embeddings.csv"
+        self.data_with_embeddings_name = None
 
         self.hosts = None
         self.graph_name = "tabformer_graph"

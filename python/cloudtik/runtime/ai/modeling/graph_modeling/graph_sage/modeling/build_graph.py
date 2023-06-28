@@ -23,7 +23,7 @@ import yaml
 import os
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.tokenizer import tokenize_node_ids, \
-    get_node_type_columns, values_of_node, get_mapped_column_of
+    get_node_type_columns, values_of_node, get_mapped_column_of, get_node_type_of_column
 
 
 def build_graph(
@@ -84,8 +84,11 @@ def build_graph(
 
     list_of_e_dict = []
     for i, edge_type in enumerate(edge_types):
+        src_node_type = get_node_type_of_column(edge_type[0])
+        dst_node_type = get_node_type_of_column(edge_type[2])
+        etype = [src_node_type, edge_type[1], dst_node_type]
         list_of_e_dict.append(
-            {"file_name": "edges_" + str(i) + ".csv", "etype": edge_type}
+            {"file_name": "edges_" + str(i) + ".csv", "etype": etype}
         )
 
     with open(os.path.join(output_dataset_dir, "meta.yaml"), "w") as f:

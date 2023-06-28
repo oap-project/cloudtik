@@ -43,10 +43,14 @@ def values_of_node(df, columns):
     return node_values
 
 
-def get_mapped_column_of(column_name, col_map, config):
+def get_node_type_of_column(column_name, config):
     node_columns = config["node_columns"]
     # get node type of node column name
-    node_type = node_columns[column_name]
+    return node_columns[column_name]
+
+
+def get_mapped_column_of(column_name, col_map, config):
+    node_type = get_node_type_of_column(column_name, config)
     col_map_of_node = col_map[node_type]
     return col_map_of_node[column_name]
 

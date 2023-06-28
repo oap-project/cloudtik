@@ -91,6 +91,20 @@ def get_total_num_nodes(nids):
     return num_nodes
 
 
+def get_in_feats_of_feature(g, node_feature):
+    in_feats = 1
+    if node_feature:
+        # The feature dimension must be the same for all the nodes
+        # for the time being
+        feature_dict = g.ndata[node_feature]
+        if not feature_dict:
+            raise RuntimeError("The graph has no node feature: ".format(
+                node_feature))
+        any_value = next(iter(feature_dict.values()))
+        in_feats = any_value.shape[1]
+    return in_feats
+
+
 def tensor_dict_new(
         num_nodes, out_size,
         output_device, pin_memory):

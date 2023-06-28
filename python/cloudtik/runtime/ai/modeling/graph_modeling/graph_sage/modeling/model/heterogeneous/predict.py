@@ -21,6 +21,8 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.predictor import Predictor
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.inductive.model import InductiveGraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.heterogeneous.utils import \
+    get_in_feats_of_feature
 
 
 def predict(dataset_dir, model_file,
@@ -48,10 +50,7 @@ def predict(dataset_dir, model_file,
 
     if inductive:
         print("Predicting with an inductive model on heterogeneous graph")
-        in_feats = 1
-        if node_feature:
-            in_feats = graph.ndata[node_feature].shape[1]
-
+        in_feats = get_in_feats_of_feature(graph, node_feature)
         model = InductiveGraphSAGEModel(
             in_feats, num_hidden, num_layers,
             relations=relations, node_feature=node_feature)

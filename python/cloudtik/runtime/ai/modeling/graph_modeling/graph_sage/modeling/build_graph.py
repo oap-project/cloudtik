@@ -139,6 +139,8 @@ def build_graph(
                 comments="",
             )
         else:
+            print("Features for node:", {column: node_features.get(column) for column in columns})
+
             node_header = ["node_id", "feat"]  # minimum required
             node_df_cols = ["node_id", "node_feat_as_str"]
 
@@ -154,7 +156,10 @@ def build_graph(
             feat_keys = [f"feat_{i}" for i in range(num_features)]
             # Note: feat_as_str needs to be a string of comma separated values
             # enclosed in double quotes for dgl default parser to work
-            df_unique["node_feat_as_str"] = df_unique[feat_keys].astype(str).apply(",".join, axis=1)
+            df_unique["node_feat_as_str"] = df_unique[feat_keys].astype(float).astype(str).apply(",".join, axis=1)
+            if len(feat_keys) == 1:
+                # append a "," if there is only one value for forcing to double quotes
+                df_unique["node_feat_as_str"] = df_unique["node_feat_as_str"] + ","
 
             assert len(node_df_cols) == len(node_header)
             df_unique[node_df_cols].to_csv(
@@ -192,7 +197,10 @@ def build_graph(
                 print("Valid features for edge:", feat_keys)
             # Note: feat_as_str needs to be a string of comma separated values
             # enclosed in double quotes for dgl default parser to work
-            df["edge_feat_as_str"] = df[feat_keys].astype(str).apply(",".join, axis=1)
+            df["edge_feat_as_str"] = df[feat_keys].astype(float).astype(str).apply(",".join, axis=1)
+            if len(feat_keys) == 1:
+                # append a "," if there is only one value for forcing to double quotes
+                df_unique["node_feat_as_str"] = df_unique["node_feat_as_str"] + ","
             edge_header.append("feat")
             edge_df_cols.append("edge_feat_as_str")
         assert len(edge_df_cols) == len(edge_header)

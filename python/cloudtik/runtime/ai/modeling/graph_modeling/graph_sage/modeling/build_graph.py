@@ -34,6 +34,7 @@ def build_graph(
 
     node_types = config["node_types"]
     edge_types = config["edge_types"]
+    edge_features = config["edge_features"]
     print("Build graph for:")
     print("    node types:", node_types)
     print("    edge types:", edge_types)
@@ -109,10 +110,11 @@ def build_graph(
     # node_header = ["node_id", "label", "train_mask", "val_mask","test_mask","feat"]
 
     # write edges_.csv files
-    for i, edge_type in enumerate(meta_yaml["edge_data"]):
-        etype = edge_type["etype"]
-        file_name = edge_type["file_name"]
-        print("\nWriting:", file_name)
+    for i, edge_meta in enumerate(meta_yaml["edge_data"]):
+        etype = edge_meta["etype"]
+        edge_type = etype[1]
+        file_name = edge_meta["file_name"]
+        print("\nWriting {} edge: {}".format(edge_type, file_name))
         edge_header = ["src_id", "dst_id"]  # minimum required
         src_id = get_mapped_column_of(etype[0], col_map, config)
         dst_id = get_mapped_column_of(etype[2], col_map, config)
@@ -126,12 +128,12 @@ def build_graph(
             edge_df_cols.extend(["masks_0", "masks_1", "masks_2"])
             # edge_header.extend(["train_mask"])
             # edge_df_cols.extend(["masks_0"])
-        if config["edge_features"]:
-            edge_features = config["edge_features"]
-            print("Features for edges:", edge_features)
+        if edge_features and edge_type in edge_features:
+            features = edge_features[edge_type]
+            print("Features for edge:", features)
             data_columns = set(df.columns)
-            feat_keys = [feature for feature in edge_features if feature in data_columns]
-            if len(feat_keys) != len(edge_features):
+            feat_keys = [feature for feature in features if feature in data_columns]
+            if len(feat_keys) != len(features):
                 print("Valid features for edges:", feat_keys)
             # Note: feat_as_str needs to be a string of comma separated values
             # enclosed in double quotes for dgl default parser to work
@@ -146,10 +148,10 @@ def build_graph(
         )
     # write nodes_.csv files
     node_type_columns = get_node_type_columns(config["node_columns"])
-    for i, node in enumerate(meta_yaml["node_data"]):
-        file_name = node["file_name"]
-        node_type = node["ntype"]
-        print("\nWriting:", file_name)
+    for i, node_meta in enumerate(meta_yaml["node_data"]):
+        node_type = node_meta["ntype"]
+        file_name = node_meta["file_name"]
+        print("\nWriting {} node: {}".format(node_type, file_name))
         col_map_of_node = col_map[node_type]
         columns = node_type_columns[node_type]
         mapped_columns = [col_map_of_node[column] for column in columns]

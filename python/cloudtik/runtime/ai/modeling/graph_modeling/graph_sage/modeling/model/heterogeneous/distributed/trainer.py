@@ -51,7 +51,7 @@ class Trainer:
         args = self.args
         relations = args.relations
 
-        # load the partitioned graph (from homogeneous)
+        # load the partitioned heterogeneous graph
         print("Load partitioned graph")
         dgl.distributed.initialize(args.ip_config)
         if not args.standalone:
@@ -80,8 +80,7 @@ class Trainer:
         # The mask ids here are the original ids
         # the result is the shuffled ids by the partition book
         train_eids = get_edge_split_indices(
-            g, relations,
-            train_eids_mask,
+            g, relations, train_eids_mask, reverse_etypes
         )
 
         if args.num_gpus == -1:

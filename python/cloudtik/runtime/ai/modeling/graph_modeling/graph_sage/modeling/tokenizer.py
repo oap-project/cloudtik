@@ -14,13 +14,62 @@ limitations under the License.
 Author: Chen Haifeng
 """
 
+import pandas as pd
 from collections import OrderedDict
 
 
-def tokenize_node_ids(df, config, heterogeneous):
-    def column_index(series, offset=0):
-        return {k: v + offset for v, k in enumerate(series.value_counts().index.values)}
+def column_index(series, offset=0):
+    return {k: v + offset for v, k in enumerate(series.value_counts().index.values)}
 
+
+def get_node_type_columns(node_columns):
+    node_type_columns = {}
+    for column, node_type in node_columns:
+        if node_type not in node_type_columns:
+            node_type_columns[node_type] = []
+        node_type_columns[node_type].append(column)
+    return node_type_columns
+
+
+def values_of_node(df, columns):
+    node_value_list = []
+    for column in columns:
+        column_values = df[column]
+        node_value_list.append(column_values)
+    if len(node_value_list) == 1:
+        node_values = node_value_list[0]
+    else:
+        node_values = pd.concat(node_value_list, ignore_index=True)
+    return node_values
+
+
+def get_node_type_of_column(column_name, node_columns):
+    # get node type of node column name
+    return node_columns[column_name]
+
+
+def get_mapped_column_of(column_name, col_map, node_columns):
+    node_type = get_node_type_of_column(column_name, node_columns)
+    col_map_of_node = col_map[node_type]
+    return col_map_of_node[column_name]
+
+
+def mapping_of_node(df, columns, offset):
+    node_values = values_of_node(df, columns)
+    return column_index(node_values, offset=offset)
+
+
+def map_columns(df, columns, mapping):
+    col_map_of_node = {}
+    for column in columns:
+        new_col_name = column + "_idx"
+        col_map_of_node[column] = new_col_name
+        # add new Idx to dataframe
+        df[new_col_name] = df[column].map(mapping)
+    return col_map_of_node
+
+
+def tokenize_node_ids(df, config, heterogeneous):
     # create dictionary of dictionary to store node mapping for all node types
     offset = 0
     mapping = OrderedDict()
@@ -32,13 +81,13 @@ def tokenize_node_ids(df, config, heterogeneous):
     # key in dict: node + "_2idx" stores a unique mapping from real id -> indexed id  mapping
     # column new_col_name: node + "_idx" stores the indexed id
     col_map = {}
-    for i, node in enumerate(config["node_columns"]):
+    node_types = config["node_types"]
+    node_type_columns = get_node_type_columns(config["node_columns"])
+    for i, node in enumerate(node_types):
         key = str(node + "_2idx")
-        mapping[key] = column_index(df[config["node_columns"][i]], offset=offset)
-        new_col_name = node + "_idx"
-        col_map[node] = new_col_name
-        # add new Idx to dataframe
-        df[new_col_name] = df[config["node_columns"][i]].map(mapping[key])
+        columns = node_type_columns[node]
+        mapping[key] = mapping_of_node(df, columns, offset=offset)
+        col_map[node] = map_columns(df, columns, mapping[key])
         if not heterogeneous:
             offset = len(mapping[key])
     print("Tokenize column map:", col_map)

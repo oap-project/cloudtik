@@ -139,6 +139,8 @@ def build_graph(
                 comments="",
             )
         else:
+            print("Features for node:", {column: node_features.get(column) for column in columns})
+
             node_header = ["node_id", "feat"]  # minimum required
             node_df_cols = ["node_id", "node_feat_as_str"]
 

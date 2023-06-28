@@ -26,8 +26,8 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.trainer import Trainer
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.inductive.model import InductiveGraphSAGEModel
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    heterogeneous.utils import tensor_dict_shape
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
+    heterogeneous.utils import tensor_dict_shape, get_in_feats_of_feature
 
 
 def main(args):
@@ -68,10 +68,7 @@ def main(args):
 
     if args.inductive:
         print("Training an inductive model on heterogeneous graph")
-        in_feats = 1
-        if args.node_feature:
-            in_feats = graph.ndata[args.node_feature].shape[1]
-
+        in_feats = get_in_feats_of_feature(graph, args.node_feature)
         model = InductiveGraphSAGEModel(
             in_feats, args.num_hidden, args.num_layers,
             relations=args.relations, node_feature=args.node_feature)

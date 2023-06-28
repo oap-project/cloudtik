@@ -24,7 +24,7 @@ def column_index(series, offset=0):
 
 def get_node_type_columns(node_columns):
     node_type_columns = {}
-    for column, node_type in node_columns:
+    for column, node_type in node_columns.items():
         if node_type not in node_type_columns:
             node_type_columns[node_type] = []
         node_type_columns[node_type].append(column)

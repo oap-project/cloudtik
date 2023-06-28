@@ -33,9 +33,11 @@ def build_graph(
         config = yaml.safe_load(file)
 
     node_types = config["node_types"]
-    edge_types = config["edge_types"]
-    edge_features = config["edge_features"]
     node_columns = config["node_columns"]
+    node_features = config.get("node_features")
+    edge_types = config["edge_types"]
+    edge_features = config.get("edge_features")
+
     print("Build graph for:")
     print("    node types:", node_types)
     print("    edge types:", edge_types)
@@ -110,15 +112,67 @@ def build_graph(
     # edge_header = ["src_id", "dst_id", "label", "train_mask", "val_mask","test_mask","feat"]
     # node_header = ["node_id", "label", "train_mask", "val_mask","test_mask","feat"]
 
+    if node_features is None:
+        node_features = {}
+
+    # write nodes_.csv files
+    node_type_columns = get_node_type_columns(node_columns)
+    for i, node_meta in enumerate(meta_yaml["node_data"]):
+        node_type = node_meta["ntype"]
+        file_name = node_meta["file_name"]
+        print("\nWriting {} node: {}".format(node_type, file_name))
+
+        col_map_of_node = col_map[node_type]
+        columns = node_type_columns[node_type]
+
+        # check the node features and its validation
+        num_features = _get_num_features_of_node(columns, node_features)
+        if num_features <= 0:
+            # if there is no future columns, simple path
+            mapped_columns = [col_map_of_node[column] for column in columns]
+            node_values = values_of_node(df, mapped_columns)
+            np.savetxt(
+                os.path.join(output_dataset_dir, file_name),
+                node_values.unique(),
+                delimiter=",",
+                header="node_id",
+                comments="",
+            )
+        else:
+            node_header = ["node_id", "feat"]  # minimum required
+            node_df_cols = ["node_id", "node_feat_as_str"]
+
+            # get list of tuples, each tuple is (mapped_column, feature_columns)
+            # all the columns of the same node type must have the same identical features if has
+            mapped_columns = [(col_map_of_node[column], node_features.get(column)) for column in columns]
+            # all the columns will renamed in the form of (node_id, feat_1, feat_2, ...) and concat vertically
+            df_node_columns = _concat_columns_of_node(df, mapped_columns)
+
+            # use the node_id to drop the duplicates
+            df_unique = df_node_columns.drop_duplicates(subset=['node_id'])
+
+            feat_keys = [f"feat_{i}" for i in range(num_features)]
+            # Note: feat_as_str needs to be a string of comma separated values
+            # enclosed in double quotes for dgl default parser to work
+            df_unique["node_feat_as_str"] = df_unique[feat_keys].astype(str).apply(",".join, axis=1)
+
+            assert len(node_df_cols) == len(node_header)
+            df_unique[node_df_cols].to_csv(
+                os.path.join(output_dataset_dir, file_name),
+                index=False,
+                header=node_header,
+            )
+
     # write edges_.csv files
     for i, edge_meta in enumerate(meta_yaml["edge_data"]):
         etype = edge_meta["etype"]
         edge_type = etype[1]
         file_name = edge_meta["file_name"]
         print("\nWriting {} edge: {}".format(edge_type, file_name))
+
         edge_header = ["src_id", "dst_id"]  # minimum required
-        src_id = get_mapped_column_of(etype[0], col_map, node_columns)
-        dst_id = get_mapped_column_of(etype[2], col_map, node_columns)
+        src_id = get_mapped_column_of(edge_types[i][0], col_map, node_columns)
+        dst_id = get_mapped_column_of(edge_types[i][2], col_map, node_columns)
         edge_df_cols = [src_id, dst_id]
         if config["edge_label"]:
             edge_header.append("label")
@@ -135,7 +189,7 @@ def build_graph(
             data_columns = set(df.columns)
             feat_keys = [feature for feature in features if feature in data_columns]
             if len(feat_keys) != len(features):
-                print("Valid features for edges:", feat_keys)
+                print("Valid features for edge:", feat_keys)
             # Note: feat_as_str needs to be a string of comma separated values
             # enclosed in double quotes for dgl default parser to work
             df["edge_feat_as_str"] = df[feat_keys].astype(str).apply(",".join, axis=1)
@@ -147,23 +201,40 @@ def build_graph(
             index=False,
             header=edge_header,
         )
-    # write nodes_.csv files
-    node_type_columns = get_node_type_columns(node_columns)
-    for i, node_meta in enumerate(meta_yaml["node_data"]):
-        node_type = node_meta["ntype"]
-        file_name = node_meta["file_name"]
-        print("\nWriting {} node: {}".format(node_type, file_name))
-        col_map_of_node = col_map[node_type]
-        columns = node_type_columns[node_type]
-        mapped_columns = [col_map_of_node[column] for column in columns]
-        node_values = values_of_node(df, mapped_columns)
-        np.savetxt(
-            os.path.join(output_dataset_dir, file_name),
-            node_values.unique(),
-            delimiter=",",
-            header="node_id",
-            comments="",
-        )
 
     t_csv_dataset = time.time()
     print("Time to write CSVDatasets", t_csv_dataset - t_renum)
+
+
+def _get_num_features_of_node(columns, node_features):
+    num_features = -1
+    for column in columns:
+        num = len(node_features.get(column, []))
+        if num_features >= 0:
+            if num != num_features:
+                raise ValueError("Columns for the node type have different number of features.")
+        else:
+            num_features = num
+    return num_features
+
+
+def _concat_columns_of_node(df, mapped_columns):
+    node_dfs = []
+    for mapped_column in mapped_columns:
+        id_column = mapped_column[0]
+        feature_columns = mapped_column[1]
+        # select the needed columns
+        sel_columns = [id_column]
+        sel_columns += feature_columns
+        node_df = df[sel_columns]
+        # rename the columns
+        rename_map = {id_column: "node_id"}
+        for i, feature_column in enumerate(feature_columns):
+            rename_map[feature_column] = f"feat_{i}"
+        node_df.rename(columns=rename_map, inplace=True)
+        node_dfs.append(node_df)
+    if len(node_dfs) == 1:
+        df_node_columns = node_dfs[0]
+    else:
+        df_node_columns = pd.concat(node_dfs, ignore_index=True)
+    return df_node_columns

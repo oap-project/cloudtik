@@ -10,8 +10,8 @@ node_columns:
 #list of column names you want to include in graph as node features
 #if column names have special characters or spaces wrap in double quotes
 node_features:
-  card: [card_id]
-  merchant: [merchant_id]
+  card_id: [card_id]
+  merchant_id: [merchant_id]
 #provide the column names in your CSV file that contain the entity (node) IDs
 #Edge type name in string triplet: [source node type, relation type, destination node type].
 edge_types:

@@ -26,9 +26,9 @@ import pandas as pd
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.tokenizer import tokenize_node_ids
 
 
-def _apply_embeddings_to_column(df, column, node_emb_dict, i):
+def _apply_embeddings_to_column(df, column, node_emb_dict, i, j):
     emb = pd.DataFrame(df[column].map(node_emb_dict).tolist()).add_prefix(
-        "n" + str(i) + "_e"
+        "n{}_c{}_e".format(i, j)
     )
     df = df.join([emb])
     df.drop(
@@ -55,8 +55,11 @@ def _apply_homogeneous_embeddings(df, node_embeddings, col_map):
     node_emb_dict = {idx: val for idx, val in enumerate(node_emb_arr)}
 
     for i, node in enumerate(col_map.keys()):
-        df = _apply_embeddings_to_column(
-            df, col_map[node], node_emb_dict, i)
+        col_map_of_node = col_map[node]
+        for j, column in enumerate(col_map_of_node.keys()):
+            column_idx = col_map_of_node[column]
+            df = _apply_embeddings_to_column(
+                df, column_idx, node_emb_dict, i, j)
 
     print("CSV output shape:", df.shape)
     return df
@@ -64,14 +67,17 @@ def _apply_homogeneous_embeddings(df, node_embeddings, col_map):
 
 def _apply_heterogeneous_embeddings(df, node_embeddings, col_map):
     for i, node in enumerate(col_map.keys()):
-        column_idx = col_map[node]
-        node_emb = node_embeddings.get(column_idx)
+        node_emb = node_embeddings.get(node)
         if node_emb is None:
             continue
 
         node_emb_arr = node_emb.cpu().detach().numpy()
         node_emb_dict = {idx: val for idx, val in enumerate(node_emb_arr)}
-        df = _apply_embeddings_to_column(df, column_idx, node_emb_dict, i)
+        col_map_of_node = col_map[node]
+        for j, column in enumerate(col_map_of_node.keys()):
+            column_idx = col_map_of_node[column]
+            df = _apply_embeddings_to_column(
+                df, column_idx, node_emb_dict, i, j)
 
     print("CSV output shape:", df.shape)
     return df

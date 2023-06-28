@@ -22,7 +22,8 @@ import time
 import yaml
 import os
 
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.tokenizer import tokenize_node_ids
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.tokenizer import tokenize_node_ids, \
+    get_node_type_columns, values_of_node, get_mapped_column_of
 
 
 def build_graph(
@@ -31,11 +32,17 @@ def build_graph(
     with open(tabular2graph, "r") as file:
         config = yaml.safe_load(file)
 
+    node_types = config["node_types"]
+    edge_types = config["edge_types"]
+    print("Build graph for:")
+    print("    node types:", node_types)
+    print("    edge types:", edge_types)
+
     output_dataset_dir = os.path.join(output_dir, dataset_name)
     print(output_dataset_dir)
     os.makedirs(output_dataset_dir, exist_ok=True)
 
-    # 1. Load CSV file output of Classical ML edge featurization workflow
+    # 1. Load CSV file output for preprocessing
     print("Loading processed data")
     start = time.time()
     df = pd.read_csv(input_file)  # , nrows=10000)
@@ -70,18 +77,13 @@ def build_graph(
 
     # programmatically create meta.yaml expected by DGL from yaml config
     list_of_n_dict = []
-    for i, node in enumerate(col_map.keys()):
+    for i, node_type in enumerate(node_types):
         list_of_n_dict.append(
-            {"file_name": "nodes_" + str(i) + ".csv", "ntype": col_map[node]}
+            {"file_name": "nodes_" + str(i) + ".csv", "ntype": node_type}
         )
 
     list_of_e_dict = []
-    for i, edge_type in enumerate(config["edge_types"]):
-        # replace node ids with the re-enumerated Idx
-        edge_type[0] = col_map[edge_type[0]]
-        edge_type[2] = col_map[edge_type[2]]
-        print(edge_type)
-        # keep edge type from tabular2graph.yaml and update node type to the new Idx ones
+    for i, edge_type in enumerate(edge_types):
         list_of_e_dict.append(
             {"file_name": "edges_" + str(i) + ".csv", "etype": edge_type}
         )
@@ -105,9 +107,13 @@ def build_graph(
 
     # write edges_.csv files
     for i, edge_type in enumerate(meta_yaml["edge_data"]):
-        print("\nWriting:", edge_type["file_name"])
+        etype = edge_type["etype"]
+        file_name = edge_type["file_name"]
+        print("\nWriting:", file_name)
         edge_header = ["src_id", "dst_id"]  # minimum required
-        edge_df_cols = [edge_type["etype"][0], edge_type["etype"][2]]
+        src_id = get_mapped_column_of(etype[0], col_map, config)
+        dst_id = get_mapped_column_of(etype[2], col_map, config)
+        edge_df_cols = [src_id, dst_id]
         if config["edge_label"]:
             edge_header.append("label")
             edge_df_cols.append(config["edge_label"])
@@ -131,17 +137,23 @@ def build_graph(
             edge_df_cols.append("edge_feat_as_str")
         assert len(edge_df_cols) == len(edge_header)
         df[edge_df_cols].to_csv(
-            os.path.join(output_dataset_dir, edge_type["file_name"]),
+            os.path.join(output_dataset_dir, file_name),
             index=False,
             header=edge_header,
         )
     # write nodes_.csv files
+    node_type_columns = get_node_type_columns(config["node_columns"])
     for i, node in enumerate(meta_yaml["node_data"]):
-        print("\nWriting:", meta_yaml["node_data"][i]["file_name"])
-        print(df[meta_yaml["node_data"][i]["ntype"]].unique())
+        file_name = node["file_name"]
+        node_type = node["ntype"]
+        print("\nWriting:", file_name)
+        col_map_of_node = col_map[node_type]
+        columns = node_type_columns[node_type]
+        mapped_columns = [col_map_of_node[column] for column in columns]
+        node_values = values_of_node(df, mapped_columns)
         np.savetxt(
-            os.path.join(output_dataset_dir, meta_yaml["node_data"][i]["file_name"]),
-            df[meta_yaml["node_data"][i]["ntype"]].unique(),
+            os.path.join(output_dataset_dir, file_name),
+            node_values.unique(),
             delimiter=",",
             header="node_id",
             comments="",

@@ -41,11 +41,11 @@ def _apply_embeddings_to_column(df, column, node_emb_dict, i):
 
 def _apply_embeddings(df, node_embeddings, col_map):
     if isinstance(node_embeddings, dict):
-        print("Apply heterogeneous embeddings.")
+        print("Apply heterogeneous embeddings to data.")
         return _apply_heterogeneous_embeddings(
             df, node_embeddings, col_map)
     else:
-        print("Apply homogeneous embeddings.")
+        print("Apply homogeneous embeddings to data.")
         return _apply_homogeneous_embeddings(
             df, node_embeddings, col_map)
 
@@ -96,8 +96,16 @@ def _map_node_embeddings(
 
     # nmap stores the mappings between the remapped node/edge IDs and their original ones
     # the ith element stores the original id of shuffle id i.
-    orig_node_emb = torch.zeros(node_emb.shape, dtype=node_emb.dtype)
-    orig_node_emb[nmap] = node_emb
+    if isinstance(nmap, dict):
+        # handling mapping for heterogeneous graph
+        orig_node_emb = {}
+        for k, v in node_emb.items():
+            emb = torch.zeros(v.shape, dtype=v.dtype)
+            emb[nmap[k]] = v
+            orig_node_emb[k] = emb
+    else:
+        orig_node_emb = torch.zeros(node_emb.shape, dtype=node_emb.dtype)
+        orig_node_emb[nmap] = node_emb
 
     torch.save(orig_node_emb, output_file)
 
@@ -136,8 +144,6 @@ def apply_embeddings(
             '"{}" is not an existing file'.format(node_embeddings_file)
         )
     node_emb = torch.load(node_embeddings_file)
-
-    print("Applying node embeddings to data")
     df = _apply_embeddings(df, node_emb, col_map)
 
     # write output combining the original columns with the new node embeddings as columns

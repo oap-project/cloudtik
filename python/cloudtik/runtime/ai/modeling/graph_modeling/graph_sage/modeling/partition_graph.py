@@ -23,7 +23,7 @@ import dgl
 
 def partition_graph(
         dataset_dir, output_dir, graph_name,
-        num_parts, num_hops):
+        num_parts, num_hops, heterogeneous):
     print("Random seed used in partitioning")
     dgl.random.seed(1)
 
@@ -37,18 +37,15 @@ def partition_graph(
     dataset = dgl.data.CSVDataset(dataset_dir, force_reload=False)
     print("time to load dataset from CSVs:", time.time() - start)
 
-    hg = dataset[0]  # only one graph
-    print(hg)
-    print("etype to read train/test/val from:", hg.canonical_etypes[0][1])
+    graph = dataset[0]  # only one graph
+    print(graph)
 
-    E = hg.num_edges(hg.canonical_etypes[0][1])
-    reverse_eids = torch.cat([torch.arange(E, 2 * E), torch.arange(0, E)])
-    print("First reverse id is:  ", reverse_eids[0])
-
-    # convert graph to homogeneous
-    #TODO: handle new node ids for different node types
-    g = dgl.to_homogeneous(hg)
-    print(g)
+    # convert graph to homogeneous if needed
+    if not heterogeneous:
+        g = dgl.to_homogeneous(graph)
+        print(g)
+    else:
+        g = graph
 
     # part_method='random' works
     # part_method='metis' is giving a "free(): corrupted unsorted chunks error"

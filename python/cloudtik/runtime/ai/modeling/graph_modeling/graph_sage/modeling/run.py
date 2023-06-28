@@ -184,7 +184,8 @@ def _partition_graph(args):
         output_dir=partition_dir,
         graph_name=args.graph_name,
         num_parts=args.num_parts,
-        num_hops=args.num_hops
+        num_hops=args.num_hops,
+        heterogeneous=args.heterogeneous
     )
 
 

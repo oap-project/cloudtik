@@ -47,7 +47,7 @@ def predict(dataset_dir, model_file,
         relations = graph.etypes
 
     if inductive:
-        print("Predicting with an inductive model on homogeneous graph")
+        print("Predicting with an inductive model on heterogeneous graph")
         in_feats = 1
         if node_feature:
             in_feats = graph.ndata[node_feature].shape[1]

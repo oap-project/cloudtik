@@ -33,13 +33,14 @@ def get_node_split_indices(g, relations):
     ) for node_type in node_types}
 
 
-def get_edge_split_indices(g, relations, edge_mask):
+def get_edge_split_indices(g, relations, edge_mask, reverse_etypes):
+    effective = get_effective_edge_types(relations, reverse_etypes)
     return {edge_type: dgl.distributed.edge_split(
         edge_mask[edge_type],
         g.get_partition_book(),
         etype=edge_type,
         force_even=True,
-    ) for edge_type in relations}
+    ) for edge_type in relations if edge_type in effective}
 
 
 def get_eids_mask(g, relations, mask_name, reverse_etypes=None):
@@ -63,7 +64,7 @@ def get_eids_from_mask(g, relations, mask_name, mapping, reverse_etypes=None):
         edge_mapping = mapping[canonical_etype]
 
         mask = g.edges[edge_type].data[mask_name]
-        shuffled_mask = torch.zeros(mask.shape, dtype=torch.bool)
+        shuffled_mask = torch.zeros(mask.shape, dtype=mask.dtype)
         shuffled_mask[edge_mapping] = mask
         eids_dict[edge_type] = torch.nonzero(
             shuffled_mask, as_tuple=False).squeeze()

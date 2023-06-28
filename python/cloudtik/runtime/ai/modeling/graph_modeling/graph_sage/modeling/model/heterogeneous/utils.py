@@ -83,6 +83,8 @@ def get_num_nodes_of_nids(g, relations, nids):
 
 
 def get_total_num_nodes(nids):
+    if not isinstance(nids, dict):
+        return nids.size(dim=0)
     num_nodes = 0
     for ntype, ids in nids.items():
         num_nodes += ids.size(dim=0)
@@ -104,10 +106,16 @@ def tensor_dict_new(
 
 
 def tensor_dict_to(x, device):
+    if not isinstance(x, dict):
+        return x.to(device)
     return {k: v.to(device) for k, v in x.items()}
 
 
 def tensor_dict_store(x, y, indices, device):
+    if not isinstance(x, dict):
+        y[indices] = x.to(device)
+        return
+
     for k, v in x.items():
         i = indices[k]
         y_v = y[k]
@@ -115,6 +123,10 @@ def tensor_dict_store(x, y, indices, device):
 
 
 def tensor_dict_store_at(x, y, indices, pos, device):
+    if not isinstance(x, dict):
+        y[pos: pos + indices.size(dim=0)] = x.to(device)
+        return
+
     for k, v in x.items():
         start = pos[k]
         end = start + indices[k].size(dim=0)
@@ -124,17 +136,25 @@ def tensor_dict_store_at(x, y, indices, pos, device):
 
 
 def tensor_dict_collect(x, indices):
+    if not isinstance(x, dict):
+        return x[indices]
     return {k: x[k][i] for k, i in indices.items()}
 
 
 def tensor_dict_flatten(x):
+    if not isinstance(x, dict):
+        return x
     # we should the sort key, so that it is predictable
     return torch.cat([v for k, v in sorted(x.items())])
 
 
 def tensor_dict_shape(x):
+    if not isinstance(x, dict):
+        return x.shape
     return {k: v.shape for k, v in x.items()}
 
 
 def tensor_dict_truncate(x, size):
-    return {k: x[: size[k]] for k, v in x.items()}
+    if not isinstance(x, dict):
+        return x[: size]
+    return {k: v[: size[k]] for k, v in x.items()}

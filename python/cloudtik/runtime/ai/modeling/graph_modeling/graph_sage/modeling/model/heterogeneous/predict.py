@@ -21,8 +21,10 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.predictor import Predictor
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.inductive.model import InductiveGraphSAGEModel
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.heterogeneous.utils import \
-    get_in_feats_of_feature
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    heterogeneous.transductive.model import TransductiveGraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
+    heterogeneous.utils import get_in_feats_of_feature, get_node_types
 
 
 def predict(dataset_dir, model_file,
@@ -55,7 +57,13 @@ def predict(dataset_dir, model_file,
             in_feats, num_hidden, num_layers,
             relations=relations, node_feature=node_feature)
     else:
-        raise NotImplementedError("Transductive model on heterogeneous graph not supported")
+        print("Predicting with a transductive model on heterogeneous graph")
+        # vocab_size is a dict of node type as key
+        node_types = get_node_types(graph, relations)
+        vocab_size = {k: graph.num_nodes(k) for k in node_types}
+        model = TransductiveGraphSAGEModel(
+            vocab_size, num_hidden, num_layers,
+            relations=relations)
 
     predictor = Predictor(
         model, model_file=model_file,

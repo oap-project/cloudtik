@@ -26,8 +26,11 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.trainer import Trainer
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.inductive.model import InductiveGraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
+    heterogeneous.transductive.model import TransductiveGraphSAGEModel
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
-    heterogeneous.utils import tensor_dict_shape, get_in_feats_of_feature
+    heterogeneous.utils import tensor_dict_shape, get_in_feats_of_feature, \
+    get_node_types
 
 
 def main(args):
@@ -73,7 +76,12 @@ def main(args):
             in_feats, args.num_hidden, args.num_layers,
             relations=args.relations, node_feature=args.node_feature)
     else:
-        raise NotImplementedError("Transductive model on heterogeneous graph not supported")
+        # vocab_size is a dict of node type as key
+        node_types = get_node_types(graph, args.relations)
+        vocab_size = {k: graph.num_nodes(k) for k in node_types}
+        model = TransductiveGraphSAGEModel(
+            vocab_size, args.num_hidden, args.num_layers,
+            relations=args.relations)
 
     # train
     trainer = Trainer(model, args)

@@ -177,7 +177,6 @@ class GraphSAGEModel(nn.Module):
                 for input_nodes, output_nodes, blocks in tqdm.tqdm(
                     dataloader, desc="Inference"
                 ):
-                    # Inductive: use node feature or id
                     # Heterogeneous: everything is a dict here
                     # input_nodes is a dict, output_nodes is dict
                     # input_block.srcdata[dgl.NID] is a dict

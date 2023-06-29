@@ -76,6 +76,7 @@ def main(args):
             in_feats, args.num_hidden, args.num_layers,
             relations=args.relations, node_feature=args.node_feature)
     else:
+        print("Training a transductive model on heterogeneous graph")
         # vocab_size is a dict of node type as key
         node_types = get_node_types(graph, args.relations)
         vocab_size = {k: graph.num_nodes(k) for k in node_types}

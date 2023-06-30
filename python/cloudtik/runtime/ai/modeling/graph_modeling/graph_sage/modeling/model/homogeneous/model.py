@@ -90,14 +90,14 @@ class GraphSAGEModel(nn.Module):
         h_neg = self.decoder(neg_pair_graph, h)
         return h_pos, h_neg
 
-    def get_inputs(self, input_nodes, blocks):
+    def get_inputs(self, g, input_nodes, blocks):
         raise NotImplementedError("The final model must implement this method.")
 
     def get_inference_inputs(self, g):
         raise NotImplementedError("The final model must implement this method.")
 
-    def get_encoder_inputs(self, input_nodes, blocks):
-        return self.get_inputs(input_nodes, blocks)
+    def get_encoder_inputs(self, g, input_nodes, blocks):
+        return self.get_inputs(g, input_nodes, blocks)
 
     def inference(self, g, x, device, batch_size):
         """Layer-wise inference algorithm to compute node embeddings.
@@ -145,7 +145,7 @@ class GraphSAGEModel(nn.Module):
                         h = x[input_nodes]
                     else:
                         # The first layer will come to here if x is None
-                        h = self.get_encoder_inputs(input_nodes, blocks)
+                        h = self.get_encoder_inputs(g, input_nodes, blocks)
                     h = h.to(device)
                     h = layer(blocks[0], h)
                     if l != len(self.encoder.layers) - 1:
@@ -201,7 +201,7 @@ class GraphSAGEModel(nn.Module):
                 if x is not None:
                     h = x[input_nodes]
                 else:
-                    h = self.get_encoder_inputs(input_nodes, blocks)
+                    h = self.get_encoder_inputs(g, input_nodes, blocks)
                 h = h.to(device)
                 for l, layer in enumerate(self.encoder.layers):
                     h = layer(blocks[l], h)

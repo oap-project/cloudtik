@@ -14,6 +14,8 @@ limitations under the License.
 Author: Chen Haifeng
 """
 
+import dgl
+
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.distributed.model import DistGraphSAGEModel
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
@@ -26,3 +28,11 @@ class DistInductiveGraphSAGEModel(DistGraphSAGEModel, InductiveGraphSAGEModel):
         InductiveGraphSAGEModel.__init__(
             self, in_feats, hidden_size, num_layers,
             relations, node_feature)
+
+    def get_inputs(self, g, input_nodes, blocks):
+        if self.node_feature:
+            x = {k: g.nodes[k].data[self.node_feature][v]
+                 for k, v in input_nodes.items()}
+        else:
+            x = super().get_inputs(g, input_nodes, blocks)
+        return x

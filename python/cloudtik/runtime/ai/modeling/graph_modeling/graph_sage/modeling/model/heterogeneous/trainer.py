@@ -135,7 +135,7 @@ class Trainer:
 
         return train_dataloader, val_dataloader, test_dataloader
 
-    def evaluate(self, model, test_dataloader):
+    def evaluate(self, model, g, test_dataloader):
         model.eval()
         score_all = torch.tensor(())
         labels_all = torch.tensor(())
@@ -145,7 +145,7 @@ class Trainer:
                     tqdm.tqdm(test_dataloader)
                 ):
                     # Heterogeneous: srcdata will return a dict
-                    x = model.get_inputs(input_nodes, blocks)
+                    x = model.get_inputs(g, input_nodes, blocks)
                     pos_score, neg_score = model(pair_graph, neg_pair_graph, blocks, x)
                     # Heterogeneous: handle the result as dict of score of each edge types
                     pos_score = tensor_dict_flatten(pos_score)
@@ -178,7 +178,7 @@ class Trainer:
                     train_dataloader
                 ):
                     # Heterogeneous: srcdata will return a dict
-                    x = model.get_inputs(input_nodes, blocks)
+                    x = model.get_inputs(g, input_nodes, blocks)
                     pos_score, neg_score = model(
                         pair_graph, neg_pair_graph, blocks, x
                     )
@@ -207,7 +207,7 @@ class Trainer:
                         val_dataloader
                     ):
                         # Heterogeneous: srcdata will return a dict
-                        x = model.get_inputs(input_nodes, blocks)
+                        x = model.get_inputs(g, input_nodes, blocks)
                         pos_score, neg_score = model(
                             pair_graph, neg_pair_graph, blocks, x
                         )
@@ -232,7 +232,7 @@ class Trainer:
                 if (epoch % args.eval_every == 0 and epoch != 0) or (
                     epoch == args.num_epochs - 1
                 ):
-                    rocauc = self.evaluate(model, test_dataloader)
+                    rocauc = self.evaluate(model, g, test_dataloader)
                     # update best model if needed
                     if best_rocauc < rocauc:
                         print("Updating best model")

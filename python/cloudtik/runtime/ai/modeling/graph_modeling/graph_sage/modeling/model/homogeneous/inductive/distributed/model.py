@@ -24,3 +24,12 @@ class DistInductiveGraphSAGEModel(DistGraphSAGEModel, InductiveGraphSAGEModel):
     def __init__(self, in_feats, hidden_size, num_layers, node_feature):
         InductiveGraphSAGEModel.__init__(
             self, in_feats, hidden_size, num_layers, node_feature)
+
+    def get_inputs(self, g, input_nodes, blocks):
+        if self.node_feature:
+            # Node: the distributed blocks doesn't include directly the node features
+            # Needs to load from the DistGraph
+            x = g.ndata[self.node_feature][input_nodes]
+            return x
+        else:
+            return super().get_inputs(g, input_nodes, blocks)

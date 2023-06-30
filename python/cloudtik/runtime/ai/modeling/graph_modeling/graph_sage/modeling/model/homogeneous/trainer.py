@@ -136,7 +136,7 @@ class Trainer:
 
         return train_dataloader, val_dataloader, test_dataloader
 
-    def evaluate(self, model, test_dataloader):
+    def evaluate(self, model, g, test_dataloader):
         model.eval()
         score_all = torch.tensor(())
         labels_all = torch.tensor(())
@@ -146,7 +146,7 @@ class Trainer:
                     tqdm.tqdm(test_dataloader)
                 ):
                     # x = blocks[0].srcdata[dgl.NID]  # this is the same as input_nodes for homogeneous only
-                    x = model.get_inputs(input_nodes, blocks)
+                    x = model.get_inputs(g, input_nodes, blocks)
                     pos_score, neg_score = model(
                         pair_graph, neg_pair_graph, blocks, x)
                     score = torch.cat([pos_score, neg_score])
@@ -176,7 +176,7 @@ class Trainer:
                     train_dataloader
                 ):
                     # x = blocks[0].srcdata[dgl.NID]  # this is the same as input_nodes for homogeneous only
-                    x = model.get_inputs(input_nodes, blocks)
+                    x = model.get_inputs(g, input_nodes, blocks)
                     pos_score, neg_score = model(
                         pair_graph, neg_pair_graph, blocks, x
                     )
@@ -202,7 +202,7 @@ class Trainer:
                         val_dataloader
                     ):
                         # x = blocks[0].srcdata[dgl.NID]  # this is the same as input_nodes for homogeneous only
-                        x = model.get_inputs(input_nodes, blocks)
+                        x = model.get_inputs(g, input_nodes, blocks)
                         pos_score, neg_score = model(
                             pair_graph, neg_pair_graph, blocks, x
                         )
@@ -224,7 +224,7 @@ class Trainer:
                 if (epoch % args.eval_every == 0 and epoch != 0) or (
                     epoch == args.num_epochs - 1
                 ):
-                    rocauc = self.evaluate(model, test_dataloader)
+                    rocauc = self.evaluate(model, g, test_dataloader)
                     # update best model if needed
                     if best_rocauc < rocauc:
                         print("Updating best model")

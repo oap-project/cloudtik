@@ -204,11 +204,12 @@ class Trainer:
                     pos_graph = pos_graph.to(device)
                     neg_graph = neg_graph.to(device)
                     blocks = [block.to(device) for block in blocks]
+                    x = graph_model.get_inputs(g, input_nodes, blocks)
+                    x = x.to(device)
                     feat_copy_t.append(copy_t - tic_step)
                     copy_time = time.time()
 
                     # Compute loss and prediction
-                    x = graph_model.get_inputs(input_nodes, blocks)
                     pos_score, neg_score = model(pos_graph, neg_graph, blocks, x)
                     score = torch.cat([pos_score, neg_score])
                     pos_label = torch.ones_like(pos_score)
@@ -281,7 +282,8 @@ class Trainer:
                 model_eval.load_state_dict(graph_model.state_dict())
                 # calculate test score on full test set
                 with torch.no_grad():
-                    rocauc, ap_score = self.evaluate(model_eval, test_dataloader)
+                    rocauc, ap_score = self.evaluate(
+                        model_eval, device, g, test_dataloader)
                 print("Epoch {:05d} | roc_auc {:.4f}".format(epoch, rocauc))
                 # update best model if needed
                 if best_rocauc < rocauc:
@@ -327,7 +329,7 @@ class Trainer:
             torch.distributed.barrier()
             # torch.distributed.monitored_barrier(timeout=timedelta(minutes=60))
 
-    def evaluate(self, model, test_dataloader):
+    def evaluate(self, model, device, g, test_dataloader):
         # evaluate the embeddings on test set
         torch.nn.Module.eval(model)  # model.eval()
         score_all = torch.tensor(())
@@ -336,7 +338,12 @@ class Trainer:
             for it, (input_nodes, pair_graph, neg_pair_graph, blocks) in enumerate(
                 tqdm.tqdm(test_dataloader)
             ):
-                x = model.get_inputs(input_nodes, blocks)
+                pos_graph = pos_graph.to(device)
+                neg_graph = neg_graph.to(device)
+                blocks = [block.to(device) for block in blocks]
+                x = model.get_inputs(g, input_nodes, blocks)
+                x = x.to(device)
+
                 pos_score, neg_score = model(
                     pair_graph, neg_pair_graph, blocks, x
                 )

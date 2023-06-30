@@ -43,8 +43,11 @@ class DistGraphSAGEModel(GraphSAGEModel):
         # are repeated. Therefore, we compute the representation of all nodes
         # layer by layer.  The nodes on each layer are of course splitted in
         # batches.
+
+        # Note that the parameter to node_split is:
+        # A boolean mask vector that indicates input nodes.
         nodes = dgl.distributed.node_split(
-            np.arange(g.num_nodes()),
+            torch.ones(g.num_nodes(), dtype=torch.bool),
             g.get_partition_book(),
             force_even=True,
         )
@@ -80,7 +83,7 @@ class DistGraphSAGEModel(GraphSAGEModel):
                     h = x[input_nodes]
                 else:
                     # The first layer will come to here if x is None
-                    h = self.get_encoder_inputs(input_nodes, blocks)
+                    h = self.get_encoder_inputs(g, input_nodes, blocks)
                 h = h.to(device)
                 h_dst = h[: block.number_of_dst_nodes()]
                 h = layer(block, (h, h_dst))

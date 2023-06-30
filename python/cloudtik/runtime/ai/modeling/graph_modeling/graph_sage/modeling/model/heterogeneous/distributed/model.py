@@ -78,7 +78,7 @@ class DistGraphSAGEModel(GraphSAGEModel):
                     h = tensor_dict_collect(x, input_nodes)
                 else:
                     # The first layer will come to here if x is None
-                    h = self.get_encoder_inputs(input_nodes, blocks)
+                    h = self.get_encoder_inputs(g, input_nodes, blocks)
                 h = tensor_dict_to(h, device)
                 size = {k: block.number_of_dst_nodes(k) for k, v in h.items()}
                 h_dst = tensor_dict_truncate(h, size)

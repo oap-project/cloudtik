@@ -31,7 +31,7 @@ class InductiveGraphSAGEModel(GraphSAGEModel):
 
         super().__init__(in_feats, hidden_size, num_layers)
 
-    def get_inputs(self, input_nodes, blocks):
+    def get_inputs(self, g, input_nodes, blocks):
         input_block = blocks[0]
         if self.node_feature:
             x = input_block.srcdata[self.node_feature]

@@ -25,8 +25,10 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
 def get_node_split_indices(g, relations):
     node_types = get_node_types(g, relations)
 
+    # Note that the parameter to node_split is:
+    # A boolean mask vector that indicates input nodes.
     return {node_type: dgl.distributed.node_split(
-        np.arange(g.num_nodes(node_type)),
+        torch.ones(g.num_nodes(node_type), dtype=torch.bool),
         g.get_partition_book(),
         ntype=node_type,
         force_even=True,

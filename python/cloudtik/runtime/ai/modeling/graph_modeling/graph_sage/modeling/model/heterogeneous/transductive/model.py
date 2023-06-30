@@ -38,12 +38,12 @@ class TransductiveGraphSAGEModel(GraphSAGEModel):
     def get_input_embeddings(self):
         return {k: v.weight.data for k, v in self.emb.items()}
 
-    def get_inputs(self, input_nodes, blocks):
+    def get_inputs(self, g, input_nodes, blocks):
         return input_nodes
 
     def get_inference_inputs(self, g):
         return self.get_input_embeddings()
 
-    def get_encoder_inputs(self, input_nodes, blocks):
-        x = self.get_inputs(input_nodes, blocks)
+    def get_encoder_inputs(self, g, input_nodes, blocks):
+        x = self.get_inputs(g, input_nodes, blocks)
         return {k: self.emb[k].weight.data[v] for k, v in x.items()}

@@ -335,8 +335,8 @@ class Trainer:
             for it, (input_nodes, pair_graph, neg_pair_graph, blocks) in enumerate(
                 tqdm.tqdm(test_dataloader)
             ):
-                pos_graph = pos_graph.to(device)
-                neg_graph = neg_graph.to(device)
+                pair_graph = pair_graph.to(device)
+                neg_pair_graph = neg_pair_graph.to(device)
                 blocks = [block.to(device) for block in blocks]
                 x = model.get_inputs(g, input_nodes, blocks)
                 x = tensor_dict_to(x, device)

@@ -61,7 +61,8 @@ def main(args):
 
     # create model
     if args.inductive:
-        print("Training an inductive model on homogeneous graph")
+        feature_str = args.node_feature if args.node_feature else "ID"
+        print("Training an inductive model on homogeneous graph with feature:", feature_str)
         in_feats = 1
         if args.node_feature:
             in_feats = graph.ndata[args.node_feature].shape[1]

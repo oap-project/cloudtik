@@ -30,6 +30,6 @@ class DistInductiveGraphSAGEModel(DistGraphSAGEModel, InductiveGraphSAGEModel):
             # Node: the distributed blocks doesn't include directly the node features
             # Needs to load from the DistGraph
             x = g.ndata[self.node_feature][input_nodes]
-            return x
         else:
-            return super().get_inputs(g, input_nodes, blocks)
+            x = super().get_inputs(g, input_nodes, blocks)
+        return x

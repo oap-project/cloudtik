@@ -70,7 +70,8 @@ def main(args):
         args.relations = graph.etypes
 
     if args.inductive:
-        print("Training an inductive model on heterogeneous graph")
+        feature_str = args.node_feature if args.node_feature else "ID"
+        print("Training an inductive model on heterogeneous graph with feature:", feature_str)
         in_feats = get_in_feats_of_feature(graph, args.node_feature)
         model = InductiveGraphSAGEModel(
             in_feats, args.num_hidden, args.num_layers,

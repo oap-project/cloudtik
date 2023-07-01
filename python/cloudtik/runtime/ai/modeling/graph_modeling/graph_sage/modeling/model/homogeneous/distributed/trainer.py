@@ -26,11 +26,10 @@ import tqdm
 from sklearn.metrics import roc_auc_score, accuracy_score, average_precision_score
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
-    homogeneous.distributed.utils import get_eids_from_mask, save_node_embeddings
+    homogeneous.distributed.utils import get_eids_from_mask, save_node_embeddings, get_eids_mask
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.utils import get_reverse_eids, get_eids_mask_full_padded
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils \
-    import parse_reverse_edges
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import parse_reverse_edges
 
 
 class Trainer:
@@ -46,8 +45,20 @@ class Trainer:
         else:
             return model
 
-    def train(self, g):
+    def train(self, graph):
         args = self.args
+
+        # load the partitioned graph (from homogeneous)
+        print("Load partitioned graph")
+        dgl.distributed.initialize(args.ip_config)
+        if not args.standalone:
+            torch.distributed.init_process_group(backend="gloo")
+        g = dgl.distributed.DistGraph(args.graph_name, part_config=args.part_config)
+
+        print("Read train/test/val from:", graph.etypes)
+        print("Will shuffle edges according to edge mapping from global")
+        emap = torch.load(os.path.join(os.path.dirname(args.part_config), "emap.pt"))
+        print("Edge mapping shape:", emap.shape)
 
         reverse_etypes = None
         if args.exclude_reverse_edges and args.reverse_edges:
@@ -56,36 +67,30 @@ class Trainer:
 
         # because edge_split and shuffle mapping needs the total number of edges
         # we need to padding the mask to the total number of edges
-        # id generated based on the DistGraph and masks are already shuffled
-        train_mask_padded = get_eids_mask_full_padded(
-            g, "train_mask", reverse_etypes)
-        val_eids = get_eids_from_mask(
-            g, "val_mask", reverse_etypes)
-        test_eids = get_eids_from_mask(
-            g, "test_mask", reverse_etypes)
+        train_mask = get_eids_mask(
+            graph, "train_mask", emap, reverse_etypes)
+        shuffled_val_eids = get_eids_from_mask(
+            graph, "val_mask", emap, reverse_etypes)
+        shuffled_test_eids = get_eids_from_mask(
+            graph, "test_mask", emap, reverse_etypes)
 
-        reverse_eids = None
+        shuffled_reverse_eids = None
         if args.exclude_reverse_edges and reverse_etypes:
-            # The reverse eids are generated first based on the original edge id
-            # So we need a shuffled mapping to the get the shuffled id
-            emap = torch.load(os.path.join(os.path.dirname(args.part_config), "emap.pt"))
-            print("Edge mapping shape:", emap.shape)
-
-            # The i-th element indicates the ID of the i-th edge’s reverse edge.
-            original_reverse_eids = get_reverse_eids(g, reverse_etypes)
+            # The i-th element indicates the ID of the i-th edge¡¯s reverse edge.
+            reverse_eids = get_reverse_eids(graph, reverse_etypes)
             # Mapping to shuffled id
-            reverse_eids = torch.zeros_like(original_reverse_eids)
-            reverse_eids[emap] = original_reverse_eids
+            shuffled_reverse_eids = torch.zeros_like(reverse_eids)
+            shuffled_reverse_eids[emap] = reverse_eids
 
         # The ids here are original id
         train_eids = dgl.distributed.edge_split(
-            train_mask_padded,
+            train_mask,
             g.get_partition_book(),
             force_even=True,
         )
 
         train_dataloader, val_dataloader, test_dataloader = self._create_data_loaders(
-            g, train_eids, val_eids, test_eids, reverse_eids
+            g, train_eids, shuffled_val_eids, shuffled_test_eids, shuffled_reverse_eids
         )
 
         if args.num_gpus == -1:
@@ -111,7 +116,7 @@ class Trainer:
         test_sampler = dgl.dataloading.MultiLayerFullNeighborSampler(1)
         # Create dataloader
         # "reverse_id" exclude not only edges in minibatch but their reverse edges according to reverse_eids mapping
-        # reverse_eids - The i-th element indicates the ID of the i-th edge’s reverse edge.
+        # reverse_eids - The i-th element indicates the ID of the i-th edge¡¯s reverse edge.
         exclude = "reverse_id" if reverse_eids is not None else None
         train_dataloader = dgl.dataloading.DistEdgeDataLoader(
             g,

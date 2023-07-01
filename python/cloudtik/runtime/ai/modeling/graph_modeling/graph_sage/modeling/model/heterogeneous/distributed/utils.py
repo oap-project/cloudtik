@@ -57,6 +57,8 @@ def get_eids_mask(g, relations, mask_name, reverse_etypes=None):
 
 def get_eids_from_mask(g, relations, mask_name, reverse_etypes=None):
     eids_mask = get_eids_mask(g, relations, mask_name, reverse_etypes)
+    # eids_mask is dict with DistTensor, convert to a torch Tensor by copying
+    eids_mask = {k: v[0: v.shape[0]] for k, v in eids_mask.items()}
     return {k: torch.nonzero(v, as_tuple=False).squeeze() for k, v in eids_mask.items()}
 
 

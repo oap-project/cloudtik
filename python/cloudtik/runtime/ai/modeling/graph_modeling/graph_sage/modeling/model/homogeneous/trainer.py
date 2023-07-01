@@ -33,7 +33,7 @@ from dgl.dataloading import (
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
     homogeneous.utils import get_eids_from_mask, _create_edge_prediction_sampler, get_reverse_eids
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import \
-    parse_reverse_edges
+    parse_reverse_edges, get_common_node_features, get_common_edge_features
 
 
 class Trainer:
@@ -61,8 +61,9 @@ class Trainer:
             # The i-th element indicates the ID of the i-th edge’s reverse edge.
             reverse_eids = get_reverse_eids(graph, reverse_etypes)
 
-        ndata = [args.node_feature] if args.inductive and args.node_feature else None
-        g = dgl.to_homogeneous(graph, ndata=ndata)
+        ndata = get_common_node_features(graph)
+        edata = get_common_edge_features(graph)
+        g = dgl.to_homogeneous(graph, ndata=ndata, edata=edata)
         g = g.to("cuda" if args.mode == "gpu" else "cpu")
         self.graph = g
 

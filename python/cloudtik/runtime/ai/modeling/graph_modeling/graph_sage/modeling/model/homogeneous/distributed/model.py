@@ -16,7 +16,6 @@ Author: Chen Haifeng
 
 from contextlib import contextmanager
 
-import numpy as np
 import torch
 import dgl
 

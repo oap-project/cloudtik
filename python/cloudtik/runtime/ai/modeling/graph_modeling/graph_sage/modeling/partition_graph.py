@@ -20,13 +20,14 @@ import os
 import torch
 import dgl
 
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import get_common_node_features, \
+    get_common_edge_features
+
 
 def partition_graph(
         dataset_dir, output_dir, graph_name,
         num_parts, num_hops,
-        heterogeneous=False,
-        inductive=False,
-        node_feature=None):
+        heterogeneous=False):
     print("Random seed used in partitioning")
     dgl.random.seed(1)
 
@@ -45,8 +46,9 @@ def partition_graph(
 
     # convert graph to homogeneous if needed
     if not heterogeneous:
-        ndata = [node_feature] if inductive and node_feature else None
-        g = dgl.to_homogeneous(graph, ndata=ndata)
+        ndata = get_common_node_features(graph)
+        edata = get_common_edge_features(graph)
+        g = dgl.to_homogeneous(graph, ndata=ndata, edata=edata)
         print(g)
     else:
         g = graph

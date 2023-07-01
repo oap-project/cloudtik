@@ -20,12 +20,9 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.homog
     get_eids_mask_full_padded
 
 
-def get_eids_from_mask(g, mask_name, mapping, reverse_etypes=None):
-    num_edges = g.num_edges()
+def get_eids_from_mask(g, mask_name, reverse_etypes=None):
     mask_padded = get_eids_mask_full_padded(g, mask_name, reverse_etypes)
-    shuffled_mask = torch.zeros((num_edges,), dtype=torch.bool)
-    shuffled_mask[mapping] = mask_padded
-    return torch.nonzero(shuffled_mask, as_tuple=False).squeeze()
+    return torch.nonzero(mask_padded, as_tuple=False).squeeze()
 
 
 def save_node_embeddings(node_emb, output_file):

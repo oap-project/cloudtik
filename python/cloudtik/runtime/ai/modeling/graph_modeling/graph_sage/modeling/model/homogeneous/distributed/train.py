@@ -39,13 +39,12 @@ def main(args):
     torch.random.manual_seed(seed)
     torch.manual_seed(seed)
 
-    # load original full graph to get the train/test/val id sets
-    print("Loading original data to get the global train/test/val masks")
-    dataset = dgl.data.CSVDataset(args.dataset_dir, force_reload=False)
-
-    # Only one graph
-    graph = dataset[0]
-    print(graph)
+    # load the partitioned graph (from homogeneous)
+    print("Load partitioned graph")
+    dgl.distributed.initialize(args.ip_config)
+    if not args.standalone:
+        torch.distributed.init_process_group(backend="gloo")
+    g = dgl.distributed.DistGraph(args.graph_name, part_config=args.part_config)
 
     # create model here
     if args.inductive:
@@ -53,7 +52,7 @@ def main(args):
         print("Training an inductive model on homogeneous graph with feature:", feature_str)
         in_feats = 1
         if args.node_feature:
-            in_feats = graph.ndata[args.node_feature].shape[1]
+            in_feats = g.ndata[args.node_feature].shape[1]
         model = DistInductiveGraphSAGEModel(
             in_feats, args.num_hidden, args.num_layers,
             node_feature=args.node_feature)
@@ -61,13 +60,13 @@ def main(args):
             in_feats, args.num_hidden, args.num_layers,
             node_feature=args.node_feature)
     else:
-        vocab_size = graph.num_nodes()
+        vocab_size = g.num_nodes()
         # use two models, one for distributed training, one for local evaluation
         model = DistTransductiveGraphSAGEModel(vocab_size, args.num_hidden, args.num_layers)
         model_eval = DistTransductiveGraphSAGEModel(vocab_size, args.num_hidden, args.num_layers)
 
     trainer = Trainer(model, model_eval, args)
-    trainer.train(graph)
+    trainer.train(g)
 
 
 if __name__ == "__main__":

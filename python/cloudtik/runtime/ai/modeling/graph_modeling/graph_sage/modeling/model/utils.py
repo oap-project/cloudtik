@@ -41,3 +41,24 @@ def exclude_reverse_edge_types(etypes, reverse_etypes):
         if reverse_edge_type:
             exclude.add(reverse_edge_type)
     return valid
+
+
+def get_common_node_features(g):
+    return get_common_features(g, True)
+
+
+def get_common_edge_features(g):
+    return get_common_features(g, False)
+
+
+def get_common_features(g, node_or_edge):
+    types = g.ntypes() if node_or_edge else g.etypes()
+    y = None
+    for t in types:
+        feats = g.nodes[t].data.keys() if node_or_edge else g.edges[t].data.keys()
+        if y is None:
+            y = set(feats)
+        else:
+            # intersect two sets
+            y = y.intersection(set(feats))
+    return list(y) if y else None

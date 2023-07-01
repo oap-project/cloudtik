@@ -61,7 +61,8 @@ class Trainer:
             # The i-th element indicates the ID of the i-th edge’s reverse edge.
             reverse_eids = get_reverse_eids(graph, reverse_etypes)
 
-        g = dgl.to_homogeneous(graph)
+        ndata = [args.node_feature] if args.inductive and args.node_feature else None
+        g = dgl.to_homogeneous(graph, ndata=ndata)
         g = g.to("cuda" if args.mode == "gpu" else "cpu")
         self.graph = g
 

@@ -116,7 +116,7 @@ class Trainer:
         test_sampler = dgl.dataloading.MultiLayerFullNeighborSampler(1)
         # Create dataloader
         # "reverse_id" exclude not only edges in minibatch but their reverse edges according to reverse_eids mapping
-        # reverse_eids - The i-th element indicates the ID of the i-th edge¡¯s reverse edge.
+        # reverse_eids - The i-th element indicates the ID of the i-th edge's reverse edge.
         exclude = "reverse_id" if reverse_eids is not None else None
         train_dataloader = dgl.dataloading.DistEdgeDataLoader(
             g,

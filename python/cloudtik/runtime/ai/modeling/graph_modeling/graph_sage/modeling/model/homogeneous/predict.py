@@ -23,8 +23,8 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.transductive.model import TransductiveGraphSAGEModel
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.inductive.model import InductiveGraphSAGEModel
-from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import get_common_node_features, \
-    get_common_edge_features
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils \
+    import get_common_node_features, get_common_edge_features, get_in_feats_of_feature
 
 
 def predict(dataset_dir, model_file,
@@ -52,7 +52,7 @@ def predict(dataset_dir, model_file,
         print("Predicting with an inductive model on homogeneous graph")
         in_feats = 1
         if node_feature:
-            in_feats = graph.ndata[node_feature].shape[1]
+            in_feats = get_in_feats_of_feature(graph, node_feature)
         model = InductiveGraphSAGEModel(
             in_feats, num_hidden, num_layers,
             node_feature=node_feature)

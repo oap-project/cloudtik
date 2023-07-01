@@ -67,15 +67,9 @@ def get_common_features(g, node_or_edge):
 def get_in_feats_of_feature(g, node_feature):
     in_feats = 1
     if node_feature:
+        # Use the first node type
+        ntype = g.ntypes[0]
         # The feature dimension must be the same for all the nodes
         # for the time being
-        feature = g.ndata[node_feature]
-        if not feature:
-            raise RuntimeError("The graph has no node feature: ".format(
-                node_feature))
-        if isinstance(feature, dict):
-            any_value = next(iter(feature.values()))
-        else:
-            any_value = feature
-        in_feats = any_value.shape[1]
+        in_feats = g.nodes[ntype].data[node_feature].shape[1]
     return in_feats

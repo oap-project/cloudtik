@@ -24,7 +24,9 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.transductive.model import TransductiveGraphSAGEModel
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
-    heterogeneous.utils import get_in_feats_of_feature, get_node_types
+    heterogeneous.utils import get_node_types
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils \
+    import get_in_feats_of_feature
 
 
 def predict(dataset_dir, model_file,

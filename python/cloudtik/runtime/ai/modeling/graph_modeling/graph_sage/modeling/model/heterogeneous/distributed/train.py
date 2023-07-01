@@ -28,7 +28,9 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     heterogeneous.transductive.distributed.model import DistTransductiveGraphSAGEModel
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
-    heterogeneous.utils import get_in_feats_of_feature, get_node_types
+    heterogeneous.utils import get_node_types
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils \
+    import get_in_feats_of_feature
 
 
 def main(args):
@@ -41,25 +43,24 @@ def main(args):
     torch.random.manual_seed(seed)
     torch.manual_seed(seed)
 
-    # load original full graph to get the train/test/val id sets
-    print("Loading original data to get the global train/test/val masks")
-    dataset = dgl.data.CSVDataset(args.dataset_dir, force_reload=False)
-
-    # Only one graph
-    graph = dataset[0]
-    print(graph)
+    # load the partitioned heterogeneous graph
+    print("Load partitioned graph")
+    dgl.distributed.initialize(args.ip_config)
+    if not args.standalone:
+        torch.distributed.init_process_group(backend="gloo")
+    g = dgl.distributed.DistGraph(args.graph_name, part_config=args.part_config)
 
     # Heterogeneous: create node indices based on the relations
     if args.relations:
         args.relations = [relation for relation in args.relations.split(",")]
     else:
-        args.relations = graph.etypes
+        args.relations = g.etypes
 
     # create model here
     if args.inductive:
         feature_str = args.node_feature if args.node_feature else "ID"
         print("Training an inductive model on heterogeneous graph with feature:", feature_str)
-        in_feats = get_in_feats_of_feature(graph, args.node_feature)
+        in_feats = get_in_feats_of_feature(g, args.node_feature)
         model = DistInductiveGraphSAGEModel(
             in_feats, args.num_hidden, args.num_layers,
             relations=args.relations, node_feature=args.node_feature)
@@ -69,8 +70,8 @@ def main(args):
     else:
         print("Training a transductive model on heterogeneous graph")
         # vocab_size is a dict of node type as key
-        node_types = get_node_types(graph, args.relations)
-        vocab_size = {k: graph.num_nodes(k) for k in node_types}
+        node_types = get_node_types(g, args.relations)
+        vocab_size = {k: g.num_nodes(k) for k in node_types}
         model = DistTransductiveGraphSAGEModel(
             vocab_size, args.num_hidden, args.num_layers,
             relations=args.relations)
@@ -79,7 +80,7 @@ def main(args):
             relations=args.relations)
 
     trainer = Trainer(model, model_eval, args)
-    trainer.train(graph)
+    trainer.train(g)
 
 
 if __name__ == "__main__":

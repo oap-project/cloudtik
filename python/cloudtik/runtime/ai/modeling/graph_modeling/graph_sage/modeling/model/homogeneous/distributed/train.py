@@ -27,6 +27,8 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.transductive.distributed.model import DistTransductiveGraphSAGEModel
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.inductive.distributed.model import DistInductiveGraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils \
+    import get_in_feats_of_feature
 
 
 def main(args):
@@ -53,7 +55,7 @@ def main(args):
         print("Training an inductive model on homogeneous graph with feature:", feature_str)
         in_feats = 1
         if args.node_feature:
-            in_feats = graph.ndata[args.node_feature].shape[1]
+            in_feats = get_in_feats_of_feature(graph, args.node_feature)
         model = DistInductiveGraphSAGEModel(
             in_feats, args.num_hidden, args.num_layers,
             node_feature=args.node_feature)

@@ -76,7 +76,7 @@ class Trainer:
 
         shuffled_reverse_eids = None
         if args.exclude_reverse_edges and reverse_etypes:
-            # The i-th element indicates the ID of the i-th edge¡¯s reverse edge.
+            # The i-th element indicates the ID of the i-th edge's reverse edge.
             reverse_eids = get_reverse_eids(graph, reverse_etypes)
             # Mapping to shuffled id
             shuffled_reverse_eids = torch.zeros_like(reverse_eids)

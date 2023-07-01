@@ -121,7 +121,7 @@ def check_docker_image(cname, docker_cmd):
 def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_options,
                       cluster_name, home_directory, docker_cmd,
                       network=None, cpus=None, memory=None, labels=None,
-                      port_mappings=None, mounts_mapping=False):
+                      port_mappings=None, mounts_mapping=False, ipc_mode=None):
     mounts = mount_dict
     if mounts_mapping:
         mounts = {}
@@ -132,14 +132,16 @@ def docker_start_cmds(user, image, mount_dict, data_disks, container_name, user_
     return _docker_start_cmds(
         user, image, mounts, data_disks, container_name,
         user_options, home_directory, docker_cmd,
-        network, cpus, memory, labels, port_mappings,
+        network=network, cpus=cpus, memory=memory,
+        labels=labels, port_mappings=port_mappings,
+        ipc_mode=ipc_mode
     )
 
 
 def _docker_start_cmds(user, image, mounts, data_disks, container_name,
                        user_options, home_directory, docker_cmd,
                        network=None, cpus=None, memory=None, labels=None,
-                       port_mappings=None):
+                       port_mappings=None, ipc_mode=None):
     # mounts mapping: target -> source
     file_mounts = [
         "-v {src}:{dest}".format(
@@ -165,14 +167,18 @@ def _docker_start_cmds(user, image, mounts, data_disks, container_name,
 
     fuse_flags = "--cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined"
     numactl_flag = "--cap-add SYS_NICE"
-    ipc_flag = "--ipc=host"
     network_flag = "--network={}".format(network) if network else "--network=host"
 
     docker_run = [
         docker_cmd, "run", "--rm", "--name {}".format(container_name), "-d",
         "-it", mount_flags, env_flags, fuse_flags, user_options_str,
-        numactl_flag, ipc_flag, network_flag
+        numactl_flag, network_flag
     ]
+
+    if ipc_mode:
+        ipc_flag = "--ipc={}".format(ipc_mode)
+        docker_run += [ipc_flag]
+
     if cpus:
         cpus_flag = "--cpus={}".format(cpus)
         docker_run += [cpus_flag]

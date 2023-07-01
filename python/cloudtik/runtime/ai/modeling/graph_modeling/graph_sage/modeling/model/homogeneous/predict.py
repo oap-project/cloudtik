@@ -23,6 +23,8 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.transductive.model import TransductiveGraphSAGEModel
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.inductive.model import InductiveGraphSAGEModel
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import get_common_node_features, \
+    get_common_edge_features
 
 
 def predict(dataset_dir, model_file,
@@ -39,9 +41,11 @@ def predict(dataset_dir, model_file,
     dataset = dgl.data.CSVDataset(dataset_dir, force_reload=False)
     graph = dataset[0]  # only one graph
 
-    # Shall we force convert or upon the user to decide?
-    ndata = [node_feature] if inductive and node_feature else None
-    g = dgl.to_homogeneous(graph, ndata=ndata)
+    # Shall we force convert or upon the user to decide
+    # include the features that all the nodes have and all the edge have
+    ndata = get_common_node_features(graph)
+    edata = get_common_edge_features(graph)
+    g = dgl.to_homogeneous(graph, ndata=ndata, edata=edata)
 
     # create model
     if inductive:

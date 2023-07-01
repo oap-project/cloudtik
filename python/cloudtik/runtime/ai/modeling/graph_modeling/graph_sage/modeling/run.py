@@ -205,9 +205,7 @@ def _partition_graph(args):
         graph_name=args.graph_name,
         num_parts=args.num_parts,
         num_hops=args.num_hops,
-        heterogeneous=args.heterogeneous,
-        inductive=args.inductive,
-        node_feature=args.node_feature
+        heterogeneous=args.heterogeneous
     )
 
 

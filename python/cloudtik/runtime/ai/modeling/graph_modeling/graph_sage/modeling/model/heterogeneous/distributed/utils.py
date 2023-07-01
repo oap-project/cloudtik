@@ -55,22 +55,9 @@ def get_eids_mask(g, relations, mask_name, reverse_etypes=None):
     return mask_dict
 
 
-def get_eids_from_mask(g, relations, mask_name, mapping, reverse_etypes=None):
-    eids_dict = {}
-    effective = get_effective_edge_types(relations, reverse_etypes)
-    for edge_type in relations:
-        if edge_type not in effective:
-            continue
-        # the mapping uses canonical_etype as key
-        canonical_etype = g.to_canonical_etype(edge_type)
-        edge_mapping = mapping[canonical_etype]
-
-        mask = g.edges[edge_type].data[mask_name]
-        shuffled_mask = torch.zeros(mask.shape, dtype=mask.dtype)
-        shuffled_mask[edge_mapping] = mask
-        eids_dict[edge_type] = torch.nonzero(
-            shuffled_mask, as_tuple=False).squeeze()
-    return eids_dict
+def get_eids_from_mask(g, relations, mask_name, reverse_etypes=None):
+    eids_mask = get_eids_mask(g, relations, mask_name, reverse_etypes)
+    return {k: torch.nonzero(v, as_tuple=False).squeeze() for k, v in eids_mask.items()}
 
 
 def save_node_embeddings(node_emb, output_file):

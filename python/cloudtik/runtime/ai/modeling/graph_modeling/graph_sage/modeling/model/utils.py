@@ -52,7 +52,7 @@ def get_common_edge_features(g):
 
 
 def get_common_features(g, node_or_edge):
-    types = g.ntypes() if node_or_edge else g.etypes()
+    types = g.ntypes if node_or_edge else g.etypes
     y = None
     for t in types:
         feats = g.nodes[t].data.keys() if node_or_edge else g.edges[t].data.keys()
@@ -62,3 +62,20 @@ def get_common_features(g, node_or_edge):
             # intersect two sets
             y = y.intersection(set(feats))
     return list(y) if y else None
+
+
+def get_in_feats_of_feature(g, node_feature):
+    in_feats = 1
+    if node_feature:
+        # The feature dimension must be the same for all the nodes
+        # for the time being
+        feature = g.ndata[node_feature]
+        if not feature:
+            raise RuntimeError("The graph has no node feature: ".format(
+                node_feature))
+        if isinstance(feature, dict):
+            any_value = next(iter(feature.values()))
+        else:
+            any_value = feature
+        in_feats = any_value.shape[1]
+    return in_feats

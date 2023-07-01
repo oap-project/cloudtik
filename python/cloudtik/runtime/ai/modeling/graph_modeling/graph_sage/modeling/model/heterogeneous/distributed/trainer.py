@@ -47,22 +47,11 @@ class Trainer:
         else:
             return model
 
-    def train(self, graph):
+    def train(self, g):
         args = self.args
         relations = args.relations
 
-        # load the partitioned heterogeneous graph
-        print("Load partitioned graph")
-        dgl.distributed.initialize(args.ip_config)
-        if not args.standalone:
-            torch.distributed.init_process_group(backend="gloo")
-        g = dgl.distributed.DistGraph(args.graph_name, part_config=args.part_config)
-
         print("Read train/test/val from:", relations)
-        print("Will shuffle edges according to edge mapping from global")
-        emap = torch.load(os.path.join(os.path.dirname(args.part_config), "emap.pt"))
-        # It's a dict of edge mapping
-        print("Edge mapping shape:", tensor_dict_shape(emap))
 
         # The reverse types must guarantee a reverse edge has the same id
         reverse_etypes = None
@@ -71,14 +60,13 @@ class Trainer:
             print("Reverse edges be excluded during the training:", reverse_etypes)
 
         train_eids_mask = get_eids_mask(
-            graph, relations, "train_mask", reverse_etypes)
+            g, relations, "train_mask", reverse_etypes)
         val_eids = get_eids_from_mask(
-            graph, relations, "val_mask", emap, reverse_etypes)
+            g, relations, "val_mask", reverse_etypes)
         test_eids = get_eids_from_mask(
-            graph, relations, "test_mask", emap, reverse_etypes)
+            g, relations, "test_mask", reverse_etypes)
 
-        # The mask ids here are the original ids
-        # the result is the shuffled ids by the partition book
+        # The mask ids here are the shuffled ids
         train_eids = get_edge_split_indices(
             g, relations, train_eids_mask, reverse_etypes
         )

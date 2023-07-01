@@ -23,7 +23,10 @@ import dgl
 
 def partition_graph(
         dataset_dir, output_dir, graph_name,
-        num_parts, num_hops, heterogeneous):
+        num_parts, num_hops,
+        heterogeneous=False,
+        inductive=False,
+        node_feature=None):
     print("Random seed used in partitioning")
     dgl.random.seed(1)
 
@@ -42,7 +45,8 @@ def partition_graph(
 
     # convert graph to homogeneous if needed
     if not heterogeneous:
-        g = dgl.to_homogeneous(graph)
+        ndata = [node_feature] if inductive and node_feature else None
+        g = dgl.to_homogeneous(graph, ndata=ndata)
         print(g)
     else:
         g = graph

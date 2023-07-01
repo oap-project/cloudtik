@@ -40,7 +40,8 @@ def predict(dataset_dir, model_file,
     graph = dataset[0]  # only one graph
 
     # Shall we force convert or upon the user to decide?
-    g = dgl.to_homogeneous(graph)
+    ndata = [node_feature] if inductive and node_feature else None
+    g = dgl.to_homogeneous(graph, ndata=ndata)
 
     # create model
     if inductive:

@@ -434,6 +434,7 @@ class VirtualContainerScheduler:
         # make a copy before change it
         docker_config = copy.deepcopy(docker_config)
         docker_config["mounts_mapping"] = False
+        docker_config["ipc_mode"] = "private"
 
         port_mappings = node_config.get("port_mappings")
         if port_mappings:

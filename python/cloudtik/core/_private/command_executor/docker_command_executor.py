@@ -346,6 +346,7 @@ class DockerCommandExecutor(CommandExecutor):
                 labels=self.docker_config.get("labels"),
                 port_mappings=self.docker_config.get("port_mappings"),
                 mounts_mapping=self.docker_config.get("mounts_mapping", True),
+                ipc_mode=self.docker_config.get("ipc_mode"),
             )
             self.run_with_retry(
                 start_command, run_env="host")

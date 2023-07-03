@@ -175,9 +175,9 @@ def _docker_start_cmds(user, image, mounts, data_disks, container_name,
         numactl_flag, network_flag
     ]
 
-    if ipc_mode:
-        ipc_flag = "--ipc={}".format(ipc_mode)
-        docker_run += [ipc_flag]
+    # default IPC mode to host
+    ipc_flag = "--ipc={}".format(ipc_mode if ipc_mode else "host")
+    docker_run += [ipc_flag]
 
     if cpus:
         cpus_flag = "--cpus={}".format(cpus)

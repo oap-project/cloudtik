@@ -32,7 +32,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.build_graph
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.partition_graph import \
     partition_graph
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.embeddings import \
-    apply_embeddings, _map_node_embeddings
+    apply_embeddings, _map_node_embeddings, _map_model_embeddings
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.launch import \
     launch_jobs, launch_local
 from cloudtik.runtime.ai.util.utils import load_config_from
@@ -330,6 +330,12 @@ def _train_distributed(args):
     graph_type = _get_graph_type(args.heterogeneous)
     node_embeddings_file = os.path.join(
         args.output_dir, "{}_node_embeddings.pt".format(graph_type))
+    # save to a dist prefixed model file
+    dist_model_file_name = "dist_{}".format(
+        os.path.basename(args.model_file))
+    dist_model_file = os.path.join(
+        os.path.dirname(args.model_file), dist_model_file_name)
+
     exec_script = os.path.join(GNN_HOME_PATH, "model",
                                graph_type, "distributed", "train.py")
 
@@ -354,7 +360,7 @@ def _train_distributed(args):
         .format(
             python_exe=sys.executable,
             exec_script=exec_script,
-            model_file=args.model_file,
+            model_file=dist_model_file,
             node_embeddings_file=node_embeddings_file,
             dataset_dir=dataset_dir,
             graph_name=args.graph_name,
@@ -393,6 +399,11 @@ def _train_distributed(args):
         node_embeddings_file,
         partition_dir=partition_dir,
         output_file=args.train_output)
+    _map_model_embeddings(
+        args.inductive,
+        dist_model_file,
+        partition_dir=partition_dir,
+        model_file=args.model_file)
 
 
 def _train(args):
@@ -593,7 +604,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--num-samplers", "--num_samplers",
-        type=int, default=2,
+        type=int, default=0,
         help="The number of sampler processes per trainer process",
     )
     parser.add_argument(

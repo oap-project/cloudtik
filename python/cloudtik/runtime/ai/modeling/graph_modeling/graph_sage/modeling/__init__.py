@@ -29,7 +29,7 @@ class ModelingArgs(object):
         self.num_parts = 0
         self.num_hops = 1
         self.num_trainers = 1
-        self.num_samplers = 2
+        self.num_samplers = 0
         self.num_servers = 1
 
         self.num_server_threads = 1

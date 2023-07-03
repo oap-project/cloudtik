@@ -158,10 +158,11 @@ def apply_embeddings(
 
 
 def _map_state_dict_param(state_dict, param, mapping):
-    emb = state_dict[param]
-    mapped_emb = torch.zeros(emb.shape, dtype=emb.dtype)
-    mapped_emb[mapping] = emb
-    state_dict[param] = mapped_emb
+    if param in state_dict:
+        emb = state_dict[param]
+        mapped_emb = torch.zeros(emb.shape, dtype=emb.dtype)
+        mapped_emb[mapping] = emb
+        state_dict[param] = mapped_emb
 
 
 def _map_model_embeddings(

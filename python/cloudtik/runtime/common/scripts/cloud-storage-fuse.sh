@@ -7,6 +7,16 @@
 # 4. For service functions, CLOUD_FS_MOUNT_PATH is set to the target path for mounting.
 #    For service functions for local hdfs, HEAD_ADDRESS is set.
 
+# Cloud storage fuse mounts:
+# 1. If cloud storage of provider configured:
+#   The cloud storage of provider mounts to CLOUD_FS_MOUNT_PATH
+#   Any cluster local storage mounts to CLUSTER_FS_MOUNT_PATH
+# 2. If We are operating without cloud storage of provider:
+#   a. If there is remote cluster storage, it will mount to CLOUD_FS_MOUNT_PATH
+#      Any cluster local storage mounts to CLUSTER_FS_MOUNT_PATH
+#   b. If there is no remote cluster storage
+#      Any cluster local storage mounts to CLOUD_FS_MOUNT_PATH
+
 # Configuring functions
 function configure_fuse_options() {
     FUSE_CONF_FILE="/etc/fuse.conf"
@@ -144,11 +154,8 @@ function configure_aliyun_oss_fs() {
 function configure_cloud_fs() {
     sudo mkdir -p /cloudtik
     sudo chown $(whoami) /cloudtik
-    if [ "$HDFS_ENABLED" == "true" ]; then
-        configure_local_hdfs_fs
-    elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
-        configure_hdfs_fs
-    elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+    # cloud storage from provider
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
         configure_s3_fs
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
         configure_azure_blob_fs
@@ -156,6 +163,13 @@ function configure_cloud_fs() {
         configure_gcs_fs
     elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
         configure_aliyun_oss_fs
+    fi
+
+    # cluster local storage
+    if [ "$HDFS_ENABLED" == "true" ]; then
+        configure_local_hdfs_fs
+    elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
+        configure_hdfs_fs
     fi
 }
 
@@ -212,11 +226,8 @@ function install_aliyun_oss_fuse() {
 }
 
 function install_cloud_fuse() {
-    if [ "$HDFS_ENABLED" == "true" ]; then
-        install_hdfs_fuse
-    elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
-        install_hdfs_fuse
-    elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+    # cloud storage from provider
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
         install_s3_fuse
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
         install_azure_blob_fuse
@@ -225,24 +236,43 @@ function install_cloud_fuse() {
     elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
         install_aliyun_oss_fuse
     fi
+
+    # cluster local storage
+    if [ "$HDFS_ENABLED" == "true" ]; then
+        install_hdfs_fuse
+    elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
+        install_hdfs_fuse
+    fi
 }
 
 # Service functions
 
 function mount_local_hdfs_fs() {
     fs_default_dir="dfs://${HEAD_ADDRESS}:9000"
+    if [ -z "${MOUNTED_CLOUD_FS}" ]; then
+        FS_MOUNT_PATH=${CLOUD_FS_MOUNT_PATH}
+        MOUNTED_CLOUD_FS=${FS_MOUNT_PATH}
+    else
+        FS_MOUNT_PATH=${CLUSTER_FS_MOUNT_PATH}
+    fi
     # Mount local hdfs fuse here
-    mkdir -p ${CLOUD_FS_MOUNT_PATH}
-    echo "Mounting HDFS ${fs_default_dir} to ${CLOUD_FS_MOUNT_PATH}..."
-    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${CLOUD_FS_MOUNT_PATH} > /dev/null
+    mkdir -p ${FS_MOUNT_PATH}
+    echo "Mounting HDFS ${fs_default_dir} to ${FS_MOUNT_PATH}..."
+    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${FS_MOUNT_PATH} > /dev/null
 }
 
 function mount_hdfs_fs() {
     fs_default_dir="${HDFS_NAMENODE_URI:1}"
+    if [ -z "${MOUNTED_CLOUD_FS}" ]; then
+        FS_MOUNT_PATH=${CLOUD_FS_MOUNT_PATH}
+        MOUNTED_CLOUD_FS=${FS_MOUNT_PATH}
+    else
+        FS_MOUNT_PATH=${CLUSTER_FS_MOUNT_PATH}
+    fi
     # Mount remote hdfs fuse here
-    mkdir -p ${CLOUD_FS_MOUNT_PATH}
-    echo "Mounting HDFS ${fs_default_dir} to ${CLOUD_FS_MOUNT_PATH}..."
-    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${CLOUD_FS_MOUNT_PATH} > /dev/null
+    mkdir -p ${FS_MOUNT_PATH}
+    echo "Mounting HDFS ${fs_default_dir} to ${FS_MOUNT_PATH}..."
+    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${FS_MOUNT_PATH} > /dev/null
 }
 
 function mount_s3_fs() {
@@ -259,6 +289,7 @@ function mount_s3_fs() {
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting S3 bucket ${AWS_S3_BUCKET} to ${CLOUD_FS_MOUNT_PATH}..."
     s3fs ${AWS_S3_BUCKET} -o use_cache=/tmp -o mp_umask=002 -o multireq_max=5 ${IAM_FLAG} ${CLOUD_FS_MOUNT_PATH} > /dev/null
+    MOUNTED_CLOUD_FS=${CLOUD_FS_MOUNT_PATH}
 }
 
 function mount_azure_blob_fs() {
@@ -280,6 +311,7 @@ function mount_azure_blob_fs() {
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting Azure blob container ${AZURE_CONTAINER}@${AZURE_STORAGE_ACCOUNT} to ${CLOUD_FS_MOUNT_PATH}..."
     blobfuse2 mount ${CLOUD_FS_MOUNT_PATH} --config-file=${USER_HOME}/blobfuse2_config.yaml > /dev/null
+    MOUNTED_CLOUD_FS=${CLOUD_FS_MOUNT_PATH}
 }
 
 function mount_gcs_fs() {
@@ -291,6 +323,7 @@ function mount_gcs_fs() {
     mkdir -p ${CLOUD_FS_MOUNT_PATH}
     echo "Mounting GCS bucket ${GCP_GCS_BUCKET} to ${CLOUD_FS_MOUNT_PATH}..."
     gcsfuse ${GCP_GCS_BUCKET} ${CLOUD_FS_MOUNT_PATH} > /dev/null
+    MOUNTED_CLOUD_FS=${CLOUD_FS_MOUNT_PATH}
 }
 
 function mount_aliyun_oss_fs() {
@@ -316,14 +349,12 @@ function mount_aliyun_oss_fs() {
     echo "Mounting Aliyun OSS bucket ${ALIYUN_OSS_BUCKET} to ${CLOUD_FS_MOUNT_PATH}..."
     # TODO: Endpoint setup for ECS for network going internally (for example, oss-cn-hangzhou-internal.aliyuncs.com)
     ossfs ${ALIYUN_OSS_BUCKET} ${CLOUD_FS_MOUNT_PATH} -o use_cache=/tmp -o mp_umask=002 -o url=${ALIYUN_OSS_INTERNAL_ENDPOINT} ${PASSWD_FILE_FLAG} ${RAM_ROLE_FLAG} > /dev/null
+    MOUNTED_CLOUD_FS=${CLOUD_FS_MOUNT_PATH}
 }
 
 function mount_cloud_fs() {
-    if [ "$HDFS_ENABLED" == "true" ]; then
-        mount_local_hdfs_fs
-    elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
-        mount_hdfs_fs
-    elif [ "$AWS_CLOUD_STORAGE" == "true" ]; then
+    # cloud storage from provider
+    if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
         mount_s3_fs
     elif [ "$AZURE_CLOUD_STORAGE" == "true" ]; then
         mount_azure_blob_fs
@@ -331,6 +362,25 @@ function mount_cloud_fs() {
         mount_gcs_fs
     elif [ "$ALIYUN_CLOUD_STORAGE" == "true" ]; then
         mount_aliyun_oss_fs
+    fi
+
+    # cluster local storage
+    if [ -z "${MOUNTED_CLOUD_FS}" ]; then
+        # cluster local storage from remote cluster
+        if [ ! -z "${HDFS_NAMENODE_URI}" ]; then
+            mount_hdfs_fs
+        fi
+
+        # cluster local storage from local cluster
+        if [ "$HDFS_ENABLED" == "true" ]; then
+            mount_local_hdfs_fs
+        fi
+    else
+        if [ "$HDFS_ENABLED" == "true" ]; then
+            mount_local_hdfs_fs
+        elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
+            mount_hdfs_fs
+        fi
     fi
 }
 

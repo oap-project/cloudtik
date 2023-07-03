@@ -96,7 +96,7 @@ def _map_node_embeddings(
     node_emb = torch.load(node_embeddings_file)
 
     # Map from partition to global
-    print("Mapping from shuffled partition ids to global ids")
+    print("Mapping node embeddings from shuffled partition ids to global ids")
     nmap = torch.load(nmap_file)
 
     # nmap stores the mappings between the remapped node/edge IDs and their original ones
@@ -182,9 +182,10 @@ def _map_model_embeddings(
     # For transductive model, we need mapping the embeddings for use in local predicting
 
     # load model
+    print("Loading model from distributed training")
     model_state_dict = torch.load(dist_model_file)
 
-    print("Mapping from shuffled partition ids to global ids")
+    print("Mapping model embeddings from shuffled partition ids to global ids")
     nmap_file = os.path.join(partition_dir, "nmap.pt")
     nmap = torch.load(nmap_file)
 

@@ -13,3 +13,12 @@ log_every: 20
 
 # local
 num_dl_workers: 4
+
+# Whether to use heterogeneous graph for training and predicting
+heterogeneous: true
+
+# Whether to use an inductive model or transductive model
+inductive: true
+
+# If use inductive mode, the feature to use as node input feature
+node_feature: feat

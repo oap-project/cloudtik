@@ -13,8 +13,7 @@ limitations under the License.
 
 Author: Chen Haifeng
 """
-
-
+import shutil
 import time
 import argparse
 import os
@@ -97,7 +96,7 @@ def _map_node_embeddings(
     node_emb = torch.load(node_embeddings_file)
 
     # Map from partition to global
-    print("Mapping from partition ids to full graph ids")
+    print("Mapping from shuffled partition ids to global ids")
     nmap = torch.load(nmap_file)
 
     # nmap stores the mappings between the remapped node/edge IDs and their original ones
@@ -156,3 +155,48 @@ def apply_embeddings(
     df.to_csv(output_file, index=False)
     print("Data with embeddings save to:", output_file)
     print("Time to apply node embeddings:", time.time() - start)
+
+
+def _map_state_dict_param(state_dict, param, mapping):
+    emb = state_dict[param]
+    mapped_emb = torch.zeros(emb.shape, dtype=emb.dtype)
+    mapped_emb[mapping] = emb
+    state_dict[param] = mapped_emb
+
+
+def _map_model_embeddings(
+        inductive,
+        dist_model_file,
+        partition_dir,
+        model_file):
+    if not os.path.isfile(dist_model_file):
+        raise argparse.ArgumentTypeError(
+            '"{}" is not an existing file'.format(dist_model_file)
+        )
+
+    if inductive:
+        shutil.copyfile(dist_model_file, model_file)
+        return
+
+    # For transductive model, we need mapping the embeddings for use in local predicting
+
+    # load model
+    model_state_dict = torch.load(dist_model_file)
+
+    print("Mapping from shuffled partition ids to global ids")
+    nmap_file = os.path.join(partition_dir, "nmap.pt")
+    nmap = torch.load(nmap_file)
+
+    # nmap stores the mappings between the remapped node/edge IDs and their original ones
+    # the ith element stores the original id of shuffle id i.
+    if isinstance(nmap, dict):
+        # handling mapping for heterogeneous graph
+        for k, v in nmap.items():
+            _map_state_dict_param(
+                model_state_dict, "emb.{}.weight".format(k), v)
+    else:
+        _map_state_dict_param(
+            model_state_dict, "emb.weight", nmap)
+
+    # save the updated model state dict
+    torch.save(model_state_dict, model_file)

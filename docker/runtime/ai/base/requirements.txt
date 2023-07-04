@@ -19,7 +19,7 @@ xgboost==1.7.5
 lightgbm==3.3.5
 
 # DL Frameworks
-transformers==4.29.1
+transformers==4.30.2
 
 # datasets and models
 datasets~=2.9.0

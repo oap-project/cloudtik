@@ -241,8 +241,20 @@ function update_config_for_remote_storage() {
     fi
 }
 
+function update_nfs_dump_dir() {
+    # set nfs gateway dump dir
+    data_disk_dir = $(get_any_data_disk_dir)
+    if [ -z "$data_disk_dir" ]; then
+        nfs_dump_dir="/tmp/.hdfs-nfs"
+    else
+        nfs_dump_dir="$data_disk_dir/tmp/.hdfs-nfs"
+    fi
+    sed -i "s!{%dfs.nfs3.dump.dir%}!${nfs_dump_dir}!g" `grep "{%dfs.nfs3.dump.dir%}" -rl ./`
+}
+
 function update_config_for_storage() {
     if [ "$HDFS_ENABLED" == "true" ];then
+        # TODO: local HDFS has setup core-site.xml and hdfs-site.xml
         update_config_for_local_hdfs
     else
         check_hdfs_storage
@@ -253,7 +265,9 @@ function update_config_for_storage() {
             cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml ${HADOOP_HOME}/etc/hadoop/
         else
             # Possible remote hdfs without cloud storage
+            update_nfs_dump_dir
             cp -r ${output_dir}/hadoop/core-site.xml ${HADOOP_HOME}/etc/hadoop/
+            cp -r ${output_dir}/hadoop/hdfs-site.xml ${HADOOP_HOME}/etc/hadoop/
         fi
     fi
 }
@@ -295,7 +309,7 @@ function update_data_disks_config() {
             else
                 local_dirs="$local_dirs,$data_disk"
             fi
-      done
+        done
     fi
 
     # set nodemanager.local-dirs

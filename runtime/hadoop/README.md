@@ -19,7 +19,8 @@ in which everything needed for building and testing Hadoop is included.
 
 Execute the following to build the docker image and start it in interactive mode.
 ```
-bash ./start-build-env.sh
+# the script will mount .m2 and .gnupg, problem if they don't exist
+mkdir -p ~/.m2 && touch ~/.gnupg && bash ./start-build-env.sh
 ```
 The above command will build the docker image for hadoop build environment and
 run the image with your current user. It suggests you configure your docker to

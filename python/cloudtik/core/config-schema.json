@@ -994,6 +994,10 @@
                             "type": "string",
                             "description": "HDFS service endpoint if Spark need to access HDFS."
                         },
+                        "hdfs_mount_method": {
+                            "type": "string",
+                            "description": "HDFS mount method: nfs or fuse. Default fuse if not specified."
+                        },
                         "hive_metastore_uri": {
                             "type": "string",
                             "description": "Metastore service endpoint for Spark to use."

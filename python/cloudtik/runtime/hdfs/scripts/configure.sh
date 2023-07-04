@@ -32,6 +32,16 @@ function check_hadoop_installed() {
     fi
 }
 
+function update_nfs_dump_dir() {
+    data_disk_dir = $(get_any_data_disk_dir)
+    if [ -z "$data_disk_dir" ]; then
+        nfs_dump_dir="/tmp/.hdfs-nfs"
+    else
+        nfs_dump_dir="$data_disk_dir/tmp/.hdfs-nfs"
+    fi
+    sed -i "s!{%dfs.nfs3.dump.dir%}!${nfs_dump_dir}!g" `grep "{%dfs.nfs3.dump.dir%}" -rl ./`
+}
+
 function update_hdfs_data_disks_config() {
     hdfs_nn_dirs="${HADOOP_HOME}/data/dfs/nn"
     hdfs_dn_dirs=""
@@ -55,6 +65,9 @@ function update_hdfs_data_disks_config() {
     fi
     sed -i "s!{%dfs.namenode.name.dir%}!${hdfs_nn_dirs}!g" `grep "{%dfs.namenode.name.dir%}" -rl ./`
     sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ./`
+
+    # set nfs gateway dump dir
+    update_nfs_dump_dir
 }
 
 function update_cloud_storage_credential_config() {

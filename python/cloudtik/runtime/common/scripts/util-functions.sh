@@ -68,3 +68,30 @@ function clean_install_cache() {
         && sudo apt-get clean \
         && which conda > /dev/null && conda clean -itqy)
 }
+
+function get_data_disk_dirs() {
+    local data_disk_dirs=""
+    if [ -d "/mnt/cloudtik" ]; then
+        for data_disk in /mnt/cloudtik/*; do
+            [ -d "$data_disk" ] || continue
+            if [ -z "$data_disk_dirs" ]; then
+                data_disk_dirs=$data_disk
+            else
+                data_disk_dirs="$data_disk_dirs,$data_disk"
+            fi
+        done
+    fi
+    echo "${data_disk_dirs}"
+}
+
+function get_any_data_disk_dir() {
+    local data_disk_dir=""
+    if [ -d "/mnt/cloudtik" ]; then
+        for data_disk in /mnt/cloudtik/*; do
+            [ -d "$data_disk" ] || continue
+            data_disk_dir=$data_disk
+            break
+        done
+    fi
+    echo "${data_disk_dir}"
+}

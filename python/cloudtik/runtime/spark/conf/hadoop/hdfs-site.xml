@@ -18,20 +18,23 @@
 
 <configuration>
     <property>
-        <name>fs.defaultFS</name>
-        <value>{%fs.default.name%}</value>
+        <name>dfs.replication</name>
+        <value>3</value>
     </property>
     <property>
-        <name>hadoop.proxyuser.root.groups</name>
-        <value>*</value>
+        <name>dfs.permissions</name>
+        <value>false</value>
     </property>
-	<property>
-        <name>hadoop.proxyuser.root.hosts</name>
-        <value>*</value>
-    </property>
-    {%hadoop.proxyuser.properties%}
     <property>
-        <name>io.file.buffer.size</name>
-        <value>131072</value>
+        <name>dfs.socket.timeout</name>
+        <value>1200000</value>
+    </property>
+    <property>
+        <name>dfs.block.size</name>
+        <value>268435456</value>
+    </property>
+    <property>
+        <name>dfs.nfs3.dump.dir</name>
+        <value>{%dfs.nfs3.dump.dir%}</value>
     </property>
 </configuration>

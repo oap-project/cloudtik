@@ -65,4 +65,17 @@
         <name>dfs.block.size</name>
         <value>268435456</value>
     </property>
+    <property>
+        <name>dfs.namenode.accesstime.precision</name>
+        <value>3600000</value>
+        <description>
+          The access time for HDFS file is precise up to this value.
+          The default value is 1 hour. Setting a value of 0 disables
+          access times for HDFS.
+        </description>
+    </property>
+    <property>
+        <name>dfs.nfs3.dump.dir</name>
+        <value>{%dfs.nfs3.dump.dir%}</value>
+    </property>
 </configuration>

@@ -37,7 +37,7 @@ function get_fuse_cache_path() {
   fi
 
   if [ -z $fuse_cache_dir ]; then
-      fuse_cache_dir="/mnt/cache/"
+      fuse_cache_dir="/tmp/.cache"
   fi
   echo $fuse_cache_dir
 }
@@ -175,17 +175,20 @@ function configure_cloud_fs() {
 
 # Installing functions
 function install_hdfs_fuse() {
-    if ! type fuse_dfs >/dev/null 2>&1;then
+    if ! type fuse_dfs >/dev/null 2>&1; then
         arch=$(uname -m)
         sudo wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs-${HADOOP_VERSION}-${arch} -O /usr/bin/fuse_dfs
         sudo wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/fuse_dfs_wrapper-${HADOOP_VERSION}.sh -O /usr/bin/fuse_dfs_wrapper.sh
         sudo chmod +x /usr/bin/fuse_dfs
         sudo chmod +x /usr/bin/fuse_dfs_wrapper.sh
     fi
+
+    # nfs mount may needed
+    which mount.nfs > /dev/null || sudo  apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install nfs-common -y > /dev/null
 }
 
 function install_s3_fuse() {
-    if ! type s3fs >/dev/null 2>&1;then
+    if ! type s3fs >/dev/null 2>&1; then
         echo "Installing S3 Fuse..."
         sudo apt-get -qq update -y > /dev/null
         sudo apt-get install -qq s3fs -y > /dev/null
@@ -257,8 +260,18 @@ function mount_local_hdfs_fs() {
     fi
     # Mount local hdfs fuse here
     mkdir -p ${FS_MOUNT_PATH}
-    echo "Mounting HDFS ${fs_default_dir} to ${FS_MOUNT_PATH}..."
-    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${FS_MOUNT_PATH} > /dev/null
+
+    if [ "${HDFS_MOUNT_METHOD}" == "nfs" ]; then
+        # TODO: Use the local HDFS dedicated core-site.xml and hdfs-site.xml
+        echo "Staring HDFS NFS Gateway..."
+        $HADOOP_HOME/bin/hdfs --daemon start portmap
+        $HADOOP_HOME/bin/hdfs --daemon start nfs3
+        echo "Mounting HDFS ${fs_default_dir} with NFS Gateway ${CLOUDTIK_NODE_IP} to ${FS_MOUNT_PATH}..."
+        sudo mount -t nfs -o vers=3,proto=tcp,nolock,noacl,sync ${CLOUDTIK_NODE_IP}:/ ${FS_MOUNT_PATH}
+    else
+        echo "Mounting HDFS ${fs_default_dir} with fuse to ${FS_MOUNT_PATH}..."
+        fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${FS_MOUNT_PATH} > /dev/null
+    fi
 }
 
 function mount_hdfs_fs() {
@@ -269,10 +282,20 @@ function mount_hdfs_fs() {
     else
         FS_MOUNT_PATH=${CLUSTER_FS_MOUNT_PATH}
     fi
-    # Mount remote hdfs fuse here
+    # Mount remote hdfs here
     mkdir -p ${FS_MOUNT_PATH}
-    echo "Mounting HDFS ${fs_default_dir} to ${FS_MOUNT_PATH}..."
-    fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${FS_MOUNT_PATH} > /dev/null
+
+    if [ "${HDFS_MOUNT_METHOD}" == "nfs" ]; then
+        # TODO: Use the remote HDFS dedicated core-site.xml and hdfs-site.xml
+        echo "Staring HDFS NFS Gateway..."
+        $HADOOP_HOME/bin/hdfs --daemon start portmap
+        $HADOOP_HOME/bin/hdfs --daemon start nfs3
+        echo "Mounting HDFS ${fs_default_dir} with NFS Gateway ${CLOUDTIK_NODE_IP} to ${FS_MOUNT_PATH}..."
+        sudo mount -t nfs -o vers=3,proto=tcp,nolock,noacl,sync ${CLOUDTIK_NODE_IP}:/ ${FS_MOUNT_PATH}
+    else
+        echo "Mounting HDFS ${fs_default_dir} with fuse to ${FS_MOUNT_PATH}..."
+        fuse_dfs_wrapper.sh -oinitchecks ${fs_default_dir} ${FS_MOUNT_PATH} > /dev/null
+    fi
 }
 
 function mount_s3_fs() {
@@ -353,6 +376,7 @@ function mount_aliyun_oss_fs() {
 }
 
 function mount_cloud_fs() {
+    MOUNTED_CLOUD_FS=""
     # cloud storage from provider
     if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
         mount_s3_fs
@@ -384,7 +408,30 @@ function mount_cloud_fs() {
     fi
 }
 
+
+function unmount_fs() {
+    local fs_mount_path="$1"
+    if findmnt -o fstype -l -n ${fs_mount_path} >/dev/null 2>&1; then
+        echo "Unmounting cloud fs at ${fs_mount_path}..."
+        local fstype=$(findmnt -o fstype -l -n ${fs_mount_path})
+        if [ "${fstype}" == "nfs" ]; then
+            sudo umount -f ${fs_mount_path}
+        else
+            fusermount -u ${fs_mount_path} > /dev/null
+        fi
+    fi
+}
+
 function unmount_cloud_fs() {
-    echo "Unmounting cloud fs at ${CLOUD_FS_MOUNT_PATH}..."
-    fusermount -u ${CLOUD_FS_MOUNT_PATH} > /dev/null
+    # use findmnt to check the existence and type of the mount
+    # if findmnt doesn't exist, install it
+    which findmnt > /dev/null || sudo  apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install util-linux -y > /dev/null
+
+    if [ "${CLOUD_FS_MOUNT_PATH}" != "" ]; then
+        unmount_fs "${CLOUD_FS_MOUNT_PATH}"
+    fi
+
+    if [ "${CLUSTER_FS_MOUNT_PATH}" != "" ]; then
+        unmount_fs "${CLUSTER_FS_MOUNT_PATH}"
+    fi
 }

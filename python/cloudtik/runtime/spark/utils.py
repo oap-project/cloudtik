@@ -268,6 +268,12 @@ def update_spark_configurations():
     save_properties_file(spark_conf_file, spark_conf, separator=' ', comments=comments)
 
 
+def _with_hdfs_mount_method(spark_config, runtime_envs):
+    mount_method = spark_config.get("hdfs_mount_method")
+    if mount_method:
+        runtime_envs["HDFS_MOUNT_METHOD"] = mount_method
+
+
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
     spark_config = runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
@@ -288,9 +294,11 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     # 3) Try to use provider storage;
     if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_HDFS):
         runtime_envs["HDFS_ENABLED"] = True
+        _with_hdfs_mount_method(spark_config, runtime_envs)
     else:
         if spark_config.get("hdfs_namenode_uri") is not None:
             runtime_envs["HDFS_NAMENODE_URI"] = spark_config.get("hdfs_namenode_uri")
+            _with_hdfs_mount_method(spark_config, runtime_envs)
 
         # We always export the cloud storage even for remote HDFS case
         node_type_config = get_node_type_config(config, provider, node_id)

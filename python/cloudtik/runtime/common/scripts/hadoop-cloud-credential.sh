@@ -176,6 +176,27 @@ function update_credential_config_for_huaweicloud() {
     fi
 }
 
+function update_system_credential() {
+    CURRENT_SYSTEM_USER=$(whoami)
+
+    if [ ${CURRENT_SYSTEM_USER} != "root" ]; then
+        HADOOP_PROXY_USER_PROPERTIES="$(cat <<-EOF
+<property>
+        <name>hadoop.proxyuser.${CURRENT_SYSTEM_USER}.groups</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.${CURRENT_SYSTEM_USER}.hosts</name>
+        <value>*</value>
+    </property>
+EOF
+)"
+        sed -i "s#{%hadoop.proxyuser.properties%}#${HADOOP_PROXY_USER_PROPERTIES}#g" `grep "{%hadoop.proxyuser.properties%}" -rl ./`
+    else
+        sed -i "s#{%hadoop.proxyuser.properties%}#""#g" `grep "{%hadoop.proxyuser.properties%}" -rl ./`
+    fi
+}
+
 function set_cloud_storage_provider() {
     cloud_storage_provider="none"
     if [ "$AWS_CLOUD_STORAGE" == "true" ]; then
@@ -205,6 +226,9 @@ function update_credential_config_for_provider() {
     elif [ "${cloud_storage_provider}" == "huaweicloud" ]; then
         update_credential_config_for_huaweicloud
     fi
+
+    update_system_credential
+
     if [  -f "$HADOOP_CREDENTIAL_TMP_FILE"  ]; then
         cp  ${HADOOP_CREDENTIAL_TMP_FILE} ${HADOOP_CREDENTIAL_FILE}
     fi

@@ -57,7 +57,7 @@ function install_ml() {
         hyperopt==0.2.7 \
         scikit-learn==1.0.2 \
         xgboost==1.7.5 \
-        transformers==4.29.1 \
+        transformers==4.30.2 \
         pandas==2.0.1 \
         category-encoders==2.6.0 \
         h5py==3.8.0 \

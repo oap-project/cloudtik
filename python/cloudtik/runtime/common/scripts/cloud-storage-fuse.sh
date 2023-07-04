@@ -258,7 +258,7 @@ function mount_local_hdfs_fs() {
     else
         FS_MOUNT_PATH=${CLUSTER_FS_MOUNT_PATH}
     fi
-    # Mount local hdfs fuse here
+    # Mount local hdfs here
     mkdir -p ${FS_MOUNT_PATH}
 
     if [ "${HDFS_MOUNT_METHOD}" == "nfs" ]; then

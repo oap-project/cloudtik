@@ -18,6 +18,9 @@ fi
 set_head_option "$@"
 set_service_command "$@"
 
+# HDFS use its own conf dir
+export HADOOP_CONF_DIR= ${HADOOP_HOME}/etc/hdfs
+
 case "$SERVICE_COMMAND" in
 start)
     if [ $IS_HEAD_NODE == "true" ]; then

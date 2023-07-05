@@ -101,6 +101,11 @@ function update_config_for_spark_dirs() {
 
 function update_config_for_local_hdfs() {
     fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+
+    # Still update credential config for cloud provider storage in the case of explict usage
+    update_cloud_storage_credential_config
+
     # event log dir
     event_log_dir="${fs_default_dir}/shared/spark-events"
     sql_warehouse_dir="${fs_default_dir}/shared/spark-warehouse"
@@ -225,8 +230,11 @@ function update_config_for_huaweicloud() {
     update_config_for_spark_dirs
 }
 
-function update_config_for_remote_storage() {
-    if [ "$HDFS_STORAGE" == "true" ]; then
+function update_config_for_hadoop_storage() {
+    # TODO: optimize the order of hadoop storage
+    if [ "$HDFS_ENABLED" == "true" ]; then
+        update_config_for_local_hdfs
+    elif [ "$HDFS_STORAGE" == "true" ]; then
         update_config_for_hdfs
     elif [ "${cloud_storage_provider}" == "aws" ]; then
         update_config_for_aws
@@ -253,22 +261,17 @@ function update_nfs_dump_dir() {
 }
 
 function update_config_for_storage() {
-    if [ "$HDFS_ENABLED" == "true" ];then
-        # TODO: local HDFS has setup core-site.xml and hdfs-site.xml
-        update_config_for_local_hdfs
-    else
-        check_hdfs_storage
-        set_cloud_storage_provider
-        update_config_for_remote_storage
+    check_hdfs_storage
+    set_cloud_storage_provider
+    update_config_for_hadoop_storage
 
-        if [ "${cloud_storage_provider}" != "none" ];then
-            cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml ${HADOOP_HOME}/etc/hadoop/
-        else
-            # Possible remote hdfs without cloud storage
-            update_nfs_dump_dir
-            cp -r ${output_dir}/hadoop/core-site.xml ${HADOOP_HOME}/etc/hadoop/
-            cp -r ${output_dir}/hadoop/hdfs-site.xml ${HADOOP_HOME}/etc/hadoop/
-        fi
+    if [ "${cloud_storage_provider}" != "none" ];then
+        cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml ${HADOOP_HOME}/etc/hadoop/
+    else
+        # Possible hdfs without cloud storage
+        update_nfs_dump_dir
+        cp -r ${output_dir}/hadoop/core-site.xml ${HADOOP_HOME}/etc/hadoop/
+        cp -r ${output_dir}/hadoop/hdfs-site.xml ${HADOOP_HOME}/etc/hadoop/
     fi
 }
 

@@ -21,8 +21,6 @@ function prepare_base_conf() {
     rm -rf  $output_dir
     mkdir -p $output_dir
     cp -r $source_dir/* $output_dir
-    # Include hadoop config file for cloud providers
-    cp -r "$ROOT_DIR"/common/conf/hadoop $output_dir
 }
 
 function check_hadoop_installed() {
@@ -30,16 +28,6 @@ function check_hadoop_installed() {
         echo "HADOOP_HOME environment variable is not set."
         exit 1
     fi
-}
-
-function update_nfs_dump_dir() {
-    data_disk_dir=$(get_any_data_disk_dir)
-    if [ -z "$data_disk_dir" ]; then
-        nfs_dump_dir="/tmp/.hdfs-nfs"
-    else
-        nfs_dump_dir="$data_disk_dir/tmp/.hdfs-nfs"
-    fi
-    sed -i "s!{%dfs.nfs3.dump.dir%}!${nfs_dump_dir}!g" `grep "{%dfs.nfs3.dump.dir%}" -rl ./`
 }
 
 function update_hdfs_data_disks_config() {
@@ -65,21 +53,23 @@ function update_hdfs_data_disks_config() {
     fi
     sed -i "s!{%dfs.namenode.name.dir%}!${hdfs_nn_dirs}!g" `grep "{%dfs.namenode.name.dir%}" -rl ./`
     sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ./`
-
-    # set nfs gateway dump dir
-    update_nfs_dump_dir
 }
 
-function update_cloud_storage_credential_config() {
-    set_cloud_storage_provider
+function update_proxy_user_for_current_user() {
+    CURRENT_SYSTEM_USER=$(whoami)
 
-    # update hadoop credential config
-    update_credential_config_for_provider
-
-    if [ "${cloud_storage_provider}" != "none" ];then
-        cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml ${HADOOP_HOME}/etc/hadoop/
+    if [ "${CURRENT_SYSTEM_USER}" != "root" ]; then
+        HADOOP_PROXY_USER_PROPERTIES="<property>\n\
+        <name>hadoop.proxyuser.${CURRENT_SYSTEM_USER}.groups</name>\n\
+        <value>*</value>\n\
+    </property>\n\
+    <property>\n\
+        <name>hadoop.proxyuser.${CURRENT_SYSTEM_USER}.hosts</name>\n\
+        <value>*</value>\n\
+    </property>"
+        sed -i "s#{%hadoop.proxyuser.properties%}#${HADOOP_PROXY_USER_PROPERTIES}#g" `grep "{%hadoop.proxyuser.properties%}" -rl ./`
     else
-        cp -r ${output_dir}/hadoop/core-site.xml ${HADOOP_HOME}/etc/hadoop/
+        sed -i "s#{%hadoop.proxyuser.properties%}#""#g" `grep "{%hadoop.proxyuser.properties%}" -rl ./`
     fi
 }
 
@@ -91,14 +81,20 @@ function configure_hdfs() {
     fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
     sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
 
-    # update hadoop credential config
-    update_cloud_storage_credential_config
-
+    update_proxy_user_for_current_user
     update_hdfs_data_disks_config
 
-    cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    HDFS_CONF_DIR=${HADOOP_HOME}/etc/hdfs
+    # copy the existing hadoop conf
+    mkdir -p ${HDFS_CONF_DIR}
+    cp -r  ${HADOOP_HOME}/etc/hadoop/* ${HDFS_CONF_DIR}/
+    # override hdfs conf
+    cp -r ${output_dir}/hadoop/core-site.xml ${HDFS_CONF_DIR}/
+    cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HDFS_CONF_DIR}/
 
     if [ $IS_HEAD_NODE == "true" ];then
+        # TODO: format only once if there is no force format flag
+        export HADOOP_CONF_DIR= ${HDFS_CONF_DIR}
         # Stop namenode in case it was running left from last try
         ${HADOOP_HOME}/bin/hdfs --daemon stop namenode > /dev/null 2>&1
         # Format hdfs once

@@ -74,8 +74,4 @@
           access times for HDFS.
         </description>
     </property>
-    <property>
-        <name>dfs.nfs3.dump.dir</name>
-        <value>{%dfs.nfs3.dump.dir%}</value>
-    </property>
 </configuration>

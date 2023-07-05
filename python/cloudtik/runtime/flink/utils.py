@@ -235,6 +235,12 @@ def update_flink_configurations():
     save_properties_file(flink_conf_file, flink_conf, separator=': ', comments=comments)
 
 
+def _with_hadoop_default(spark_config, runtime_envs):
+    hadoop_default_cluster = spark_config.get("hadoop_default_cluster", False)
+    if hadoop_default_cluster:
+        runtime_envs["HADOOP_DEFAULT_CLUSTER"] = hadoop_default_cluster
+
+
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
     flink_config = runtime_config.get(FLINK_RUNTIME_CONFIG_KEY, {})
@@ -249,6 +255,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     yarn_scheduler = flink_config.get("yarn_scheduler")
     if yarn_scheduler:
         runtime_envs["YARN_SCHEDULER"] = yarn_scheduler
+
+    _with_hadoop_default(flink_config, runtime_envs)
 
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;

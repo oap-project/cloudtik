@@ -27,6 +27,13 @@ function prepare_base_conf() {
     cp -r $source_dir/* $output_dir
     # Include hadoop config file for cloud providers
     cp -r "$ROOT_DIR"/common/conf/hadoop $output_dir
+    # Make copy for local and remote HDFS
+    cp $output_dir/hadoop/core-site.xml $output_dir/hadoop/core-site-local.xml
+    sed -i "s!{%fs.default.name%}!{%local.fs.default.name%}!g" $output_dir/hadoop/core-site-local.xml
+    cp $output_dir/hadoop/core-site.xml $output_dir/hadoop/core-site-remote.xml
+    sed -i "s!{%fs.default.name%}!{%remote.fs.default.name%}!g" $output_dir/hadoop/core-site-remote.xml
+
+    cd $output_dir
 }
 
 function check_spark_installed() {
@@ -231,12 +238,16 @@ function update_config_for_huaweicloud() {
 }
 
 function update_config_for_hadoop_storage() {
-    # TODO: optimize the order of hadoop storage
-    if [ "$HDFS_ENABLED" == "true" ]; then
-        update_config_for_local_hdfs
-    elif [ "$HDFS_STORAGE" == "true" ]; then
-        update_config_for_hdfs
-    elif [ "${cloud_storage_provider}" == "aws" ]; then
+    if [ "${HADOOP_DEFAULT_CLUSTER}" == "true" ]; then
+        if [ "$HDFS_STORAGE" == "true" ]; then
+            update_config_for_hdfs
+            return 0
+        elif [ "$HDFS_ENABLED" == "true" ]; then
+            update_config_for_local_hdfs
+            return 0
+        fi
+    fi
+    if [ "${cloud_storage_provider}" == "aws" ]; then
         update_config_for_aws
     elif [ "${cloud_storage_provider}" == "azure" ]; then
         update_config_for_azure
@@ -246,6 +257,10 @@ function update_config_for_hadoop_storage() {
         update_config_for_aliyun
     elif [ "${cloud_storage_provider}" == "huaweicloud" ]; then
         update_config_for_huaweicloud
+    elif [ "$HDFS_STORAGE" == "true" ]; then
+        update_config_for_hdfs
+    elif [ "$HDFS_ENABLED" == "true" ]; then
+        update_config_for_local_hdfs
     fi
 }
 
@@ -260,18 +275,58 @@ function update_nfs_dump_dir() {
     sed -i "s!{%dfs.nfs3.dump.dir%}!${nfs_dump_dir}!g" `grep "{%dfs.nfs3.dump.dir%}" -rl ./`
 }
 
+function update_cluster_storage_config_remote_hdfs() {
+    REMOTE_HDFS_CONF_DIR=${HADOOP_HOME}/etc/remote
+    # copy the existing hadoop conf
+    mkdir -p ${REMOTE_HDFS_CONF_DIR}
+    cp -r  ${HADOOP_HOME}/etc/hadoop/* ${REMOTE_HDFS_CONF_DIR}/
+
+    fs_default_dir="${HDFS_NAMENODE_URI}"
+    sed -i "s!{%remote.fs.default.name%}!${fs_default_dir}!g" ${output_dir}/hadoop/core-site-remote.xml
+
+    update_nfs_dump_dir
+
+    # override with remote hdfs conf
+    cp ${output_dir}/hadoop/core-site-remote.xml ${REMOTE_HDFS_CONF_DIR}/core-site.xml
+    cp -r ${output_dir}/hadoop/hdfs-site.xml  ${REMOTE_HDFS_CONF_DIR}/
+}
+
+function update_cluster_storage_config_local_hdfs() {
+    LOCAL_HDFS_CONF_DIR=${HADOOP_HOME}/etc/local
+    # copy the existing hadoop conf
+    mkdir -p ${LOCAL_HDFS_CONF_DIR}
+    cp -r  ${HADOOP_HOME}/etc/hadoop/* ${LOCAL_HDFS_CONF_DIR}/
+
+    fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
+    sed -i "s!{%local.fs.default.name%}!${fs_default_dir}!g" ${output_dir}/hadoop/core-site-local.xml
+
+    update_nfs_dump_dir
+
+    # override with local hdfs conf
+    cp ${output_dir}/hadoop/core-site-local.xml ${LOCAL_HDFS_CONF_DIR}/core-site.xml
+    cp -r ${output_dir}/hadoop/hdfs-site.xml  ${LOCAL_HDFS_CONF_DIR}/
+}
+
+function update_cluster_storage_config() {
+    if [ "${HDFS_STORAGE}" == "true" ]; then
+        update_cluster_storage_config_remote_hdfs
+    fi
+    if [ "${HDFS_ENABLED}" == "true" ]; then
+        update_cluster_storage_config_local_hdfs
+    fi
+}
+
 function update_config_for_storage() {
     check_hdfs_storage
     set_cloud_storage_provider
     update_config_for_hadoop_storage
+    update_cluster_storage_config
 
     if [ "${cloud_storage_provider}" != "none" ];then
         cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml ${HADOOP_HOME}/etc/hadoop/
     else
-        # Possible hdfs without cloud storage
-        update_nfs_dump_dir
+        # hdfs without cloud storage
         cp -r ${output_dir}/hadoop/core-site.xml ${HADOOP_HOME}/etc/hadoop/
-        cp -r ${output_dir}/hadoop/hdfs-site.xml ${HADOOP_HOME}/etc/hadoop/
     fi
 }
 
@@ -363,7 +418,6 @@ function configure_hadoop_and_spark() {
     prepare_base_conf
     SPARK_DEFAULTS=${output_dir}/spark/spark-defaults.conf
 
-    cd $output_dir
     sed -i "s/HEAD_ADDRESS/${HEAD_ADDRESS}/g" `grep "HEAD_ADDRESS" -rl ./`
 
     update_yarn_config

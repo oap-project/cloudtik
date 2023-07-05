@@ -990,6 +990,11 @@
                                 }
                             }
                         },
+                        "hadoop_default_cluster": {
+                            "type": "boolean",
+                            "description": "Whether to set Hadoop default to cluster storage if available.",
+                            "default": false
+                        },
                         "auto_detect_hdfs": {
                             "type": "boolean",
                             "description": "Whether to auto detect and use HDFS service in the same workspace.",
@@ -1117,6 +1122,11 @@
                                     "description": "The free cpu or memory ratio below which to trigger scaling for aggressive mode."
                                 }
                             }
+                        },
+                        "hadoop_default_cluster": {
+                            "type": "boolean",
+                            "description": "Whether to set Hadoop default to cluster storage if available.",
+                            "default": false
                         },
                         "auto_detect_hdfs": {
                             "type": "boolean",

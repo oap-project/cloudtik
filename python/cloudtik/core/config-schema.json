@@ -990,6 +990,11 @@
                                 }
                             }
                         },
+                        "auto_detect_hdfs": {
+                            "type": "boolean",
+                            "description": "Whether to auto detect and use HDFS service in the same workspace.",
+                            "default": false
+                        },
                         "hdfs_namenode_uri": {
                             "type": "string",
                             "description": "HDFS service endpoint if Spark need to access HDFS."
@@ -997,6 +1002,11 @@
                         "hdfs_mount_method": {
                             "type": "string",
                             "description": "HDFS mount method: nfs or fuse. Default fuse if not specified."
+                        },
+                        "auto_detect_metastore": {
+                            "type": "boolean",
+                            "description": "Whether to auto detect and use metastore service in the same workspace.",
+                            "default": false
                         },
                         "hive_metastore_uri": {
                             "type": "string",
@@ -1108,9 +1118,19 @@
                                 }
                             }
                         },
+                        "auto_detect_hdfs": {
+                            "type": "boolean",
+                            "description": "Whether to auto detect and use HDFS service in the same workspace.",
+                            "default": false
+                        },
                         "hdfs_namenode_uri": {
                             "type": "string",
                             "description": "HDFS service endpoint if Flink need to access HDFS."
+                        },
+                        "auto_detect_metastore": {
+                            "type": "boolean",
+                            "description": "Whether to auto detect and use metastore service in the same workspace.",
+                            "default": false
                         },
                         "hive_metastore_uri": {
                             "type": "string",
@@ -1164,6 +1184,11 @@
                         "catalogs": {
                             "type": "object",
                             "description": "Presto catalogs to be configured."
+                        },
+                        "auto_detect_metastore": {
+                            "type": "boolean",
+                            "description": "Whether to auto detect and use metastore service in the same workspace.",
+                            "default": false
                         },
                         "hive_metastore_uri": {
                             "type": "string",

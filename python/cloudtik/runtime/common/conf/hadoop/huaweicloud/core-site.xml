@@ -32,14 +32,6 @@
     {%fs.obs.security.provider.property%}
     {%hadoop.credential.property%}
     <property>
-        <name>hadoop.proxyuser.root.groups</name>
-        <value>*</value>
-    </property>
-	<property>
-        <name>hadoop.proxyuser.root.hosts</name>
-        <value>*</value>
-    </property>
-    <property>
         <name>io.file.buffer.size</name>
         <value>131072</value>
     </property>

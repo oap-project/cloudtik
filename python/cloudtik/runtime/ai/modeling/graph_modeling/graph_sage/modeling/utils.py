@@ -17,6 +17,10 @@ Author: Chen Haifeng
 import argparse
 import os
 
+import torch
+
+from cloudtik.runtime.ai.util.utils import clean_file
+
 
 def existing_directory(raw_path):
     if not os.path.isdir(raw_path):
@@ -40,3 +44,15 @@ def existing_path(raw_path):
             '"{}" is not an existing directory or file'.format(raw_path)
         )
     return os.path.abspath(raw_path)
+
+
+def torch_save(
+        obj: object, target_file):
+    clean_file(target_file)
+    torch.save(obj, target_file)
+
+
+def df_to_csv(
+        df, target_file, index=True):
+    clean_file(target_file)
+    df.to_csv(target_file, index=index)

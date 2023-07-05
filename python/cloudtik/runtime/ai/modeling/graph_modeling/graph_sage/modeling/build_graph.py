@@ -24,6 +24,7 @@ import os
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.tokenizer import tokenize_node_ids, \
     get_node_type_columns, values_of_node, get_mapped_column_of, get_node_type_of_column
+from cloudtik.runtime.ai.util.utils import clean_dir
 
 
 def build_graph(
@@ -44,7 +45,7 @@ def build_graph(
 
     output_dataset_dir = os.path.join(output_dir, dataset_name)
     print(output_dataset_dir)
-    os.makedirs(output_dataset_dir, exist_ok=True)
+    clean_dir(output_dataset_dir)
 
     # 1. Load CSV file output for preprocessing
     print("Loading processed data")

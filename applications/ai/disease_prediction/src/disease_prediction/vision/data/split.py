@@ -4,6 +4,7 @@ from os import path, listdir
 from pandas import DataFrame
 from pathlib import Path
 
+from cloudtik.runtime.ai.util.utils import remove_dir
 from disease_prediction.utils import get_subject_id
 
 
@@ -49,8 +50,7 @@ def split_data(
 
     # Create the target directory for the dataset
     split_images_dir = get_split_output_dir(output_dir)
-    if path.exists(split_images_dir):
-        shutil.rmtree(split_images_dir)
+    remove_dir(split_images_dir)
 
     # Iterate over train and test data
     for cat in ["test", "train"]:

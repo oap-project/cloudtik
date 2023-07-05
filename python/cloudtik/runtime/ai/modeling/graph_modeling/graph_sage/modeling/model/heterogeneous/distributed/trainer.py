@@ -29,9 +29,10 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
     heterogeneous.distributed.utils import get_eids_mask, get_eids_from_mask, \
     get_edge_split_indices, save_node_embeddings
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
-    heterogeneous.utils import tensor_dict_flatten, tensor_dict_shape, tensor_dict_to
+    heterogeneous.utils import tensor_dict_flatten, tensor_dict_to
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import \
     parse_reverse_edges
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save
 
 
 class Trainer:
@@ -274,7 +275,7 @@ class Trainer:
                 if best_rocauc < rocauc:
                     print("updating best model")
                     best_rocauc = rocauc
-                    torch.save(graph_model.state_dict(), best_model_path)
+                    torch_save(graph_model.state_dict(), best_model_path)
 
             # print average epoch loss  per rank
             print(

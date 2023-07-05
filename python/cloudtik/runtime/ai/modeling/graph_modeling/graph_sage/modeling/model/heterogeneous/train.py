@@ -32,6 +32,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
     heterogeneous.utils import tensor_dict_shape, get_node_types
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils \
     import get_in_feats_of_feature
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save
 
 
 def main(args):
@@ -99,7 +100,7 @@ def main(args):
     node_emb = model.inference(
         g, x, device, args.batch_size_eval)
     print("Node embeddings shape:", str(tensor_dict_shape(node_emb)))
-    torch.save(node_emb, args.node_embeddings_file)
+    torch_save(node_emb, args.node_embeddings_file)
 
     # roc_auc on the different splits after training completion
     # roc_auc_test = evaluate(model, test_dataloader)

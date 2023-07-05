@@ -14,12 +14,12 @@ limitations under the License.
 Author: Chen Haifeng
 """
 
-import numpy as np
 import torch
 import dgl
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
     heterogeneous.utils import get_node_types, get_effective_edge_types, tensor_dict_shape
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save
 
 
 def get_node_split_indices(g, relations):
@@ -65,7 +65,7 @@ def get_eids_from_mask(g, relations, mask_name, reverse_etypes=None):
 def save_node_embeddings(node_emb, output_file):
     # node_emb is dict with DistTensor, convert to a torch Tensor by copying
     local_node_emb = {k: v[0: v.shape[0]] for k, v in node_emb.items()}
-    torch.save(local_node_emb, output_file)
+    torch_save(local_node_emb, output_file)
     print("Node embeddings shape:", tensor_dict_shape(local_node_emb))
     print("Saved node embeddings to:", output_file)
 

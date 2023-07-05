@@ -27,6 +27,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
     heterogeneous.utils import get_node_types
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils \
     import get_in_feats_of_feature
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save
 
 
 def predict(dataset_dir, model_file,
@@ -75,6 +76,6 @@ def predict(dataset_dir, model_file,
 
     if predict_output:
         # save the prediction output only if needed
-        torch.save(predictions, predict_output)
+        torch_save(predictions, predict_output)
 
     return predictions

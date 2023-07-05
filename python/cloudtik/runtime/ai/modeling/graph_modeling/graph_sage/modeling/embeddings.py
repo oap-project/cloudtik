@@ -23,6 +23,7 @@ import torch
 import pandas as pd
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.tokenizer import tokenize_node_ids
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save, df_to_csv
 
 
 def _apply_embeddings_to_column(df, column, node_emb_dict, i, j):
@@ -112,7 +113,7 @@ def _map_node_embeddings(
         orig_node_emb = torch.zeros(node_emb.shape, dtype=node_emb.dtype)
         orig_node_emb[nmap] = node_emb
 
-    torch.save(orig_node_emb, output_file)
+    torch_save(orig_node_emb, output_file)
 
 
 def apply_embeddings(
@@ -152,7 +153,7 @@ def apply_embeddings(
     df = _apply_embeddings(df, node_emb, col_map)
 
     # write output combining the original columns with the new node embeddings as columns
-    df.to_csv(output_file, index=False)
+    df_to_csv(df, output_file, index=False)
     print("Data with embeddings save to:", output_file)
     print("Time to apply node embeddings:", time.time() - start)
 
@@ -201,4 +202,4 @@ def _map_model_embeddings(
             model_state_dict, "emb.weight", nmap)
 
     # save the updated model state dict
-    torch.save(model_state_dict, model_file)
+    torch_save(model_state_dict, model_file)

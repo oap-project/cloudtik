@@ -30,6 +30,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
     homogeneous.utils import get_reverse_eids, get_eids_mask_full_padded
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import parse_reverse_edges
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save
 
 
 class Trainer:
@@ -289,7 +290,7 @@ class Trainer:
                 if best_rocauc < rocauc:
                     print("updating best model")
                     best_rocauc = rocauc
-                    torch.save(graph_model.state_dict(), best_model_path)
+                    torch_save(graph_model.state_dict(), best_model_path)
 
             # print average epoch loss  per rank
             print(

@@ -9,6 +9,8 @@ import math
 from sklearn import preprocessing
 from category_encoders import TargetEncoder
 
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import df_to_csv
+
 
 def process_data(raw_data_path, output_file):
     # Step 1: read and clean the dataframe
@@ -99,7 +101,7 @@ def process_data(raw_data_path, output_file):
 
     # step 5 : write edge features to a file
     tic = time.time()
-    df_merge.to_csv(output_file, index=False)
+    df_to_csv(df_merge, output_file, index=False)
     print(
         "Writing edge features to csv file takes {} seconds".format(
             math.ceil(time.time() - tic)

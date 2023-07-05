@@ -16,6 +16,7 @@ RUNTIME_PROCESSES = [
 ]
 
 PRESTO_RUNTIME_CONFIG_KEY = "presto"
+PRESTO_HIVE_METASTORE_URI_KEY = "hive_metastore_uri"
 
 JVM_MAX_MEMORY_RATIO = 0.8
 QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
@@ -54,11 +55,11 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
     # Check metastore
     if not is_runtime_enabled(runtime_config, "metastore"):
-        if presto_config.get("hive_metastore_uri") is None:
+        if presto_config.get(PRESTO_HIVE_METASTORE_URI_KEY) is None:
             if presto_config.get("auto_detect_metastore", True):
                 hive_metastore_uri = global_variables.get("hive-metastore-uri")
                 if hive_metastore_uri is not None:
-                    presto_config["hive_metastore_uri"] = hive_metastore_uri
+                    presto_config[PRESTO_HIVE_METASTORE_URI_KEY] = hive_metastore_uri
 
     return cluster_config
 
@@ -88,8 +89,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     # 2) Try to use defined metastore_uri;
     if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
-    elif presto_config.get("hive_metastore_uri") is not None:
-        runtime_envs["HIVE_METASTORE_URI"] = presto_config.get("hive_metastore_uri")
+    elif presto_config.get(PRESTO_HIVE_METASTORE_URI_KEY) is not None:
+        runtime_envs["HIVE_METASTORE_URI"] = presto_config.get(PRESTO_HIVE_METASTORE_URI_KEY)
 
     _with_memory_configurations(
         runtime_envs, presto_config=presto_config,

@@ -28,6 +28,8 @@ RUNTIME_PROCESSES = [
 ]
 
 SPARK_RUNTIME_CONFIG_KEY = "spark"
+SPARK_HDFS_NAMENODE_URI_KEY = "hdfs_namenode_uri"
+SPARK_HIVE_METASTORE_URI_KEY = "hive_metastore_uri"
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
 SPARK_EXECUTOR_MEMORY_RATIO = 1
@@ -134,20 +136,20 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     # 2) Try to use defined hdfs_namenode_uri;
     # 3) If subscribed_hdfs_namenode_uri=true,try to subscribe global variables to find remote hdfs_namenode_uri
 
-    if not is_runtime_enabled(runtime_config, "hdfs"):
-        if spark_config.get("hdfs_namenode_uri") is None:
+    if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_HDFS):
+        if spark_config.get(SPARK_HDFS_NAMENODE_URI_KEY) is None:
             if spark_config.get("auto_detect_hdfs", False):
                 hdfs_namenode_uri = global_variables.get("hdfs-namenode-uri")
                 if hdfs_namenode_uri is not None:
-                    spark_config["hdfs_namenode_uri"] = hdfs_namenode_uri
+                    spark_config[SPARK_HDFS_NAMENODE_URI_KEY] = hdfs_namenode_uri
 
     # Check metastore
-    if not is_runtime_enabled(runtime_config, "metastore"):
-        if spark_config.get("hive_metastore_uri") is None:
+    if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
+        if spark_config.get(SPARK_HIVE_METASTORE_URI_KEY) is None:
             if spark_config.get("auto_detect_metastore", True):
                 hive_metastore_uri = global_variables.get("hive-metastore-uri")
                 if hive_metastore_uri is not None:
-                    spark_config["hive_metastore_uri"] = hive_metastore_uri
+                    spark_config[SPARK_HIVE_METASTORE_URI_KEY] = hive_metastore_uri
 
     return cluster_config
 
@@ -296,8 +298,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
         runtime_envs["HDFS_ENABLED"] = True
         _with_hdfs_mount_method(spark_config, runtime_envs)
     else:
-        if spark_config.get("hdfs_namenode_uri") is not None:
-            runtime_envs["HDFS_NAMENODE_URI"] = spark_config.get("hdfs_namenode_uri")
+        if spark_config.get(SPARK_HDFS_NAMENODE_URI_KEY) is not None:
+            runtime_envs["HDFS_NAMENODE_URI"] = spark_config.get(SPARK_HDFS_NAMENODE_URI_KEY)
             _with_hdfs_mount_method(spark_config, runtime_envs)
 
         # We always export the cloud storage even for remote HDFS case
@@ -309,8 +311,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     # 2) Try to use defined metastore_uri;
     if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
-    elif spark_config.get("hive_metastore_uri") is not None:
-        runtime_envs["HIVE_METASTORE_URI"] = spark_config.get("hive_metastore_uri")
+    elif spark_config.get(SPARK_HIVE_METASTORE_URI_KEY) is not None:
+        runtime_envs["HIVE_METASTORE_URI"] = spark_config.get(SPARK_HIVE_METASTORE_URI_KEY)
     return runtime_envs
 
 
@@ -326,13 +328,21 @@ def get_runtime_logs():
 
 
 def _validate_config(config: Dict[str, Any]):
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
+
     # if HDFS enabled, we ignore the cloud storage configurations
-    if not is_runtime_enabled(config.get(RUNTIME_CONFIG_KEY), "hdfs"):
-        # Check any cloud storage is configured
-        provider_config = config["provider"]
-        if ("storage" not in provider_config) and \
-                not is_use_managed_cloud_storage(config):
-            raise ValueError("No storage configuration found for Spark.")
+    if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_HDFS):
+        return
+    # check if there is remote HDFS configured
+    spark_config = runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
+    if spark_config.get(SPARK_HDFS_NAMENODE_URI_KEY) is not None:
+        return
+
+    # Check any cloud storage is configured
+    provider_config = config["provider"]
+    if ("storage" not in provider_config) and \
+            not is_use_managed_cloud_storage(config):
+        raise ValueError("No storage configuration found for Spark.")
 
 
 def _get_runtime_services(cluster_head_ip):

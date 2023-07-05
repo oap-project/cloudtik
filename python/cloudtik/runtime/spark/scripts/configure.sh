@@ -275,7 +275,7 @@ function update_nfs_dump_dir() {
     sed -i "s!{%dfs.nfs3.dump.dir%}!${nfs_dump_dir}!g" `grep "{%dfs.nfs3.dump.dir%}" -rl ./`
 }
 
-function update_cluster_storage_config_remote_hdfs() {
+function update_local_storage_config_remote_hdfs() {
     REMOTE_HDFS_CONF_DIR=${HADOOP_HOME}/etc/remote
     # copy the existing hadoop conf
     mkdir -p ${REMOTE_HDFS_CONF_DIR}
@@ -284,14 +284,12 @@ function update_cluster_storage_config_remote_hdfs() {
     fs_default_dir="${HDFS_NAMENODE_URI}"
     sed -i "s!{%remote.fs.default.name%}!${fs_default_dir}!g" ${output_dir}/hadoop/core-site-remote.xml
 
-    update_nfs_dump_dir
-
     # override with remote hdfs conf
     cp ${output_dir}/hadoop/core-site-remote.xml ${REMOTE_HDFS_CONF_DIR}/core-site.xml
     cp -r ${output_dir}/hadoop/hdfs-site.xml  ${REMOTE_HDFS_CONF_DIR}/
 }
 
-function update_cluster_storage_config_local_hdfs() {
+function update_local_storage_config_local_hdfs() {
     LOCAL_HDFS_CONF_DIR=${HADOOP_HOME}/etc/local
     # copy the existing hadoop conf
     mkdir -p ${LOCAL_HDFS_CONF_DIR}
@@ -300,19 +298,19 @@ function update_cluster_storage_config_local_hdfs() {
     fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
     sed -i "s!{%local.fs.default.name%}!${fs_default_dir}!g" ${output_dir}/hadoop/core-site-local.xml
 
-    update_nfs_dump_dir
-
     # override with local hdfs conf
     cp ${output_dir}/hadoop/core-site-local.xml ${LOCAL_HDFS_CONF_DIR}/core-site.xml
     cp -r ${output_dir}/hadoop/hdfs-site.xml  ${LOCAL_HDFS_CONF_DIR}/
 }
 
-function update_cluster_storage_config() {
+function update_local_storage_config() {
+    update_nfs_dump_dir
+
     if [ "${HDFS_STORAGE}" == "true" ]; then
-        update_cluster_storage_config_remote_hdfs
+        update_local_storage_config_remote_hdfs
     fi
     if [ "${HDFS_ENABLED}" == "true" ]; then
-        update_cluster_storage_config_local_hdfs
+        update_local_storage_config_local_hdfs
     fi
 }
 
@@ -320,7 +318,7 @@ function update_config_for_storage() {
     check_hdfs_storage
     set_cloud_storage_provider
     update_config_for_hadoop_storage
-    update_cluster_storage_config
+    update_local_storage_config
 
     if [ "${cloud_storage_provider}" != "none" ];then
         cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml ${HADOOP_HOME}/etc/hadoop/

@@ -23,7 +23,7 @@ fi
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 export CLOUD_FS_MOUNT_PATH=/cloudtik/fs
-export CLUSTER_FS_MOUNT_PATH=/cloudtik/clusterfs
+export LOCAL_FS_MOUNT_PATH=/cloudtik/localfs
 
 # Cloud storage fuse functions
 . "$ROOT_DIR"/common/scripts/cloud-storage-fuse.sh

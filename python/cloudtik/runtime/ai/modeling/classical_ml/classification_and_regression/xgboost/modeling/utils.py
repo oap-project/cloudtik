@@ -1,10 +1,10 @@
 import argparse
 import os
-from pathlib import Path
-import shutil
 import numpy as np
 import glob
 import yaml
+
+from cloudtik.runtime.ai.util.utils import clean_dir
 
 DATA_ENGINE_PANDAS = 'pandas'
 DATA_ENGINE_MODIN = 'modin'
@@ -68,15 +68,8 @@ def read_csv_files(raw_data_path, engine, ignore_cols=None):
     return data
 
 
-def make_dir(path):
-    path = Path(path)
-    if path.exists() and path.is_dir():
-        shutil.rmtree(path)
-    os.makedirs(path)
-
-
 def partition_data(df, save_format, save_data_path, num_partitions):
-    make_dir(save_data_path)
+    clean_dir(save_data_path)
     if save_format == 'csv':
         df_splits = np.array_split(df, num_partitions)
         for i, data in enumerate(df_splits):

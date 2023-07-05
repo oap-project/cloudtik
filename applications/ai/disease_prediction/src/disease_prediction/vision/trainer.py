@@ -1,5 +1,4 @@
 import os
-import shutil
 import time
 import yaml
 
@@ -9,7 +8,7 @@ from PIL import Image
 
 from cloudtik.runtime.ai.modeling.transfer_learning import dataset_factory, model_factory
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import FrameworkType
-from cloudtik.runtime.ai.util.utils import move_dir_contents
+from cloudtik.runtime.ai.util.utils import move_dir_contents, remove_dir
 from disease_prediction.utils import id_to_label_mapping, is_labeled_dataset, read_yaml_file
 
 IMAGE_SIZE = 224
@@ -27,8 +26,7 @@ def collect_class_labels(dataset_dir):
 
 def clean_output_folder(output_dir, model_name):
     folder_path = os.path.join(output_dir, model_name)
-    if os.path.exists(folder_path):
-        shutil.rmtree(os.path.join(output_dir, model_name))
+    remove_dir(folder_path)
 
 
 def quantize_model(model, saved_model_dir, quantization_output_dir):

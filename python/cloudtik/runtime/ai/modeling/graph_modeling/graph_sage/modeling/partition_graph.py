@@ -17,11 +17,12 @@ Author: Chen Haifeng
 
 import time
 import os
-import torch
 import dgl
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import get_common_node_features, \
     get_common_edge_features
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save
+from cloudtik.runtime.ai.util.utils import clean_dir
 
 
 def partition_graph(
@@ -32,7 +33,7 @@ def partition_graph(
     dgl.random.seed(1)
 
     # create directories to save the partitions
-    os.makedirs(output_dir, exist_ok=True)
+    clean_dir(output_dir)
 
     # load and preprocess dataset
     print("Loading data")
@@ -70,8 +71,8 @@ def partition_graph(
         return_mapping=True,
     )
 
-    torch.save(nmap, os.path.join(output_dir, "nmap.pt"))
-    torch.save(emap, os.path.join(output_dir, "emap.pt"))
+    torch_save(nmap, os.path.join(output_dir, "nmap.pt"))
+    torch_save(emap, os.path.join(output_dir, "emap.pt"))
 
     # Load first partition to verify
     (

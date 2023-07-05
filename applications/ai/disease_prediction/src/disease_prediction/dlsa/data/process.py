@@ -20,12 +20,13 @@
 
 import argparse
 import os
-import shutil
 import tempfile
 import zipfile
 
 import docx2txt
 import pandas as pd
+
+from cloudtik.runtime.ai.util.utils import remove_dir
 
 
 def read_right_and_left(tx):
@@ -140,8 +141,7 @@ def unzip_file(medical_reports_zip_file, output_dir):
         medical_reports_zip_file).split(".zip")[0].strip()
     medical_reports_folder = os.path.join(
         output_dir, medical_reports_folder_name)
-    if os.path.exists(medical_reports_folder):
-        shutil.rmtree(medical_reports_folder)
+    remove_dir(medical_reports_folder)
 
     with zipfile.ZipFile(medical_reports_zip_file, "r") as zip_ref:
         zip_ref.extractall(output_dir)  # ( medical_reports_folder )

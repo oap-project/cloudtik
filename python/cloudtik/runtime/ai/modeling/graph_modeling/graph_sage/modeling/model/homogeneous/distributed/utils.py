@@ -18,6 +18,7 @@ import torch
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.homogeneous.utils import \
     get_eids_mask_full_padded
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save
 
 
 def get_eids_mask(g, mask_name, mapping, reverse_etypes=None):
@@ -36,6 +37,6 @@ def get_eids_from_mask(g, mask_name, mapping, reverse_etypes=None):
 def save_node_embeddings(node_emb, output_file):
     # node_emb is DistTensor, convert to a torch Tensor by copying
     local_node_emb = node_emb[0: node_emb.shape[0]]
-    torch.save(local_node_emb, output_file)
+    torch_save(local_node_emb, output_file)
     print("Node embeddings shape:", local_node_emb.shape)
     print("Saved node embeddings to:", output_file)

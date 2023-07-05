@@ -33,6 +33,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model. \
     _create_edge_prediction_sampler
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.utils import \
     parse_reverse_edges
+from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save
 
 
 class Trainer:
@@ -197,8 +198,6 @@ class Trainer:
                     step_t = time.time() - start
                     step_time.append(step_t)
                     start = time.time()
-                # print("Epoch {:05d} | Train Loss {:.4f}".format(epoch, total_loss / (it + 1)))
-                # torch.save(model.state_dict(), best_model_path)
 
                 model.eval()
 
@@ -237,5 +236,5 @@ class Trainer:
                     if best_rocauc < rocauc:
                         print("Updating best model")
                         best_rocauc = rocauc
-                        torch.save(model.state_dict(), best_model_path)
+                        torch_save(model.state_dict(), best_model_path)
                     print("Epoch {:05d} | Test roc_auc_score {:.4f}".format(epoch, rocauc))

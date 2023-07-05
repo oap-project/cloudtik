@@ -35,7 +35,7 @@ from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.embeddings 
     apply_embeddings, _map_node_embeddings, _map_model_embeddings
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.launch import \
     launch_jobs, launch_local
-from cloudtik.runtime.ai.util.utils import load_config_from
+from cloudtik.runtime.ai.util.utils import load_config_from, clean_file
 
 GNN_HOME_PATH = os.path.abspath(os.path.dirname(__file__))
 
@@ -100,6 +100,7 @@ def _get_hosts(hosts):
 
 def _save_ip_config(ip_config_file, hosts):
     host_list = _get_hosts(hosts)
+    clean_file(ip_config_file)
     with open(ip_config_file, "w+") as f:
         for host in host_list:
             f.write("{}\n".format(host))

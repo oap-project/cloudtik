@@ -10,10 +10,10 @@
 # Cloud storage fuse mounts:
 # 1. If cloud storage of provider configured:
 #   The cloud storage of provider mounts to CLOUD_FS_MOUNT_PATH
-#   Any cluster local storage mounts to CLUSTER_FS_MOUNT_PATH
+#   Any cluster local storage mounts to LOCAL_FS_MOUNT_PATH
 # 2. If We are operating without cloud storage of provider:
 #   a. If there is remote cluster storage, it will mount to CLOUD_FS_MOUNT_PATH
-#      Any cluster local storage mounts to CLUSTER_FS_MOUNT_PATH
+#      Any cluster local storage mounts to LOCAL_FS_MOUNT_PATH
 #   b. If there is no remote cluster storage
 #      Any cluster local storage mounts to CLOUD_FS_MOUNT_PATH
 
@@ -256,7 +256,7 @@ function mount_local_hdfs_fs() {
         FS_MOUNT_PATH=${CLOUD_FS_MOUNT_PATH}
         MOUNTED_CLOUD_FS=${FS_MOUNT_PATH}
     else
-        FS_MOUNT_PATH=${CLUSTER_FS_MOUNT_PATH}
+        FS_MOUNT_PATH=${LOCAL_FS_MOUNT_PATH}
     fi
     # Mount local hdfs here
     mkdir -p ${FS_MOUNT_PATH}
@@ -290,7 +290,7 @@ function mount_hdfs_fs() {
         FS_MOUNT_PATH=${CLOUD_FS_MOUNT_PATH}
         MOUNTED_CLOUD_FS=${FS_MOUNT_PATH}
     else
-        FS_MOUNT_PATH=${CLUSTER_FS_MOUNT_PATH}
+        FS_MOUNT_PATH=${LOCAL_FS_MOUNT_PATH}
     fi
     # Mount remote hdfs here
     mkdir -p ${FS_MOUNT_PATH}
@@ -455,7 +455,7 @@ function unmount_cloud_fs() {
         unmount_fs "${CLOUD_FS_MOUNT_PATH}"
     fi
 
-    if [ "${CLUSTER_FS_MOUNT_PATH}" != "" ]; then
-        unmount_fs "${CLUSTER_FS_MOUNT_PATH}"
+    if [ "${LOCAL_FS_MOUNT_PATH}" != "" ]; then
+        unmount_fs "${LOCAL_FS_MOUNT_PATH}"
     fi
 }

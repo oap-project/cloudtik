@@ -284,8 +284,6 @@ function update_cluster_storage_config_remote_hdfs() {
     fs_default_dir="${HDFS_NAMENODE_URI}"
     sed -i "s!{%remote.fs.default.name%}!${fs_default_dir}!g" ${output_dir}/hadoop/core-site-remote.xml
 
-    update_nfs_dump_dir
-
     # override with remote hdfs conf
     cp ${output_dir}/hadoop/core-site-remote.xml ${REMOTE_HDFS_CONF_DIR}/core-site.xml
     cp -r ${output_dir}/hadoop/hdfs-site.xml  ${REMOTE_HDFS_CONF_DIR}/
@@ -300,14 +298,14 @@ function update_cluster_storage_config_local_hdfs() {
     fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
     sed -i "s!{%local.fs.default.name%}!${fs_default_dir}!g" ${output_dir}/hadoop/core-site-local.xml
 
-    update_nfs_dump_dir
-
     # override with local hdfs conf
     cp ${output_dir}/hadoop/core-site-local.xml ${LOCAL_HDFS_CONF_DIR}/core-site.xml
     cp -r ${output_dir}/hadoop/hdfs-site.xml  ${LOCAL_HDFS_CONF_DIR}/
 }
 
 function update_cluster_storage_config() {
+    update_nfs_dump_dir
+
     if [ "${HDFS_STORAGE}" == "true" ]; then
         update_cluster_storage_config_remote_hdfs
     fi

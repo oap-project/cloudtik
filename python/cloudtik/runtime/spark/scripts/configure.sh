@@ -377,17 +377,6 @@ function configure_hadoop_and_spark() {
         update_metastore_config
 
         cp -r ${output_dir}/spark/* ${SPARK_HOME}/conf
-
-        if [ "$HDFS_ENABLED" == "true" ]; then
-            # Create event log dir on hdfs
-            ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon start namenode
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/spark-events
-            ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon stop namenode
-        else
-            # Create event log dir on cloud storage if needed
-            # This needs to be done after hadoop file system has been configured correctly
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/spark-events
-        fi
     fi
 }
 

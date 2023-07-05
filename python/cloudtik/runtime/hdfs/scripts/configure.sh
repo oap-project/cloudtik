@@ -94,7 +94,7 @@ function configure_hdfs() {
 
     if [ $IS_HEAD_NODE == "true" ];then
         # TODO: format only once if there is no force format flag
-        export HADOOP_CONF_DIR= ${HDFS_CONF_DIR}
+        export HADOOP_CONF_DIR=${HDFS_CONF_DIR}
         # Stop namenode in case it was running left from last try
         ${HADOOP_HOME}/bin/hdfs --daemon stop namenode > /dev/null 2>&1
         # Format hdfs once

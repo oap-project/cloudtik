@@ -38,6 +38,10 @@ start)
     mount_cloud_fs
 
     if [ $IS_HEAD_NODE == "true" ]; then
+        # Create event log dir on cloud storage if needed
+        # This needs to be done after hadoop file system has been configured correctly
+        ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/spark-events
+
         echo "Starting Resource Manager..."
         $HADOOP_HOME/bin/yarn --daemon start resourcemanager
         echo "Starting Spark History Server..."

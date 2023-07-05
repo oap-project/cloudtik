@@ -238,7 +238,7 @@ function update_config_for_huaweicloud() {
 }
 
 function update_config_for_hadoop_storage() {
-    if [ "${HADOOP_DEFAULT_LOCAL}" == "true" ]; then
+    if [ "${HADOOP_DEFAULT_CLUSTER}" == "true" ]; then
         if [ "$HDFS_STORAGE" == "true" ]; then
             update_config_for_hdfs
             return 0

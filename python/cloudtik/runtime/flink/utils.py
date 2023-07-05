@@ -236,9 +236,9 @@ def update_flink_configurations():
 
 
 def _with_hadoop_default(spark_config, runtime_envs):
-    hadoop_default_local = spark_config.get("hadoop_default_local", False)
-    if hadoop_default_local:
-        runtime_envs["HADOOP_DEFAULT_LOCAL"] = hadoop_default_local
+    hadoop_default_cluster = spark_config.get("hadoop_default_cluster", False)
+    if hadoop_default_cluster:
+        runtime_envs["HADOOP_DEFAULT_CLUSTER"] = hadoop_default_cluster
 
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):

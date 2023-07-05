@@ -29,6 +29,12 @@ set_service_command "$@"
 case "$SERVICE_COMMAND" in
 start)
     if [ $IS_HEAD_NODE == "true" ]; then
+
+        # Create dirs on cloud storage if needed
+        # This needs to be done after hadoop file system has been configured correctly
+        ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/flink-checkpoints
+        ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /shared/flink-savepoints
+
         echo "Starting Resource Manager..."
         $HADOOP_HOME/bin/yarn --daemon start resourcemanager
         echo "Starting Flink History Server..."

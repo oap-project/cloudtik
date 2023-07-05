@@ -85,6 +85,11 @@ function update_config_for_flink_dirs() {
 
 function update_config_for_local_hdfs() {
     fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+
+    # Still update credential config for cloud provider storage in the case of explict usage
+    update_cloud_storage_credential_config
+
     checkpoints_dir="${fs_default_dir}/${PATH_CHECKPOINTS}"
     savepoints_dir="${fs_default_dir}/${PATH_SAVEPOINTS}"
     historyserver_archive_dir="${fs_default_dir}/${PATH_HISTORY_SERVER}"
@@ -218,8 +223,11 @@ function update_config_for_huaweicloud() {
     update_config_for_flink_dirs
 }
 
-function update_config_for_remote_storage() {
-    if [ "$HDFS_STORAGE" == "true" ]; then
+function update_config_for_hadoop_storage() {
+    # TODO: optimize the order of hadoop storage
+    if [ "$HDFS_ENABLED" == "true" ]; then
+        update_config_for_local_hdfs
+    elif [ "$HDFS_STORAGE" == "true" ]; then
         update_config_for_hdfs
     elif [ "${cloud_storage_provider}" == "aws" ]; then
         update_config_for_aws
@@ -239,19 +247,15 @@ function update_config_for_storage() {
     PATH_SAVEPOINTS="shared/flink-savepoints"
     PATH_HISTORY_SERVER="shared/history-server"
 
-    if [ "$HDFS_ENABLED" == "true" ];then
-        update_config_for_local_hdfs
-    else
-        check_hdfs_storage
-        set_cloud_storage_provider
-        update_config_for_remote_storage
+    check_hdfs_storage
+    set_cloud_storage_provider
+    update_config_for_hadoop_storage
 
-        if [ "${cloud_storage_provider}" != "none" ];then
-            cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
-        else
-            # Possible remote hdfs without cloud storage
-            cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
-        fi
+    if [ "${cloud_storage_provider}" != "none" ];then
+        cp -r ${output_dir}/hadoop/${cloud_storage_provider}/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
+    else
+        # Possible hdfs without cloud storage
+        cp -r ${output_dir}/hadoop/core-site.xml  ${HADOOP_HOME}/etc/hadoop/
     fi
 }
 
@@ -357,19 +361,6 @@ function configure_hadoop_and_flink() {
         # update_metastore_config
 
         cp -r ${output_dir}/flink/*  ${FLINK_HOME}/conf
-
-        if [ "$HDFS_ENABLED" == "true" ]; then
-            # Create dirs on hdfs
-            ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon start namenode
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_CHECKPOINTS}
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_SAVEPOINTS}
-            ${HADOOP_HOME}/bin/hdfs --loglevel WARN --daemon stop namenode
-        else
-            # Create dirs on cloud storage if needed
-            # This needs to be done after hadoop file system has been configured correctly
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_CHECKPOINTS}
-            ${HADOOP_HOME}/bin/hadoop --loglevel WARN fs -mkdir -p /${PATH_SAVEPOINTS}
-        fi
     fi
 }
 

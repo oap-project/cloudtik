@@ -33,7 +33,7 @@ function check_hadoop_installed() {
 }
 
 function update_nfs_dump_dir() {
-    data_disk_dir = $(get_any_data_disk_dir)
+    data_disk_dir=$(get_any_data_disk_dir)
     if [ -z "$data_disk_dir" ]; then
         nfs_dump_dir="/tmp/.hdfs-nfs"
     else

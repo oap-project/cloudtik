@@ -266,6 +266,8 @@ function mount_local_hdfs_fs() {
         echo "Staring HDFS NFS Gateway..."
         $HADOOP_HOME/bin/hdfs --daemon start portmap
         $HADOOP_HOME/bin/hdfs --daemon start nfs3
+        sleep 3
+
         echo "Mounting HDFS ${fs_default_dir} with NFS Gateway ${CLOUDTIK_NODE_IP} to ${FS_MOUNT_PATH}..."
         sudo mount -t nfs -o vers=3,proto=tcp,nolock,noacl,sync ${CLOUDTIK_NODE_IP}:/ ${FS_MOUNT_PATH}
     else
@@ -290,6 +292,8 @@ function mount_hdfs_fs() {
         echo "Staring HDFS NFS Gateway..."
         $HADOOP_HOME/bin/hdfs --daemon start portmap
         $HADOOP_HOME/bin/hdfs --daemon start nfs3
+        sleep 3
+
         echo "Mounting HDFS ${fs_default_dir} with NFS Gateway ${CLOUDTIK_NODE_IP} to ${FS_MOUNT_PATH}..."
         sudo mount -t nfs -o vers=3,proto=tcp,nolock,noacl,sync ${CLOUDTIK_NODE_IP}:/ ${FS_MOUNT_PATH}
     else

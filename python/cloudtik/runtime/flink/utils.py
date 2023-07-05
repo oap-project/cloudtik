@@ -118,16 +118,16 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
 
+    # We now support co-existence of local HDFS and remote HDFS
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;
     # 3) If subscribed_hdfs_namenode_uri=true,try to subscribe global variables to find remote hdfs_namenode_uri
 
-    if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_HDFS):
-        if flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY) is None:
-            if flink_config.get("auto_detect_hdfs", False):
-                hdfs_namenode_uri = global_variables.get("hdfs-namenode-uri")
-                if hdfs_namenode_uri is not None:
-                    flink_config[FLINK_HDFS_NAMENODE_URI_KEY] = hdfs_namenode_uri
+    if flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY) is None:
+        if flink_config.get("auto_detect_hdfs", False):
+            hdfs_namenode_uri = global_variables.get("hdfs-namenode-uri")
+            if hdfs_namenode_uri is not None:
+                flink_config[FLINK_HDFS_NAMENODE_URI_KEY] = hdfs_namenode_uri
 
     # Check metastore
     if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
@@ -258,19 +258,19 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
 
     _with_hadoop_default(flink_config, runtime_envs)
 
+    # We now support co-existence of local HDFS and remote HDFS, and cloud storage
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;
     # 3) Try to use provider storage;
     if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_HDFS):
         runtime_envs["HDFS_ENABLED"] = True
-    else:
-        if flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY) is not None:
-            runtime_envs["HDFS_NAMENODE_URI"] = flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY)
+    if flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY) is not None:
+        runtime_envs["HDFS_NAMENODE_URI"] = flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY)
 
-        # We always export the cloud storage even for remote HDFS case
-        node_type_config = get_node_type_config(config, provider, node_id)
-        provider_envs = provider.with_environment_variables(node_type_config, node_id)
-        runtime_envs.update(provider_envs)
+    # We always export the cloud storage even for HDFS case
+    node_type_config = get_node_type_config(config, provider, node_id)
+    provider_envs = provider.with_environment_variables(node_type_config, node_id)
+    runtime_envs.update(provider_envs)
 
     # 1) Try to use local metastore if there is one started;
     # 2) Try to use defined metastore_uri;

@@ -29,6 +29,7 @@
         <name>hadoop.proxyuser.root.hosts</name>
         <value>*</value>
     </property>
+    {%hadoop.proxyuser.properties%}
     <property>
         <name>io.file.buffer.size</name>
         <value>131072</value>

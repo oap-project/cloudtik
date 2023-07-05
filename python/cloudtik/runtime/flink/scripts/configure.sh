@@ -224,12 +224,16 @@ function update_config_for_huaweicloud() {
 }
 
 function update_config_for_hadoop_storage() {
-    # TODO: optimize the order of hadoop storage
-    if [ "$HDFS_ENABLED" == "true" ]; then
-        update_config_for_local_hdfs
-    elif [ "$HDFS_STORAGE" == "true" ]; then
-        update_config_for_hdfs
-    elif [ "${cloud_storage_provider}" == "aws" ]; then
+    if [ "${HADOOP_DEFAULT_LOCAL}" == "true" ]; then
+        if [ "$HDFS_STORAGE" == "true" ]; then
+            update_config_for_hdfs
+            return 0
+        elif [ "$HDFS_ENABLED" == "true" ]; then
+            update_config_for_local_hdfs
+            return 0
+        fi
+    fi
+    if [ "${cloud_storage_provider}" == "aws" ]; then
         update_config_for_aws
     elif [ "${cloud_storage_provider}" == "azure" ]; then
         update_config_for_azure
@@ -239,6 +243,10 @@ function update_config_for_hadoop_storage() {
         update_config_for_aliyun
     elif [ "${cloud_storage_provider}" == "huaweicloud" ]; then
         update_config_for_huaweicloud
+    elif [ "$HDFS_STORAGE" == "true" ]; then
+        update_config_for_hdfs
+    elif [ "$HDFS_ENABLED" == "true" ]; then
+        update_config_for_local_hdfs
     fi
 }
 

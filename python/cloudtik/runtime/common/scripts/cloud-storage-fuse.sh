@@ -261,8 +261,16 @@ function mount_local_hdfs_fs() {
     # Mount local hdfs here
     mkdir -p ${FS_MOUNT_PATH}
 
-    if [ "${HDFS_MOUNT_METHOD}" == "nfs" ]; then
-        # TODO: Use the local HDFS dedicated core-site.xml and hdfs-site.xml
+    # only one NFS Gateway per node is supported
+    if [ "${HDFS_NFS_MOUNTED}" != "true" ] && [ "${HDFS_MOUNT_METHOD}" == "nfs" ]; then
+        HDFS_NFS_MOUNTED=true
+
+        # Use the local HDFS dedicated core-site.xml and hdfs-site.xml
+        LOCAL_HDFS_CONF_DIR=${HADOOP_HOME}/etc/local
+        if [ -d "${LOCAL_HDFS_CONF_DIR}" ]; then
+            export HADOOP_CONF_DIR=${LOCAL_HDFS_CONF_DIR}
+        fi
+
         echo "Staring HDFS NFS Gateway..."
         $HADOOP_HOME/bin/hdfs --daemon start portmap
         $HADOOP_HOME/bin/hdfs --daemon start nfs3
@@ -287,8 +295,16 @@ function mount_hdfs_fs() {
     # Mount remote hdfs here
     mkdir -p ${FS_MOUNT_PATH}
 
-    if [ "${HDFS_MOUNT_METHOD}" == "nfs" ]; then
-        # TODO: Use the remote HDFS dedicated core-site.xml and hdfs-site.xml
+    # only one NFS Gateway per node is supported
+    if [ "${HDFS_NFS_MOUNTED}" != "true" ] &&[ "${HDFS_MOUNT_METHOD}" == "nfs" ]; then
+        HDFS_NFS_MOUNTED=true
+
+        # Use the remote HDFS dedicated core-site.xml and hdfs-site.xml
+        REMOTE_HDFS_CONF_DIR=${HADOOP_HOME}/etc/remote
+        if [ -d "${REMOTE_HDFS_CONF_DIR}" ]; then
+            export HADOOP_CONF_DIR=${REMOTE_HDFS_CONF_DIR}
+        fi
+
         echo "Staring HDFS NFS Gateway..."
         $HADOOP_HOME/bin/hdfs --daemon start portmap
         $HADOOP_HOME/bin/hdfs --daemon start nfs3
@@ -393,21 +409,21 @@ function mount_cloud_fs() {
     fi
 
     # cluster local storage
+    HDFS_NFS_MOUNTED=false
     if [ -z "${MOUNTED_CLOUD_FS}" ]; then
         # cluster local storage from remote cluster
         if [ ! -z "${HDFS_NAMENODE_URI}" ]; then
             mount_hdfs_fs
         fi
-
         # cluster local storage from local cluster
         if [ "$HDFS_ENABLED" == "true" ]; then
             mount_local_hdfs_fs
         fi
     else
-        if [ "$HDFS_ENABLED" == "true" ]; then
-            mount_local_hdfs_fs
-        elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
+        if [ ! -z "${HDFS_NAMENODE_URI}" ]; then
             mount_hdfs_fs
+        elif [ "$HDFS_ENABLED" == "true" ]; then
+            mount_local_hdfs_fs
         fi
     fi
 }
@@ -419,7 +435,11 @@ function unmount_fs() {
         echo "Unmounting cloud fs at ${fs_mount_path}..."
         local fstype=$(findmnt -o fstype -l -n ${fs_mount_path})
         if [ "${fstype}" == "nfs" ]; then
-            sudo umount -f ${fs_mount_path}
+            sudo umount -f ${fs_mount_path} > /dev/null
+
+            # stopping the NFS gateway services
+            $HADOOP_HOME/bin/hdfs --daemon stop nfs3
+            $HADOOP_HOME/bin/hdfs --daemon stop portmap
         else
             fusermount -u ${fs_mount_path} > /dev/null
         fi

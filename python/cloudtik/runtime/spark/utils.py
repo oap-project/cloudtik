@@ -276,6 +276,12 @@ def _with_hdfs_mount_method(spark_config, runtime_envs):
         runtime_envs["HDFS_MOUNT_METHOD"] = mount_method
 
 
+def _with_hadoop_default(spark_config, runtime_envs):
+    hadoop_default_local = spark_config.get("hadoop_default_local", False)
+    if hadoop_default_local:
+        runtime_envs["HADOOP_DEFAULT_LOCAL"] = hadoop_default_local
+
+
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
     spark_config = runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
@@ -290,6 +296,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     yarn_scheduler = spark_config.get("yarn_scheduler")
     if yarn_scheduler:
         runtime_envs["YARN_SCHEDULER"] = yarn_scheduler
+
+    _with_hadoop_default(spark_config, runtime_envs)
 
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;

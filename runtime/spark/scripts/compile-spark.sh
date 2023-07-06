@@ -12,8 +12,11 @@ do
         shift
         SPARK_VERSION=$1
         ;;
+    --patch)
+        APPLY_PATCH=YES
+        ;;
     *)
-        echo "Usage: compile-spark.sh [ --version ]"
+        echo "Usage: compile-spark.sh [ --version ] [ --patch ]"
         exit 1
     esac
     shift
@@ -23,10 +26,12 @@ rm -rf /tmp/spark
 git clone https://github.com/apache/spark.git /tmp/spark
 cd /tmp/spark && git checkout v${SPARK_VERSION}
 
-if [ -d "$CLOUDTIK_HOME/runtime/spark/spark-${SPARK_VERSION}" ]; then
-    for patch in $CLOUDTIK_HOME/runtime/spark/spark-${SPARK_VERSION}/optimizations/*.patch; do
-        git apply $patch
-    done
+if [ $APPLY_PATCH ]; then
+    if [ -d "$CLOUDTIK_HOME/runtime/spark/spark-${SPARK_VERSION}" ]; then
+        for patch in $CLOUDTIK_HOME/runtime/spark/spark-${SPARK_VERSION}/optimizations/*.patch; do
+            git apply $patch
+        done
+    fi
 fi
 
 ./dev/make-distribution.sh --name hadoop3 --tgz -Phadoop-3 -Dhadoop.version=3.3.1 -Phive -Phive-thriftserver -Pyarn \

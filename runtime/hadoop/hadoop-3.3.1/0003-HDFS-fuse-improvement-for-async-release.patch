@@ -1,0 +1,174 @@
+From 2752b6505a2064d8e1569319b07ee00e6cf403da Mon Sep 17 00:00:00 2001
+From: Ubuntu <ubuntu@ip-172-31-11-206.us-west-2.compute.internal>
+Date: Thu, 6 Jul 2023 06:38:21 +0000
+Subject: [PATCH] HDFS fuse improvement for async release
+
+---
+ .../main/native/fuse-dfs/fuse_file_handle.h   |  2 +
+ .../main/native/fuse-dfs/fuse_impls_flush.c   | 35 +++++++++---
+ .../main/native/fuse-dfs/fuse_impls_open.c    |  2 +
+ .../main/native/fuse-dfs/fuse_impls_write.c   | 57 +++++++++++++------
+ 4 files changed, 70 insertions(+), 26 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_file_handle.h b/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_file_handle.h
+index b04f9ec4807..f087fc1e2df 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_file_handle.h
++++ b/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_file_handle.h
+@@ -41,6 +41,8 @@ typedef struct dfs_fh_struct {
+   tSize bufferSize;  //what is the size of the buffer we have
+   off_t buffersStartOffset; //where the buffer starts in the file
+   pthread_mutex_t mutex;
++  int64_t flags; //The dfs flags the file opened
++  uint64_t writes; //How many writes since last flush
+ } dfs_fh;
+ 
+ #endif
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_flush.c b/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_flush.c
+index adb065b229a..be4b4a47020 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_flush.c
++++ b/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_flush.c
+@@ -37,18 +37,35 @@ int dfs_flush(const char *path, struct fuse_file_info *fi) {
+     return  0;
+   }
+ 
++  int ret = 0;
++  dfs_fh *fh = (dfs_fh*)fi->fh;
++  assert(fh);
+   // note that fuse calls flush on RO files too and hdfs does not like that and will return an error
+-  if (fi->flags & O_WRONLY) {
+-
+-    dfs_fh *fh = (dfs_fh*)fi->fh;
+-    assert(fh);
++  if ((fh->flags & O_ACCMODE) == O_WRONLY) {
+     hdfsFile file_handle = (hdfsFile)fh->hdfsFH;
+-    assert(file_handle);
+-    if (hdfsFlush(hdfsConnGetFs(fh->conn), file_handle) != 0) {
+-      ERROR("Could not flush %lx for %s\n",(long)file_handle, path);
+-      return -EIO;
++    // file_handle is NULL in the case of multiple flush calls with previous writes
++    if (NULL != file_handle) {
++      if (hdfsFlush(hdfsConnGetFs(fh->conn), file_handle) != 0) {
++        ERROR("Could not flush %lx for %s\n",(long)file_handle, path);
++        return -EIO;
++      }
++      // Critical section begin
++      pthread_mutex_lock(&fh->mutex);
++      if (fh->writes > 0) {
++        // if there are previous writes, we close the file handle
++        if (hdfsCloseFile(hdfsConnGetFs(fh->conn), file_handle) != 0) {
++          ERROR("Could not close handle %ld for %s\n",(long)file_handle, path);
++          ret = -EIO;
++        } else {
++          // Set the file handle to NULL and reset the writes
++          fh->hdfsFH = NULL;
++          fh->writes = 0;
++        }
++      }
++      // Critical section end
++      pthread_mutex_unlock(&fh->mutex);
+     }
+   }
+ 
+-  return 0;
++  return ret;
+ }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_open.c b/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_open.c
+index ca670cea3e8..7179cd77f29 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_open.c
++++ b/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_open.c
+@@ -138,8 +138,10 @@ int dfs_open(const char *path, struct fuse_file_info *fi)
+   }
+   mutexInit = 1;
+ 
++  fh->flags = flags;
+   if ((flags & O_ACCMODE) == O_WRONLY) {
+     fh->buf = NULL;
++    fh->writes = 0;
+   } else  {
+     assert(dfs->rdbuffer_size > 0);
+     fh->buf = (char*)malloc(dfs->rdbuffer_size * sizeof(char));
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_write.c b/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_write.c
+index 3090e9e32bd..d92ce61839a 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_write.c
++++ b/hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/fuse-dfs/fuse_impls_write.c
+@@ -39,37 +39,60 @@ int dfs_write(const char *path, const char *buf, size_t size,
+   dfs_fh *fh = (dfs_fh*)fi->fh;
+   assert(fh);
+ 
+-  hdfsFile file_handle = (hdfsFile)fh->hdfsFH;
+-  assert(file_handle);
+-
+   //
+   // Critical section - make the sanity check (tell to see the writes are sequential) and the actual write 
+   // (no returns until end)
+   //
+   pthread_mutex_lock(&fh->mutex);
+ 
++  // this needs to be in lock section
++  hdfsFile file_handle = (hdfsFile)fh->hdfsFH;
+   tSize length = 0;
+   hdfsFS fs = hdfsConnGetFs(fh->conn);
+ 
+-  tOffset cur_offset = hdfsTell(fs, file_handle);
+-  if (cur_offset != offset) {
+-    ERROR("User trying to random access write to a file %d != %d for %s",
+-	  (int)cur_offset, (int)offset, path);
+-    ret =  -ENOTSUP;
+-  } else {
+-    length = hdfsWrite(fs, file_handle, buf, size);
+-    if (length <= 0) {
+-      ERROR("Could not write all bytes for %s %d != %d (errno=%d)", 
+-	    path, length, (int)size, errno);
++  if (NULL == file_handle) {
++    // file_handle is NULL in the case of flush call with previous writes
++    // reopen the file with O_WRONLY | O_APPEND
++    int flags = O_WRONLY | O_APPEND;
++    if ((fh->hdfsFH = hdfsOpenFile(fs, path, flags,  0, 0, 0)) == NULL) {
++      ERROR("Could not open file %s (errno=%d)", path, errno);
+       if (errno == 0 || errno == EINTERNAL) {
+         ret = -EIO;
+       } else {
+         ret = -errno;
+       }
+-    } 
+-    if (length != size) {
+-      ERROR("Could not write all bytes for %s %d != %d (errno=%d)", 
+-	    path, length, (int)size, errno);
++    } else {
++      // the write pos should be at the end of file
++      file_handle = (hdfsFile)fh->hdfsFH;
++    }
++  }
++
++  if (ret == 0) {
++    tOffset cur_offset = hdfsTell(fs, file_handle);
++    if (cur_offset != offset) {
++      ERROR("User trying to random access write to a file %d != %d for %s",
++        (int)cur_offset, (int)offset, path);
++      ret =  -ENOTSUP;
++    } else {
++      length = hdfsWrite(fs, file_handle, buf, size);
++      if (length <= 0) {
++        ERROR("Could not write all bytes for %s %d != %d (errno=%d)",
++          path, length, (int)size, errno);
++        if (errno == 0 || errno == EINTERNAL) {
++          ret = -EIO;
++        } else {
++          ret = -errno;
++        }
++      }
++      if (length != size) {
++        ERROR("Could not write all bytes for %s %d != %d (errno=%d)",
++          path, length, (int)size, errno);
++      }
++    }
++
++    if (ret == 0 && length > 0) {
++      // increment the writes
++      fh->writes++;
+     }
+   }
+ 
+-- 
+2.25.1
+

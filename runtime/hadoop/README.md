@@ -38,8 +38,17 @@ git clone https://github.com/oap-project/cloudtik.git && cd cloudtik
 Execute the following command to apply the patches and compile Hadoop:
 
 ```
-bash ./runtime/hadoop/scripts/compile-hadoop.sh
+bash ./runtime/hadoop/scripts/compile-hadoop.sh --patch
 ```
 After the build process completed, the tar.gz file is located in the hadoop-dist maven module under the target folder.
-The .tar.gz is also available outside of the docker container
+The .tar.gz is also available out of the docker container
 because the Hadoop source directory was mounted in the docker run command.
+
+## 3. Release
+The release-hadoop.sh scripts assumes the current working directory
+is the Hadoop repository root. So export CLOUDTIK_HOME pointing to CloudTik
+repository root and cd to Hadoop repository root and execute the following,
+
+```
+bash $CLOUDTIK_HOME/runtime/hadoop/scripts/release-hadoop.sh
+```

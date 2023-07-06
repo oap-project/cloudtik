@@ -12,8 +12,20 @@ do
         shift
         HADOOP_VERSION=$1
         ;;
+    --patch)
+        APPLY_PATCH=YES
+        ;;
+    --clean)
+        CLEAN_BUILD=YES
+        ;;
+    --no-dist)
+        NO_BUILD_DIST=YES
+        ;;
+    --no-fuse)
+        NO_BUILD_FUSE=YES
+        ;;
     *)
-        echo "Usage: compile-hadoop.sh [ --version ]"
+        echo "Usage: compile-hadoop.sh [ --version ] [ --patch ] [ --clean ] [ --no-dist ] [ --no-fuse ]"
         exit 1
     esac
     shift
@@ -23,17 +35,28 @@ done
 HADOOP_SRC_DIR=$HOME/hadoop
 cd $HADOOP_SRC_DIR && git checkout rel/release-${HADOOP_VERSION}
 
-# Apply patches if we have
-if [ -d "$CLOUDTIK_HOME/runtime/hadoop/hadoop-${HADOOP_VERSION}" ]; then
-    for patch in $CLOUDTIK_HOME/runtime/hadoop/hadoop-${HADOOP_VERSION}/*.patch; do
-        git apply $patch
-    done
+if [ $APPLY_PATCH ]; then
+    # Apply patches if we have
+    if [ -d "$CLOUDTIK_HOME/runtime/hadoop/hadoop-${HADOOP_VERSION}" ]; then
+        for patch in $CLOUDTIK_HOME/runtime/hadoop/hadoop-${HADOOP_VERSION}/*.patch; do
+            git apply $patch
+        done
+    fi
 fi
 
-# Create binary distribution without native code and without documentation:
-mvn package -Pdist -DskipTests -Dtar -Dmaven.javadoc.skip=true
+CLEAN_CMD=""
+if [ $CLEAN_BUILD ]; then
+    CLEAN_CMD="clean"
+fi
 
-# Build fuse-dfs executable
-cd hadoop-hdfs-project
-mvn clean package -Pnative -pl hadoop-hdfs-native-client -am -Drequire.fuse=true -DskipTests -Dmaven.javadoc.skip=true
-cp hadoop-hdfs-native-client/target/main/native/fuse-dfs/fuse_dfs ${HADOOP_SRC_DIR}
+if [ ! $NO_BUILD_DIST ]; then
+    # Create binary distribution without native code and without documentation:
+    mvn $CLEAN_CMD package -Pdist -DskipTests -Dtar -Dmaven.javadoc.skip=true
+fi
+
+if [ ! $NO_BUILD_FUSE ]; then
+    # Build fuse-dfs executable
+    cd hadoop-hdfs-project
+    mvn $CLEAN_CMD package -Pnative -pl hadoop-hdfs-native-client -am -Drequire.fuse=true -DskipTests -Dmaven.javadoc.skip=true
+    cp hadoop-hdfs-native-client/target/main/native/fuse-dfs/fuse_dfs ${HADOOP_SRC_DIR}
+fi

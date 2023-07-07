@@ -10,7 +10,7 @@ WORKDIR /home/cloudtik/runtime
 # Ganglia
 RUN sudo apt-get update -y \
     && sudo apt-get install -y ganglia-monitor \
-    && arch=$(uname -m) && wget https://d30257nes7d4fq.cloudfront.net/downloads/ganglia/modpython-${arch}.so -O modpython.so \
+    && arch=$(uname -m) && wget ${CLOUDTIK_DOWNLOADS}/ganglia/modpython-${arch}.so -O modpython.so \
     && sudo cp modpython.so /usr/lib/ganglia && sudo chmod 644 /usr/lib/ganglia/modpython.so \
     && rm modpython.so \
     && sudo rm -rf /var/lib/apt/lists/* \

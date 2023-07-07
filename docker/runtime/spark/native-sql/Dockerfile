@@ -12,7 +12,7 @@ WORKDIR /home/cloudtik/runtime
 # Ganglia
 RUN sudo apt-get update -y \
     && sudo apt-get install -y ganglia-monitor \
-    && arch=$(uname -m) && wget https://d30257nes7d4fq.cloudfront.net/downloads/ganglia/modpython-${arch}.so -O modpython.so \
+    && arch=$(uname -m) && wget ${CLOUDTIK_DOWNLOADS}/ganglia/modpython-${arch}.so -O modpython.so \
     && sudo cp modpython.so /usr/lib/ganglia && sudo chmod 644 /usr/lib/ganglia/modpython.so \
     && rm modpython.so \
     && sudo rm -rf /var/lib/apt/lists/* \
@@ -39,9 +39,10 @@ RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/h
     tar --extract --file hadoop.tar.gz --directory "$HADOOP_HOME" --strip-components 1 --no-same-owner && \
     rm hadoop.tar.gz && \
     wget -nc -P "${HADOOP_HOME}/share/hadoop/tools/lib" https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar && \
-    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-azure-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-azure-${HADOOP_VERSION}.jar && \
-    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-aliyun-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-aliyun-${HADOOP_VERSION}.jar && \
-    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-huaweicloud-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-huaweicloud-${HADOOP_VERSION}.jar && \
+    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-azure-${HADOOP_VERSION}.jar" ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-azure-${HADOOP_VERSION}.jar && \
+    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-aliyun-${HADOOP_VERSION}.jar" ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-aliyun-${HADOOP_VERSION}.jar && \
+    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-huaweicloud-${HADOOP_VERSION}.jar" ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-huaweicloud-${HADOOP_VERSION}.jar && \
+    wget -O "$HADOOP_HOME/share/hadoop/hdfs/hadoop-hdfs-nfs-${HADOOP_VERSION}.jar" ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-hdfs-nfs-${HADOOP_VERSION}.jar && \
     echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 
 # Install Spark
@@ -49,7 +50,7 @@ ENV SPARK_VERSION        ${SPARK_VERSION}
 ENV SPARK_HOME           $RUNTIME_PATH/spark
 ENV PATH                 $SPARK_HOME/bin:$PATH
 
-RUN wget https://d30257nes7d4fq.cloudfront.net/downloads/spark/spark-${SPARK_VERSION}-bin-hadoop3.tgz -O spark.tgz && \
+RUN wget ${CLOUDTIK_DOWNLOADS}/spark/spark-${SPARK_VERSION}-bin-hadoop3.tgz -O spark.tgz && \
     mkdir -p "$SPARK_HOME" && \
     tar --extract --file spark.tgz --directory "$SPARK_HOME" --strip-components 1 --no-same-owner && \
     ln -rs $SPARK_HOME/examples/jars/spark-examples_*.jar $SPARK_HOME/examples/jars/spark-examples.jar && \

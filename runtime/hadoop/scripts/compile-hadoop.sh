@@ -58,5 +58,4 @@ if [ ! $NO_BUILD_FUSE ]; then
     # Build fuse-dfs executable
     cd hadoop-hdfs-project
     mvn $CLEAN_CMD package -Pnative -pl hadoop-hdfs-native-client -am -Drequire.fuse=true -DskipTests -Dmaven.javadoc.skip=true
-    cp hadoop-hdfs-native-client/target/main/native/fuse-dfs/fuse_dfs ${HADOOP_SRC_DIR}
 fi

@@ -5,7 +5,7 @@ ARG BASE_IMAGE="ubuntu:focal"
 FROM ${BASE_IMAGE}
 # FROM directive resets ARG
 ENV TZ=America/Los_Angeles
-ENV PATH "/home/cloudtik/anaconda3/bin:$PATH"
+ENV PATH="/home/cloudtik/anaconda3/bin:$PATH"
 ARG DEBIAN_FRONTEND=noninteractive
 ARG PYTHON_VERSION=3.9
 ARG CONDA_ENV_NAME=cloudtik
@@ -62,7 +62,8 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
 
 RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION \
     && $HOME/anaconda3/bin/conda clean -itqy
-ENV CONDA_ROOT $HOME/anaconda3
-ENV PATH $HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH
+ENV CONDA_ROOT=$HOME/anaconda3
+ENV PATH=$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH
+ENV CLOUDTIK_DOWNLOADS="https://d30257nes7d4fq.cloudfront.net/downloads"
 
 WORKDIR $HOME

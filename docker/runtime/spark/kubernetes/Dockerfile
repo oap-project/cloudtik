@@ -45,7 +45,8 @@ RUN apt-get update -y && apt-get install --yes \
 ARG HADOOP_VERSION=3.3.1
 
 # Install Hadoop
-ENV HADOOP_HOME ${RUNTIME_PATH}/hadoop
+ENV HADOOP_HOME=${RUNTIME_PATH}/hadoop
+ENV CLOUDTIK_DOWNLOADS="https://d30257nes7d4fq.cloudfront.net/downloads"
 
 WORKDIR ${RUNTIME_PATH}
 RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O hadoop.tar.gz && \
@@ -53,9 +54,9 @@ RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/h
     tar --extract --file hadoop.tar.gz --directory "$HADOOP_HOME" --strip-components 1 --no-same-owner && \
     rm hadoop.tar.gz && \
     wget -nc -P "${HADOOP_HOME}/share/hadoop/tools/lib" https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar && \
-    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-azure-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-azure-${HADOOP_VERSION}.jar && \
-    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-aliyun-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-aliyun-${HADOOP_VERSION}.jar && \
-    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-huaweicloud-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-huaweicloud-${HADOOP_VERSION}.jar && \
+    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-azure-${HADOOP_VERSION}.jar" ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-azure-${HADOOP_VERSION}.jar && \
+    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-aliyun-${HADOOP_VERSION}.jar" ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-aliyun-${HADOOP_VERSION}.jar && \
+    wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-huaweicloud-${HADOOP_VERSION}.jar" ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-huaweicloud-${HADOOP_VERSION}.jar && \
     for jar in 'jetty-util-ajax-[0-9]*[0-9].v[0-9]*[0-9].jar' 'jetty-util-[0-9]*[0-9].v[0-9]*[0-9].jar'; \
     do \
 	    find "${HADOOP_HOME}"/share/hadoop/hdfs/lib -name $jar | xargs -i cp {} "${HADOOP_HOME}"/share/hadoop/tools/lib; \

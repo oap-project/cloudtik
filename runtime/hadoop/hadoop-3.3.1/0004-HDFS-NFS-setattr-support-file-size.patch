@@ -1,0 +1,153 @@
+From c1019e5f71e0fce28e7f15b8cbe372fea589426a Mon Sep 17 00:00:00 2001
+From: Chen Haifeng <haifeng.chen@intel.com>
+Date: Fri, 7 Jul 2023 05:48:03 +0000
+Subject: [PATCH] HDFS NFS setattr support file size
+
+---
+ .../hdfs/nfs/nfs3/OpenFileCtxCache.java       | 40 +++++++++++++++++++
+ .../hadoop/hdfs/nfs/nfs3/RpcProgramNfs3.java  | 34 ++++++++++++----
+ .../hadoop/hdfs/nfs/nfs3/WriteManager.java    | 22 ++++++++++
+ 3 files changed, 88 insertions(+), 8 deletions(-)
+
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/OpenFileCtxCache.java b/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/OpenFileCtxCache.java
+index b8db83c89a3..f7227a4acd3 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/OpenFileCtxCache.java
++++ b/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/OpenFileCtxCache.java
+@@ -183,6 +183,46 @@ void scan(long streamTimeout) {
+     }
+   }
+ 
++  @VisibleForTesting
++  boolean canEvict(OpenFileCtx context) {
++    // If the OpenFileCtx has any pending task, it cannot be evicted.
++    if (context.getActiveState() && context.hasPendingWork()) {
++      return false;
++    }
++    return true;
++  }
++
++  @VisibleForTesting
++  boolean evict(FileHandle handle, OpenFileCtx context) {
++    if (!canEvict(context)) {
++      return false;
++    }
++
++    // Check it again inside lock before removing
++    OpenFileCtx toEvict = null;
++    synchronized (this) {
++      OpenFileCtx ctx = openFileMap.get(handle);
++      if (ctx != null) {
++        if (canEvict(ctx)) {
++          openFileMap.remove(handle);
++          if (LOG.isDebugEnabled()) {
++            LOG.debug("After evict stream " + handle.dumpFileHandle()
++                + ", the stream number:" + size());
++          }
++          toEvict = ctx;
++        }
++      }
++    }
++
++    // Cleanup the stream outside the lock
++    if (toEvict == null) {
++      return false;
++    }
++
++    toEvict.cleanup();
++    return true;
++  }
++
+   OpenFileCtx get(FileHandle key) {
+     return openFileMap.get(key);
+   }
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/RpcProgramNfs3.java b/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/RpcProgramNfs3.java
+index d436eac598b..a8de7bddd9e 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/RpcProgramNfs3.java
++++ b/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/RpcProgramNfs3.java
+@@ -430,17 +430,10 @@ SETATTR3Response setattr(XDR xdr, SecurityHandler securityHandler,
+       return response;
+     }
+ 
+-    if (request.getAttr().getUpdateFields().contains(SetAttrField.SIZE)) {
+-      LOG.error("Setting file size is not supported when setattr, fileId: {}",
+-          handle.getFileId());
+-      response.setStatus(Nfs3Status.NFS3ERR_INVAL);
+-      return response;
+-    }
+-
+     String fileIdPath = Nfs3Utils.getFileIdPath(handle);
+     Nfs3FileAttributes preOpAttr = null;
+     try {
+-      preOpAttr = Nfs3Utils.getFileAttr(dfsClient, fileIdPath, iug);
++      preOpAttr = writeManager.getFileAttr(dfsClient, handle, iug);
+       if (preOpAttr == null) {
+         LOG.info("Can't get path for fileId: {}", handle.getFileId());
+         response.setStatus(Nfs3Status.NFS3ERR_STALE);
+@@ -460,6 +453,31 @@ SETATTR3Response setattr(XDR xdr, SecurityHandler securityHandler,
+             preOpWcc, preOpAttr));
+       }
+ 
++      if (request.getAttr().getUpdateFields().contains(SetAttrField.SIZE)) {
++        // check the new size is equal or less than the current size
++        long newSize = request.getAttr().getSize();
++        long currentSize = preOpAttr.getSize();
++        if (newSize > currentSize) {
++          LOG.error("Setting file size larger than current size " +
++              "is not supported when setattr, fileId: {}", handle.getFileId());
++          response.setStatus(Nfs3Status.NFS3ERR_INVAL);
++          return response;
++        }
++        if (newSize < currentSize) {
++          // we need to close the stream if it is open
++          int ret = writeManager.closeBeforeWrite(dfsClient, handle);
++          if (ret != Nfs3Status.NFS3_OK) {
++            LOG.warn("closeBeforeWrite didn't succeed with ret={}. " +
++                "Truncate may fail due to opened stream for the same file.", ret);
++          }
++          boolean result = dfsClient.truncate(fileIdPath, newSize);
++          if (!result) {
++            return new SETATTR3Response(Nfs3Status.NFS3ERR_ACCES, new WccData(
++                preOpWcc, preOpAttr));
++          }
++        }
++      }
++
+       setattrInternal(dfsClient, fileIdPath, request.getAttr(), true);
+       Nfs3FileAttributes postOpAttr = Nfs3Utils.getFileAttr(dfsClient,
+           fileIdPath, iug);
+diff --git a/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/WriteManager.java b/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/WriteManager.java
+index 28893710408..5c03cac7e47 100644
+--- a/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/WriteManager.java
++++ b/hadoop-hdfs-project/hadoop-hdfs-nfs/src/main/java/org/apache/hadoop/hdfs/nfs/nfs3/WriteManager.java
+@@ -322,6 +322,28 @@ void handleCommit(DFSClient dfsClient, FileHandle fileHandle,
+         response.serialize(new XDR(), xid, new VerifierNone()), xid);
+   }
+ 
++  // Do a possible close before write such as truncate will failure
++  // due to the opened stream of the same file
++  int closeBeforeWrite(DFSClient dfsClient, FileHandle fileHandle) {
++    int status = Nfs3Status.NFS3_OK;
++    OpenFileCtx openFileCtx = fileContextCache.get(fileHandle);
++
++    if (openFileCtx == null) {
++      if (LOG.isDebugEnabled()) {
++        LOG.debug("No opened stream for fileId: " + fileHandle.dumpFileHandle()
++            + ". Return success in this case.");
++      }
++    } else {
++      boolean evicted = fileContextCache.evict(fileHandle, openFileCtx);
++      if (!evicted) {
++        LOG.error("Cannot evict the opened stream for fileId: "
++            + fileHandle.dumpFileHandle());
++        status = Nfs3Status.NFS3ERR_IO;
++      }
++    }
++    return status;
++  }
++
+   /**
+    * If the file is in cache, update the size based on the cached data size
+    */
+-- 
+2.25.1
+

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# global variables
+CLOUDTIK_DOWNLOADS="https://d30257nes7d4fq.cloudfront.net/downloads"
+
 function set_head_address() {
     if [ -z "${HEAD_ADDRESS}" ]; then
         if [ $IS_HEAD_NODE == "true" ]; then

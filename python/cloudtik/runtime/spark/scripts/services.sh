@@ -25,6 +25,9 @@ RUNTIME_PATH=$USER_HOME/runtime
 export CLOUD_FS_MOUNT_PATH=/cloudtik/fs
 export LOCAL_FS_MOUNT_PATH=/cloudtik/localfs
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 # Cloud storage fuse functions
 . "$ROOT_DIR"/common/scripts/cloud-storage-fuse.sh
 

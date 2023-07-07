@@ -60,6 +60,7 @@ RUN wget http://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/h
     wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-azure-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-azure-${HADOOP_VERSION}.jar && \
     wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-aliyun-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-aliyun-${HADOOP_VERSION}.jar && \
     wget -O "$HADOOP_HOME/share/hadoop/tools/lib/hadoop-huaweicloud-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-huaweicloud-${HADOOP_VERSION}.jar && \
+    wget -O "$HADOOP_HOME/share/hadoop/hdfs/hadoop-hdfs-nfs-${HADOOP_VERSION}.jar" https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-hdfs-nfs-${HADOOP_VERSION}.jar && \
     echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$HADOOP_HOME/share/hadoop/tools/lib/*" >> ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 
 # Install Spark

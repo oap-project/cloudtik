@@ -27,9 +27,10 @@ function install_hadoop() {
             tar --extract --file hadoop.tar.gz --directory "$HADOOP_HOME" --strip-components 1 --no-same-owner && \
             rm hadoop.tar.gz && \
             wget -q --show-progress -nc -P "${HADOOP_HOME}/share/hadoop/tools/lib" https://storage.googleapis.com/hadoop-lib/gcs/gcs-connector-hadoop3-latest.jar && \
-            wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-azure-${HADOOP_VERSION}.jar -O $HADOOP_HOME/share/hadoop/tools/lib/hadoop-azure-${HADOOP_VERSION}.jar && \
-            wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-aliyun-${HADOOP_VERSION}.jar -O $HADOOP_HOME/share/hadoop/tools/lib/hadoop-aliyun-${HADOOP_VERSION}.jar && \
-            wget -q --show-progress https://d30257nes7d4fq.cloudfront.net/downloads/hadoop/hadoop-huaweicloud-${HADOOP_VERSION}.jar -O $HADOOP_HOME/share/hadoop/tools/lib/hadoop-huaweicloud-${HADOOP_VERSION}.jar \
+            wget -q --show-progress ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-azure-${HADOOP_VERSION}.jar -O $HADOOP_HOME/share/hadoop/tools/lib/hadoop-azure-${HADOOP_VERSION}.jar && \
+            wget -q --show-progress ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-aliyun-${HADOOP_VERSION}.jar -O $HADOOP_HOME/share/hadoop/tools/lib/hadoop-aliyun-${HADOOP_VERSION}.jar && \
+            wget -q --show-progress ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-huaweicloud-${HADOOP_VERSION}.jar -O $HADOOP_HOME/share/hadoop/tools/lib/hadoop-huaweicloud-${HADOOP_VERSION}.jar && \
+            wget -q --show-progress ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-hdfs-nfs-${HADOOP_VERSION}.jar -O ${HADOOP_HOME}/share/hadoop/hdfs/hadoop-hdfs-nfs-${HADOOP_VERSION}.jar \
             )
         echo "export HADOOP_HOME=$HADOOP_HOME">> ${USER_HOME}/.bashrc
         echo "export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop">> ${USER_HOME}/.bashrc

@@ -10,14 +10,14 @@ eval set -- "${args}"
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 
+# Util functions
+. "$ROOT_DIR"/common/scripts/util-functions.sh
+
 # Hadoop cloud credential configuration functions
 . "$ROOT_DIR"/common/scripts/hadoop-cloud-credential.sh
 
 # Cloud storage fuse functions
 . "$ROOT_DIR"/common/scripts/cloud-storage-fuse.sh
-
-# Util functions
-. "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function prepare_base_conf() {
     source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf

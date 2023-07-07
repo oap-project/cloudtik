@@ -91,12 +91,12 @@ def _create_workspace(config):
                 current_step += 1
                 _create_bridge_ssh_server(config, workspace_name)
     except Exception as e:
-        cli_logger.error("Failed to update workspace with the name {}. "
+        cli_logger.error("Failed to create workspace with the name {}. "
                          "You need to delete and try create again. {}", workspace_name, str(e))
         raise e
 
     cli_logger.success(
-        "Successfully updated workspace: {}.",
+        "Successfully created workspace: {}.",
         cf.bold(workspace_name))
     return config
 

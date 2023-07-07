@@ -89,7 +89,7 @@ def get_worker_num_omp_threads(num_omp_threads, num_trainers):
 
 def cleanup_proc(get_all_remote_pids, conn):
     """This process tries to clean up the remote training tasks."""
-    print("cleanupu process runs")
+    print("cleanup process runs")
     # This process should not handle SIGINT.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 

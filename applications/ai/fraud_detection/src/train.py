@@ -24,14 +24,7 @@ def _process_data(args, single_node):
     xgboost_run(xgboost_args)
 
 
-def _get_data_with_embeddings(args):
-    graph_args = GraphModelingArgs()
-    graph_args.output_dir = args.output_dir
-    return get_data_with_embeddings_path(graph_args)
-
-
-def _run_graph(args, single_node):
-    # train embeddings with GraphSAGE
+def _load_graph_args(args):
     graph_args = GraphModelingArgs()
 
     config_dir = get_config_dir()
@@ -39,7 +32,22 @@ def _run_graph(args, single_node):
         config_dir, "graph-training-arguments.yaml")
     load_config_from(training_arguments_file, graph_args)
 
+    graph_args.temp_dir = args.temp_dir
+    graph_args.output_dir = args.output_dir
+    return graph_args
+
+
+def _get_data_with_embeddings(args):
+    graph_args = _load_graph_args(args)
+    return get_data_with_embeddings_path(graph_args)
+
+
+def _run_graph(args, single_node):
+    # train embeddings with GraphSAGE
+    graph_args = _load_graph_args(args)
+
     if not single_node:
+        config_dir = get_config_dir()
         distributed_config_file = os.path.join(
             config_dir, "graph-distributed-config.yaml")
         load_config_from(distributed_config_file, graph_args)
@@ -52,8 +60,6 @@ def _run_graph(args, single_node):
     graph_args.no_predict = args.no_predict
 
     graph_args.processed_data_path = args.processed_data_path
-    graph_args.temp_dir = args.temp_dir
-    graph_args.output_dir = args.output_dir
     graph_args.tabular2graph = args.tabular2graph
 
     # other possible parameters user want to pass

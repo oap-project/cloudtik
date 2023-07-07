@@ -275,8 +275,9 @@ function mount_local_hdfs_fs() {
         fi
 
         echo "Staring HDFS NFS Gateway..."
-        $HADOOP_HOME/bin/hdfs --daemon start portmap
-        $HADOOP_HOME/bin/hdfs --daemon start nfs3
+        # Please note that portmap needs to run with root privilege
+        sudo -E ${HADOOP_HOME}/bin/hdfs --daemon start portmap
+        ${HADOOP_HOME}/bin/hdfs --daemon start nfs3
         sleep 3
 
         echo "Mounting HDFS ${fs_default_dir} with NFS Gateway ${CLOUDTIK_NODE_IP} to ${FS_MOUNT_PATH}..."
@@ -441,8 +442,9 @@ function unmount_fs() {
             sudo umount -f ${fs_mount_path} > /dev/null
 
             # stopping the NFS gateway services
-            $HADOOP_HOME/bin/hdfs --daemon stop nfs3
-            $HADOOP_HOME/bin/hdfs --daemon stop portmap
+            ${HADOOP_HOME}/bin/hdfs --daemon stop nfs3
+            # Please note that portmap needs to run with root privilege
+            sudo -E ${HADOOP_HOME}/bin/hdfs --daemon stop portmap
         else
             fusermount -u ${fs_mount_path} > /dev/null
         fi

@@ -560,8 +560,10 @@ def get_nodes_for(node_types: Dict[NodeType, NodeTypeConfigDict],
     return nodes_to_add, resources
 
 
-def _utilization_score(node_resources: ResourceDict,
-                       resources: List[ResourceDict]) -> Optional[bool, int, float, float]:
+def _utilization_score(
+        node_resources: ResourceDict,
+        resources: List[ResourceDict]
+) -> Optional[Tuple[bool, int, float, float]]:
     remaining = copy.deepcopy(node_resources)
     fittable = []
     resource_types = set()

@@ -6,8 +6,6 @@ from numbers import Number
 import time
 from typing import Dict, List, Tuple, Any
 
-import numpy as np
-
 from cloudtik.core._private.constants import CLOUDTIK_MEMORY_RESOURCE_UNIT_BYTES,\
     CLOUDTIK_MAX_RESOURCE_DEMAND_VECTOR_SIZE
 from cloudtik.core._private.cluster.resource_demand_scheduler import \
@@ -386,12 +384,12 @@ class ClusterMetrics:
                 if not rid.startswith("node:")
             ]),
             "NodeIdleSeconds": "Min={} Mean={} Max={}".format(
-                int(np.min(idle_times)) if idle_times else -1,
-                int(np.mean(idle_times)) if idle_times else -1,
-                int(np.max(idle_times)) if idle_times else -1),
+                int(min(idle_times)) if idle_times else -1,
+                int(float(sum(idle_times)) / len(idle_times)) if idle_times else -1,
+                int(max(idle_times)) if idle_times else -1),
             "TimeSinceLastHeartbeat": "Min={} Mean={} Max={}".format(
-                int(np.min(heartbeat_times)) if heartbeat_times else -1,
-                int(np.mean(heartbeat_times)) if heartbeat_times else -1,
-                int(np.max(heartbeat_times)) if heartbeat_times else -1),
+                int(min(heartbeat_times)) if heartbeat_times else -1,
+                int(float(sum(heartbeat_times)) / len(heartbeat_times)) if heartbeat_times else -1,
+                int(max(heartbeat_times)) if heartbeat_times else -1),
             "MostDelayedHeartbeats": most_delayed_heartbeats,
         }

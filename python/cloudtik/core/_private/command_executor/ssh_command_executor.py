@@ -139,10 +139,15 @@ class SSHCommandExecutor(HostCommandExecutor):
         if shutdown_after_run:
             cmd, cmd_to_print = _with_shutdown(cmd, cmd_to_print)
         if ssh_options_override_ssh_key:
-            ssh_options = SSHOptions(
-                self.call_context, ssh_options_override_ssh_key,
-                ssh_port=self.ssh_port,
-                ProxyCommand=self.ssh_proxy_command)
+            if self.ssh_proxy_command:
+                ssh_options = SSHOptions(
+                    self.call_context, ssh_options_override_ssh_key,
+                    ssh_port=self.ssh_port,
+                    ProxyCommand=self.ssh_proxy_command)
+            else:
+                ssh_options = SSHOptions(
+                    self.call_context, ssh_options_override_ssh_key,
+                    ssh_port=self.ssh_port)
         else:
             ssh_options = self.ssh_options
 

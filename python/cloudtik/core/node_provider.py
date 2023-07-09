@@ -1,6 +1,6 @@
 import logging
 from types import ModuleType
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
@@ -11,6 +11,39 @@ from cloudtik.core._private.command_executor.docker_command_executor import \
     DockerCommandExecutor
 
 logger = logging.getLogger(__name__)
+
+
+class NodeLaunchException(Exception):
+    """A structured exception that can be thrown by a node provider during a
+    `create_node` call to pass additional information for observability.
+    """
+
+    def __init__(
+        self,
+        category: str,
+        description: str,
+        src_exc_info: Optional[Tuple[Any, Any, Any]],  # The
+    ):
+        """Args:
+        category: A short (<20 chars) label for the error.
+        description: A longer, human-readable description of the error.
+        src_exc_info: The source exception info if applicable. This is a
+              tuple of (type, exception, traceback) as returned by
+              sys.exc_info()
+
+        """
+        super().__init__(f"Node Launch Exception ({category}): {description}")
+        self.category = category
+        self.description = description
+        self.src_exc_info = src_exc_info
+
+    def __reduce__(self):
+        # NOTE: Since tracebacks can't be pickled, we'll drop the optional
+        # traceback if we have to serialize this object.
+        return (
+            self.__class__,
+            (self.category, self.description, None),
+        )
 
 
 class NodeProvider:
@@ -116,6 +149,7 @@ class NodeProvider:
         """Creates a number of nodes within the namespace.
 
         Optionally returns a mapping from created node ids to node metadata.
+        Optionally may throw a NodeLaunchException with detailed information of the launch failure.
         """
         raise NotImplementedError
 
@@ -128,6 +162,8 @@ class NodeProvider:
         This is the method actually called by the cluster scaler. Prefer to
         implement this when possible directly, otherwise it delegates to the
         create_node() implementation.
+
+        Optionally may throw a NodeLaunchException with detailed information of the launch failure.
         """
         return self.create_node(node_config, tags, count)
 

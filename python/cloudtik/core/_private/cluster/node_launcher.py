@@ -16,12 +16,11 @@ from cloudtik.core._private.utils import hash_launch_conf
 logger = logging.getLogger(__name__)
 
 
-class NodeLauncher(threading.Thread):
-    """Launches nodes asynchronously in the background."""
+class BaseNodeLauncher:
+    """Launches nodes synchronously in the foreground."""
 
     def __init__(self,
                  provider,
-                 queue,
                  pending,
                  event_summarizer,
                  session_name: Optional[str] = None,
@@ -30,7 +29,6 @@ class NodeLauncher(threading.Thread):
                  index=None,
                  *args,
                  **kwargs):
-        self.queue = queue
         self.pending = pending
         self.prometheus_metrics = prometheus_metrics or ClusterPrometheusMetrics(
             session_name=session_name)
@@ -38,7 +36,6 @@ class NodeLauncher(threading.Thread):
         self.node_types = node_types
         self.index = str(index) if index is not None else ""
         self.event_summarizer = event_summarizer
-        super(NodeLauncher, self).__init__(*args, **kwargs)
 
     def _launch_node(self, config: Dict[str, Any], count: int,
                      node_type: Optional[str]):
@@ -79,32 +76,72 @@ class NodeLauncher(threading.Thread):
             self.prometheus_metrics.worker_create_node_time.observe(launch_time)
         self.prometheus_metrics.started_nodes.inc(count)
 
-    def run(self):
-        while True:
-            config, count, node_type = self.queue.get()
-            self.log("Got {} nodes to launch.".format(count))
-            try:
-                self._launch_node(config, count, node_type)
-            except Exception:
-                self.prometheus_metrics.node_launch_exceptions.inc()
-                self.prometheus_metrics.failed_create_nodes.inc(count)
-                self.event_summarizer.add(
-                    "Failed to launch {} nodes of type " + node_type + ".",
-                    quantity=count,
-                    aggregate=operator.add)
-                # Log traceback from failed node creation only once per minute
-                # to avoid spamming driver logs with tracebacks.
-                self.event_summarizer.add_once_per_interval(
-                    message="Node creation failed. See the traceback below."
-                            " See cluster scaler logs for further details.\n"
-                            f"{traceback.format_exc()}",
-                    key="Failed to create node.",
-                    interval_s=60)
-                logger.exception("Launch failed")
-            finally:
-                self.pending.dec(node_type, count)
-                self.prometheus_metrics.pending_nodes.set(self.pending.value)
+    def launch_node(self, config: Dict[str, Any], count: int, node_type: Optional[str]):
+        self.log("Got {} nodes to launch.".format(count))
+        try:
+            self._launch_node(config, count, node_type)
+        except Exception:
+            self.prometheus_metrics.node_launch_exceptions.inc()
+            self.prometheus_metrics.failed_create_nodes.inc(count)
+            self.event_summarizer.add(
+                "Failed to launch {} nodes of type " + node_type + ".",
+                quantity=count,
+                aggregate=operator.add)
+            # Log traceback from failed node creation only once per minute
+            # to avoid spamming driver logs with tracebacks.
+            self.event_summarizer.add_once_per_interval(
+                message="Node creation failed. See the traceback below."
+                        " See cluster scaler logs for further details.\n"
+                        f"{traceback.format_exc()}",
+                key="Failed to create node.",
+                interval_s=60)
+            logger.exception("Launch failed")
+        finally:
+            self.pending.dec(node_type, count)
+            self.prometheus_metrics.pending_nodes.set(self.pending.value)
 
     def log(self, statement):
-        prefix = "NodeLauncher{}:".format(self.index)
+        # launcher_class is "BaseNodeLauncher", or "NodeLauncher" if called
+        # from that subclass.
+        launcher_class: str = type(self).__name__
+        prefix = "{}{}:".format(launcher_class, self.index)
         logger.info(prefix + " {}".format(statement))
+
+
+class NodeLauncher(BaseNodeLauncher, threading.Thread):
+    """Launches nodes asynchronously in the background."""
+
+    def __init__(self,
+                 provider,
+                 queue,
+                 pending,
+                 event_summarizer,
+                 session_name: Optional[str] = None,
+                 prometheus_metrics=None,
+                 node_types=None,
+                 index=None,
+                 *thread_args,
+                 **thread_kwargs):
+        self.queue = queue
+        BaseNodeLauncher.__init__(
+            self,
+            provider=provider,
+            pending=pending,
+            event_summarizer=event_summarizer,
+            session_name=session_name,
+            prometheus_metrics=prometheus_metrics,
+            node_types=node_types,
+            index=index,
+        )
+        threading.Thread.__init__(self, *thread_args, **thread_kwargs)
+
+    def run(self):
+        """Launches nodes in a background thread.
+
+        Overrides threading.Thread.run().
+        NodeLauncher.start() executes this loop in a background thread.
+        """
+        while True:
+            config, count, node_type = self.queue.get()
+            # launch_node is implemented in BaseNodeLauncher
+            self.launch_node(config, count, node_type)

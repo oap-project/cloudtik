@@ -1,4 +1,5 @@
-from typing import Any, Dict
+import concurrent.futures
+from typing import Any, Dict, List
 from functools import wraps
 from threading import RLock
 import time
@@ -169,23 +170,38 @@ class GCPNodeProvider(NodeProvider):
 
             resource.create_instances(base_config, labels, count)
 
+    def _terminate_node(self, node_id: str):
+        # Assumes the global lock is held for the duration of this operation.
+        # The lock may be held by a different thread if in `terminate_nodes()` case.
+        logger.info("NodeProvider: {}: Terminating node".format(node_id))
+        resource = self._get_resource_depending_on_node_name(node_id)
+        try:
+            result = resource.delete_instance(
+                node_id=node_id,
+            )
+        except googleapiclient.errors.HttpError as http_error:
+            if http_error.resp.status == 404:
+                logger.warning(
+                    f"Tried to delete the node with id {node_id} "
+                    "but it was already gone."
+                )
+            else:
+                raise http_error from None
+        return result
+
     @_retry
     def terminate_node(self, node_id: str):
         with self.lock:
-            resource = self._get_resource_depending_on_node_name(node_id)
-            try:
-                result = resource.delete_instance(
-                    node_id=node_id,
-                )
-            except googleapiclient.errors.HttpError as http_error:
-                if http_error.resp.status == 404:
-                    logger.warning(
-                        f"Tried to delete the node with id {node_id} "
-                        "but it was already gone."
-                    )
-                else:
-                    raise http_error from None
-            return result
+            self._terminate_node(node_id)
+
+    def terminate_nodes(self, node_ids: List[str]):
+        if not node_ids:
+            return None
+
+        with self.lock, concurrent.futures.ThreadPoolExecutor() as executor:
+            result = executor.map(self._terminate_node, node_ids)
+
+        return list(result)
 
     @_retry
     def _get_node(self, node_id: str) -> GCPNode:

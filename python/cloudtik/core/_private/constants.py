@@ -142,6 +142,9 @@ CLOUDTIK_NODE_AVAILABILITY_MAX_STALENESS_S = env_integer(
 # The name of the environment variable for plugging in a resource utilization scorer.
 CLOUDTIK_RESOURCE_UTILIZATION_SCORER_KEY = "CLOUDTIK_RESOURCE_UTILIZATION_SCORER"
 
+# Whether cluster scaler periodic status logging is enabled. Set to 0 disable.
+CLOUDTIK_SCALER_PERIODIC_STATUS_LOG = env_integer("CLOUDTIK_SCALER_PERIODIC_STATUS_LOG", 1)
+
 # The maximum number of nodes (including failed nodes) that the cluster scaler will
 # track for logging purposes.
 CLOUDTIK_MAX_NODES_TRACKED = 1500

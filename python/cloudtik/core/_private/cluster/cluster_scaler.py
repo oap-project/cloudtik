@@ -411,7 +411,7 @@ class ClusterScaler:
         #    (get_static_node_resources_by_ip)
         # Dict[NodeType, int], List[ResourceDict]
         to_launch, unfulfilled = (
-            self.resource_demand_scheduler.get_nodesg_to_launch(
+            self.resource_demand_scheduler.get_nodes_to_launch(
                 self.non_terminated_nodes.all_node_ids,
                 self.pending_launches.breakdown(),
                 self.cluster_metrics.get_resource_demands(),

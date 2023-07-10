@@ -4,7 +4,7 @@ from collections import defaultdict, namedtuple, Counter
 from typing import Any, Optional, Dict, List, Set, FrozenSet, Tuple, Union, \
     Callable
 import copy
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import logging
 import math
 import operator
@@ -19,11 +19,11 @@ from six.moves import queue
 from cloudtik.core._private import constants
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_metrics_updater import ClusterMetricsUpdater
+from cloudtik.core._private.cluster.node_availability_tracker import NodeAvailabilitySummary, NodeAvailabilityTracker
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
 from cloudtik.core._private.core_utils import ConcurrentCounter
 from cloudtik.core._private.crypto import AESCipher
-from cloudtik.core._private.state.kv_store import kv_put, kv_del, kv_initialized, kv_get
-
+from cloudtik.core._private.state.kv_store import kv_put, kv_del, kv_initialized
 try:
     from urllib3.exceptions import MaxRetryError
 except ImportError:
@@ -76,6 +76,9 @@ class ClusterScalerSummary:
     pending_nodes: List[Tuple[NodeIP, NodeType, NodeStatus]]
     pending_launches: Dict[NodeType, int]
     failed_nodes: List[Tuple[NodeIP, NodeType]]
+    node_availability_summary: NodeAvailabilitySummary = field(
+        default_factory=lambda: NodeAvailabilitySummary({})
+    )
 
 
 class NonTerminatedNodes:
@@ -183,6 +186,7 @@ class ClusterScaler:
         else:
             self.config_reader = config_reader
 
+        self.node_availability_tracker = NodeAvailabilityTracker()
         self.config = {}
         self.config_hash = None
         # TODO: Each node updater may need its own CallContext
@@ -278,6 +282,7 @@ class ClusterScaler:
                 index=i,
                 pending=self.pending_launches,
                 event_summarizer=self.event_summarizer,
+                node_availability_tracker=self.node_availability_tracker,
                 session_name=session_name,
                 node_types=self.available_node_types,
                 prometheus_metrics=self.prometheus_metrics)
@@ -1050,7 +1055,7 @@ class ClusterScaler:
             return False
         return True
 
-    def get_node_runtime_hash(self, node_id, node_tags = None):
+    def get_node_runtime_hash(self, node_id, node_tags=None):
         if node_tags is None:
             node_tags = self.provider.node_tags(node_id)
         if CLOUDTIK_TAG_USER_NODE_TYPE in node_tags:
@@ -1286,13 +1291,9 @@ class ClusterScaler:
                      "passes config check (can_update=True).")
         return True
 
-    def launch_new_node(self, count: int, node_type: Optional[str]) -> None:
+    def launch_new_node(self, count: int, node_type: str) -> None:
         logger.info(
             "Cluster Controller: Queue {} new nodes for launch".format(count))
-        self.event_summarizer.add(
-            "Adding {} nodes of type " + str(node_type) + ".",
-            quantity=count,
-            aggregate=operator.add)
         self.pending_launches.inc(node_type, count)
         self.prometheus_metrics.pending_nodes.set(self.pending_launches.value)
         config = copy.deepcopy(self.config)
@@ -1376,12 +1377,15 @@ class ClusterScaler:
             active_nodes=dict(active_nodes),
             pending_nodes=pending_nodes,
             pending_launches=pending_launches,
-            failed_nodes=failed_nodes)
+            failed_nodes=failed_nodes,
+            node_availability_summary=self.node_availability_tracker.summary()
+        )
 
     def info_string(self):
         cluster_metrics_summary = self.cluster_metrics.summary()
-        scaler_summary = self.summary()
-        return "\n" + format_info_string(cluster_metrics_summary, scaler_summary)
+        cluster_scaler_summary = self.summary()
+        return "\n" + format_info_string(
+            cluster_metrics_summary, cluster_scaler_summary)
 
     def _init_next_node_number(self):
         self.next_node_number = CLOUDTIK_TAG_HEAD_NODE_NUMBER + 1

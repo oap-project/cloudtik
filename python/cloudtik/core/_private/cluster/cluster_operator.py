@@ -26,6 +26,7 @@ from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
 from cloudtik.core._private.cluster.cluster_tunnel_request import request_tunnel_to_head
 from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
+from cloudtik.core._private.cluster.node_availability_tracker import NodeAvailabilitySummary
 from cloudtik.core._private.cluster.resource_demand_scheduler import ResourceDict, \
     get_node_type_counts, get_unfulfilled_for_bundles
 from cloudtik.core._private.core_utils import kill_process_tree, double_quote, get_cloudtik_temp_dir, get_free_port, \
@@ -110,20 +111,42 @@ def cli_call_context() -> CallContext:
 
 def decode_cluster_scaling_status(status):
     status = status.decode("utf-8")
-    as_dict = json.loads(status)
-    time = datetime.datetime.fromtimestamp(as_dict["time"])
-    cluster_metrics_summary = ClusterMetricsSummary(**as_dict["cluster_metrics_report"])
-    scaler_summary = ClusterScalerSummary(**as_dict["cluster_scaler_report"])
-    return time, cluster_metrics_summary, scaler_summary
+    status_dict = json.loads(status)
+    metrics_summary_dict = status_dict["cluster_metrics_report"]
+    scaler_summary_dict = status_dict["cluster_scaler_report"]
+    timestamp = status_dict["time"]
+    if metrics_summary_dict and scaler_summary_dict and timestamp:
+        report_time = datetime.datetime.fromtimestamp(timestamp)
+        cluster_metrics_summary = ClusterMetricsSummary(**metrics_summary_dict)
+        node_availability_summary_dict = scaler_summary_dict.pop(
+            "node_availability_summary", {}
+        )
+        node_availability_summary = NodeAvailabilitySummary.from_fields(
+            **node_availability_summary_dict
+        )
+        cluster_scaler_summary = ClusterScalerSummary(
+            node_availability_summary=node_availability_summary,
+            **scaler_summary_dict,
+        )
+        return report_time, cluster_metrics_summary, cluster_scaler_summary
+    else:
+        return None, None, None
 
 
-def debug_status_string(status, error) -> str:
+def debug_status_string(status, error, verbose: bool = False) -> str:
     """Return a debug string for the cluster scaler."""
     if not status:
         status = "No cluster status."
     else:
-        time, cluster_metrics_summary, scaler_summary = decode_cluster_scaling_status(status)
-        status = format_info_string(cluster_metrics_summary, scaler_summary, time=time)
+        report_time, cluster_metrics_summary, cluster_scaler_summary = decode_cluster_scaling_status(status)
+        if report_time is None:
+            status = "No cluster status."
+        else:
+            status = format_info_string(
+                cluster_metrics_summary,
+                cluster_scaler_summary,
+                report_time=report_time,
+                verbose=verbose)
     if error:
         status += "\n"
         status += error.decode("utf-8")
@@ -202,7 +225,7 @@ def create_or_update_cluster(
         _cli_logger.error("Cluster config invalid")
         _cli_logger.newline()
         _cli_logger.error("Failed to load YAML file " + cf.bold("{}"),
-                         config_file)
+                          config_file)
         _cli_logger.newline()
         with _cli_logger.verbatim_error_ctx("PyYAML error:"):
             _cli_logger.error(e)

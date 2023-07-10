@@ -135,6 +135,10 @@ CLOUDTIK_NODE_RESOURCE_STATE_TIMEOUT_S = env_integer("CLOUDTIK_NODE_RESOURCE_STA
 
 CLOUDTIK_HEARTBEAT_PERIOD_SECONDS = env_integer("CLOUDTIK_HEARTBEAT_PERIOD_SECONDS", 1)
 
+CLOUDTIK_NODE_AVAILABILITY_MAX_STALENESS_S = env_integer(
+    "CLOUDTIK_NODE_AVAILABILITY_MAX_STALENESS_S", 30 * 60
+)
+
 # The maximum number of nodes (including failed nodes) that the cluster scaler will
 # track for logging purposes.
 CLOUDTIK_MAX_NODES_TRACKED = 1500
@@ -176,8 +180,7 @@ CLOUDTIK_PROCESSES = [
 
 
 # Max Concurrent SSH Calls to stop Docker
-MAX_PARALLEL_SHUTDOWN_WORKERS = env_integer("MAX_PARALLEL_SHUTDOWN_WORKERS",
-                                         50)
+MAX_PARALLEL_SHUTDOWN_WORKERS = env_integer("MAX_PARALLEL_SHUTDOWN_WORKERS", 50)
 # Max Concurrent SSH Calls to run on nodes
 MAX_PARALLEL_EXEC_NODES = env_integer("MAX_PARALLEL_EXEC_NODES", 50)
 

@@ -1560,10 +1560,14 @@ def decode_cluster_scaling_time(status):
     return report_time
 
 
-def format_info_string(cluster_metrics_summary, scaler_summary, time=None):
-    if time is None:
-        time = datetime.now()
-    header = "=" * 8 + f" Cluster Scaler status: {time} " + "=" * 8
+def format_info_string(
+        cluster_metrics_summary,
+        scaler_summary,
+        report_time=None,
+        verbose: bool = False):
+    if report_time is None:
+        report_time = datetime.now()
+    header = "=" * 8 + f" Cluster Scaler status: {report_time} " + "=" * 8
     separator = "-" * len(header)
     available_node_report_lines = []
     for node_type, count in scaler_summary.active_nodes.items():
@@ -1587,6 +1591,31 @@ def format_info_string(cluster_metrics_summary, scaler_summary, time=None):
     for ip, node_type in scaler_summary.failed_nodes:
         line = f" {ip}: {node_type}"
         failure_lines.append(line)
+    if scaler_summary.node_availability_summary:
+        records = sorted(
+            scaler_summary.node_availability_summary.node_availabilities.values(),
+            key=lambda record: record.last_checked_timestamp,
+        )
+        for record in records:
+            if record.is_available:
+                continue
+            assert record.unavailable_node_information is not None
+            node_type = record.node_type
+            category = record.unavailable_node_information.category
+            description = record.unavailable_node_information.description
+            attempted_time = datetime.fromtimestamp(record.last_checked_timestamp)
+            formatted_time = (
+                # This `:02d` is python syntax for printing a 2
+                # digits number with a leading zero as padding if needed.
+                f"{attempted_time.hour:02d}:"
+                f"{attempted_time.minute:02d}:"
+                f"{attempted_time.second:02d}"
+            )
+            line = f" {node_type}: {category} (latest_attempt: {formatted_time})"
+            if verbose:
+                line += f" - {description}"
+            failure_lines.append(line)
+
     failure_lines = failure_lines[:
                                   -constants.CLOUDTIK_MAX_FAILURES_DISPLAYED:
                                   -1]

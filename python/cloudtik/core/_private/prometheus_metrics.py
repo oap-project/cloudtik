@@ -16,6 +16,9 @@ class NullMetric:
     def labels(self, *args, **kwargs):
         return self
 
+    def clear(self):
+        pass
+
 
 try:
 
@@ -84,6 +87,22 @@ try:
             self.pending_nodes: Gauge = Gauge(
                 "pending_nodes",
                 "Number of nodes pending to be started.",
+                labelnames=("SessionName",),
+                unit="nodes",
+                namespace="cloudtik",
+                registry=self.registry,
+            ).labels(SessionName=session_name)
+            self.active_nodes: Gauge = Gauge(
+                "active_nodes",
+                "Number of active nodes in the cluster.",
+                labelnames=("SessionName",),
+                unit="nodes",
+                namespace="cloudtik",
+                registry=self.registry,
+            ).labels(SessionName=session_name)
+            self.recently_failed_nodes: Gauge = Gauge(
+                "recently_failed_nodes",
+                "Number of recently failed nodes. This cloud be reset.",
                 labelnames=("SessionName",),
                 unit="nodes",
                 namespace="cloudtik",
@@ -212,6 +231,40 @@ try:
                 namespace="cloudtik",
                 registry=self.registry,
             ).labels(SessionName=session_name)
+            self.pending_nodes_of_type: Gauge = Gauge(
+                "pending_nodes_of_type",
+                "Number of nodes pending to be started.",
+                labelnames=(
+                    "NodeType",
+                    "SessionName",
+                ),
+                unit="nodes",
+                namespace="cloudtik",
+                registry=self.registry,
+            )
+            self.active_nodes_of_type: Gauge = Gauge(
+                "active_nodes_of_type",
+                "Number of active nodes in the cluster.",
+                labelnames=(
+                    "NodeType",
+                    "SessionName",
+                ),
+                unit="nodes",
+                namespace="cloudtik",
+                registry=self.registry,
+            )
+            self.recently_failed_nodes_of_type = Gauge(
+                "recently_failed_nodes_of_type",
+                "The number of recently failed nodes. This count could reset "
+                "at undefined times.",
+                labelnames=(
+                    "NodeType",
+                    "SessionName",
+                ),
+                unit="nodes",
+                namespace="cloudtik",
+                registry=self.registry,
+            )
 
         @property
         def session_name(self):

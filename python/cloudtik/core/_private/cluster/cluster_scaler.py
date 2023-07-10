@@ -324,6 +324,8 @@ class ClusterScaler:
 
     def update_status(self, status):
         cluster_scaler_summary = self.summary()
+        self.emit_metrics(cluster_scaler_summary)
+
         if cluster_scaler_summary:
             status["cluster_scaler_report"] = asdict(cluster_scaler_summary)
 
@@ -1180,6 +1182,10 @@ class ClusterScaler:
         updater.start()
         self.updaters[node_id] = updater
 
+    @property
+    def all_node_types(self) -> Set[str]:
+        return self.config["available_node_types"].keys()
+
     def _get_node_type(self, node_id: str) -> str:
         node_tags = self.provider.node_tags(node_id)
         if CLOUDTIK_TAG_USER_NODE_TYPE in node_tags:
@@ -1298,7 +1304,6 @@ class ClusterScaler:
         logger.info(
             "Cluster Controller: Queue {} new nodes for launch".format(count))
         self.pending_launches.inc(node_type, count)
-        self.prometheus_metrics.pending_nodes.set(self.pending_launches.value)
         config = copy.deepcopy(self.config)
         # Split into individual launch requests of the max batch size.
         while count > 0:
@@ -1638,3 +1643,54 @@ class ClusterScaler:
     def _print_info_waiting_for(minimal_nodes_info, nodes_number, for_what):
         logger.info("Cluster Controller: waiting for {} of {}/{} nodes required by runtimes: {}".format(
             for_what, nodes_number, minimal_nodes_info["minimal"], minimal_nodes_info["runtimes"]))
+
+    def emit_metrics(self, cluster_scaler_summary):
+        if cluster_scaler_summary is None:
+            return None
+
+        node_types = self.all_node_types
+
+        pending_node_count = Counter()
+        pending_node_total = 0
+        for _, node_type, _ in cluster_scaler_summary.pending_nodes:
+            pending_node_count[node_type] += 1
+            pending_node_total += 1
+
+        for node_type, count in cluster_scaler_summary.pending_launches.items():
+            pending_node_count[node_type] += count
+            pending_node_total += count
+
+        self.prometheus_metrics.pending_nodes.set(pending_node_total)
+        for node_type in node_types:
+            count = pending_node_count[node_type]
+            self.prometheus_metrics.pending_nodes_of_type.labels(
+                SessionName=self.prometheus_metrics.session_name,
+                NodeType=node_type,
+            ).set(count)
+
+        active_node_total = 0
+        for node_type in node_types:
+            count = cluster_scaler_summary.active_nodes.get(node_type, 0)
+            active_node_total += count
+            self.prometheus_metrics.active_nodes_of_type.labels(
+                SessionName=self.prometheus_metrics.session_name,
+                NodeType=node_type,
+            ).set(count)
+        self.prometheus_metrics.active_nodes.set(active_node_total)
+
+        failed_node_counts = Counter()
+        failed_node_total = 0
+        for _, node_type in cluster_scaler_summary.failed_nodes:
+            failed_node_counts[node_type] += 1
+            failed_node_total += 1
+
+        # NOTE: This metric isn't reset with scaler resets. This means it will
+        # only be updated when the scaler' node tracker remembers failed
+        # nodes. If the node type failure is evicted from the scaler, the
+        # metric may not update for a while.
+        self.prometheus_metrics.recently_failed_nodes.set(failed_node_total)
+        for node_type, count in failed_node_counts.items():
+            self.prometheus_metrics.recently_failed_nodes_of_type.labels(
+                SessionName=self.prometheus_metrics.session_name,
+                NodeType=node_type,
+            ).set(count)

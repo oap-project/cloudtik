@@ -107,6 +107,12 @@ class ClusterController:
                     port=CLOUDTIK_METRIC_PORT,
                     addr=controller_ip,
                     registry=self.prometheus_metrics.registry)
+                # Reset some gauges, since we don't know which labels have
+                # leaked if the cluster controller restarted.
+                self.prometheus_metrics.pending_nodes.clear()
+                self.prometheus_metrics.active_nodes.clear()
+                self.prometheus_metrics.pending_nodes_of_type.clear()
+                self.prometheus_metrics.active_nodes_of_type.clear()
             except Exception:
                 logger.exception(
                     "An exception occurred while starting the metrics server.")

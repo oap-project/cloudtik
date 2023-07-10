@@ -133,7 +133,6 @@ class BaseNodeLauncher:
         self.log("Got {} nodes to launch, type {}.".format(count, node_type))
         self._launch_node(config, count, node_type)
         self.pending.dec(node_type, count)
-        self.prometheus_metrics.pending_nodes.set(self.pending.value)
 
     def log(self, statement):
         # launcher_class is "BaseNodeLauncher", or "NodeLauncher" if called

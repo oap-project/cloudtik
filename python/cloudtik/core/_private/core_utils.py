@@ -59,6 +59,9 @@ class ConcurrentCounter:
         with self._lock:
             return sum(self._counter.values())
 
+    def lock(self):
+        return self._lock
+
 
 def _load_class(path):
     """Load a class at runtime given a full path.

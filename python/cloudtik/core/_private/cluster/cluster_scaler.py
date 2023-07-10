@@ -323,7 +323,10 @@ class ClusterScaler:
         self.update_status(status)
 
     def update_status(self, status):
-        status["cluster_scaler_report"] = asdict(self.summary())
+        cluster_scaler_summary = self.summary()
+        if cluster_scaler_summary:
+            status["cluster_scaler_report"] = asdict(cluster_scaler_summary)
+
         for msg in self.event_summarizer.summary():
             # Need to prefix each line of the message for the lines to
             # get pushed to the driver logs.
@@ -1317,7 +1320,7 @@ class ClusterScaler:
         logger.error("Cluster Controller: terminated {} node(s)".format(
             len(nodes)))
 
-    def summary(self):
+    def summary(self) -> Optional[ClusterScalerSummary]:
         """Summarizes the active, pending, and failed node launches.
 
         An active node is a node who is actively reporting heartbeats.
@@ -1328,6 +1331,8 @@ class ClusterScaler:
         Returns:
             ClusterScalerSummary: The summary.
         """
+        if not self.non_terminated_nodes:
+            return None
         active_nodes = Counter()
         pending_nodes = []
         failed_nodes = []
@@ -1384,6 +1389,8 @@ class ClusterScaler:
     def info_string(self):
         cluster_metrics_summary = self.cluster_metrics.summary()
         cluster_scaler_summary = self.summary()
+        if cluster_scaler_summary is None:
+            return "\nNo cluster status."
         return "\n" + format_info_string(
             cluster_metrics_summary, cluster_scaler_summary)
 

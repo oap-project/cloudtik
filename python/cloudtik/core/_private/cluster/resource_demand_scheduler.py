@@ -10,14 +10,18 @@ return a list of node types that can satisfy the demands given constraints
 import copy
 import logging
 import collections
+import os
+from functools import partial
 from numbers import Real
-from typing import Dict, Any
-from typing import List
-from typing import Optional
-from typing import Tuple
+from typing import Dict, Any, Callable, List, Optional, Tuple
 
+from cloudtik.core._private.cluster.node_availability_tracker import NodeAvailabilitySummary
+from cloudtik.core._private.cluster.resource_utilization import UtilizationScorer, NodeResources, ResourceDemands, \
+    UtilizationScore
+from cloudtik.core._private.core_utils import _load_class
 from cloudtik.core.node_provider import NodeProvider
-from cloudtik.core._private.constants import CLOUDTIK_CONSERVE_GPU_NODES, to_memory_units
+from cloudtik.core._private.constants import CLOUDTIK_CONSERVE_GPU_NODES, to_memory_units, \
+    CLOUDTIK_RESOURCE_UTILIZATION_SCORER_KEY
 from cloudtik.core.tags import (
     CLOUDTIK_TAG_USER_NODE_TYPE, NODE_KIND_UNMANAGED,
     NODE_KIND_WORKER, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD)
@@ -56,6 +60,15 @@ class ResourceDemandScheduler:
         self.max_workers = max_workers
         self.head_node_type = head_node_type
         self.upscaling_speed = upscaling_speed
+
+        utilization_scorer_func = os.environ.get(
+            CLOUDTIK_RESOURCE_UTILIZATION_SCORER_KEY,
+            "cloudtik.core._private.cluster.resource_demand_scheduler"
+            "._default_utilization_scorer",
+        )
+        self.utilization_scorer: UtilizationScorer = _load_class(
+            utilization_scorer_func
+        )
 
     def _get_head_and_workers(
             self, nodes: List[NodeID]) -> Tuple[NodeID, List[NodeID]]:
@@ -105,7 +118,8 @@ class ResourceDemandScheduler:
             resource_demands: List[ResourceDict],
             unused_resources_by_ip: Dict[NodeIP, ResourceDict],
             max_resources_by_ip: Dict[NodeIP, ResourceDict],
-            ensure_min_cluster_size: List[ResourceDict] = None,
+            ensure_min_cluster_size: List[ResourceDict],
+            node_availability_summary: NodeAvailabilitySummary,
     ) -> (Dict[NodeType, int], List[ResourceDict]):
         """Given resource demands, return node types to add to the cluster.
 
@@ -126,11 +140,15 @@ class ResourceDemandScheduler:
             ensure_min_cluster_size: Try to ensure the cluster can fit at least
                 this set of resources. This differs from resources_demands in
                 that we don't take into account existing usage.
-
+            node_availability_summary: A snapshot of the current
+                NodeAvailabilitySummary.
         Returns:
             Dict of count to add for each node type, and residual of resources
             that still cannot be fulfilled.
         """
+        utilization_scorer = partial(
+            self.utilization_scorer, node_availability_summary=node_availability_summary
+        )
         # Note: currently, we don't update the total resources from runtime
         # But we use the node types static memory information here
         # self._update_node_resources_from_runtime(nodes, max_resources_by_ip)
@@ -151,7 +169,8 @@ class ResourceDemandScheduler:
          adjusted_min_workers) = \
             _add_min_workers_nodes(
                 node_resources, node_type_counts, self.node_types,
-                self.max_workers, self.head_node_type, ensure_min_cluster_size)
+                self.max_workers, self.head_node_type, ensure_min_cluster_size,
+                utilization_scorer=utilization_scorer)
 
         # Add 1 to account for the head node.
         max_to_add = self.max_workers + 1 - sum(node_type_counts.values())
@@ -164,8 +183,9 @@ class ResourceDemandScheduler:
             logger.debug("Unfulfilled demands: {}".format(unfulfilled))
 
         nodes_to_add_based_on_demand, final_unfulfilled = get_nodes_for(
-            self.node_types, node_type_counts, self.head_node_type, max_to_add,
-            unfulfilled)
+            self.node_types, node_type_counts, self.head_node_type,
+            max_to_add, unfulfilled,
+            utilization_scorer=utilization_scorer)
 
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug("Final unfulfilled: {}".format(final_unfulfilled))
@@ -420,7 +440,9 @@ def _add_min_workers_nodes(
         node_resources: List[ResourceDict],
         node_type_counts: Dict[NodeType, int],
         node_types: Dict[NodeType, NodeTypeConfigDict], max_workers: int,
-        head_node_type: NodeType, ensure_min_cluster_size: List[ResourceDict]
+        head_node_type: NodeType, ensure_min_cluster_size: List[ResourceDict],
+        utilization_scorer: Callable[
+            [NodeResources, ResourceDemands, str], Optional[UtilizationScore]],
 ) -> (List[ResourceDict], Dict[NodeType, int], Dict[NodeType, int]):
     """Updates resource demands to respect the min_workers and
     request_resources() constraints.
@@ -431,7 +453,9 @@ def _add_min_workers_nodes(
         node_types: Node types config.
         max_workers: global max_workers constaint.
         ensure_min_cluster_size: resource demands from request_resources().
-
+        utilization_scorer: A function that, given a node
+            type, its resources, and resource demands, returns what its
+            utilization would be.
     Returns:
         node_resources: The updated node resources after adding min_workers
             and request_resources() constraints per node type.
@@ -470,8 +494,9 @@ def _add_min_workers_nodes(
             max_node_resources, ensure_min_cluster_size)
         # Get the nodes to meet the unfulfilled.
         nodes_to_add_request_resources, _ = get_nodes_for(
-            node_types, node_type_counts, head_node_type, max_to_add,
-            resource_requests_unfulfilled)
+            node_types, node_type_counts, head_node_type,
+            max_to_add, resource_requests_unfulfilled,
+            utilization_scorer=utilization_scorer,)
         # Update the resources, counts and total nodes to add.
         for node_type in nodes_to_add_request_resources:
             nodes_to_add = nodes_to_add_request_resources.get(node_type, 0)
@@ -494,7 +519,9 @@ def get_nodes_for(node_types: Dict[NodeType, NodeTypeConfigDict],
                   head_node_type: NodeType,
                   max_to_add: int,
                   resources: List[ResourceDict],
-                  strict_spread: bool = False
+                  utilization_scorer: Callable[
+                      [NodeResources, ResourceDemands, str], Optional[UtilizationScore]],
+                  strict_spread: bool = False,
                   ) -> (Dict[NodeType, int], List[ResourceDict]):
     """Determine nodes to add given resource demands and constraints.
 
@@ -502,8 +529,12 @@ def get_nodes_for(node_types: Dict[NodeType, NodeTypeConfigDict],
         node_types: node types config.
         existing_nodes: counts of existing nodes already launched.
             This sets constraints on the number of new nodes to add.
+        head_node_type: The head node type.
         max_to_add: global constraint on nodes to add.
         resources: resource demands to fulfill.
+        utilization_scorer: A function that, given a node
+            type, its resources, and resource demands, returns what its
+            utilization would be.
         strict_spread: If true, each element in `resources` must be placed on a
             different node.
 
@@ -531,9 +562,9 @@ def get_nodes_for(node_types: Dict[NodeType, NodeTypeConfigDict],
             if strict_spread:
                 # If handling strict spread, only one bundle can be placed on
                 # the node.
-                score = _utilization_score(node_resources, [resources[0]])
+                score = utilization_scorer(node_resources, [resources[0]], node_type)
             else:
-                score = _utilization_score(node_resources, resources)
+                score = utilization_scorer(node_resources, resources, node_type)
             if score is not None:
                 utilization_scores.append((score, node_type))
 
@@ -614,6 +645,16 @@ def _utilization_score(
         # util_by_resources should be non empty
         float(sum(util_by_resources)) / len(util_by_resources),
     )
+
+
+def _default_utilization_scorer(
+    node_resources: ResourceDict,
+    resources: List[ResourceDict],
+    node_type: str,
+    *,
+    node_availability_summary: NodeAvailabilitySummary,
+):
+    return _utilization_score(node_resources, resources)
 
 
 def get_bin_pack_residual(node_resources: List[ResourceDict],

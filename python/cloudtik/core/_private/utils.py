@@ -1562,7 +1562,7 @@ def decode_cluster_scaling_time(status):
 
 def format_info_string(
         cluster_metrics_summary,
-        scaler_summary,
+        cluster_scaler_summary,
         report_time=None,
         verbose: bool = False):
     if report_time is None:
@@ -1570,16 +1570,16 @@ def format_info_string(
     header = "=" * 8 + f" Cluster Scaler status: {report_time} " + "=" * 8
     separator = "-" * len(header)
     available_node_report_lines = []
-    for node_type, count in scaler_summary.active_nodes.items():
+    for node_type, count in cluster_scaler_summary.active_nodes.items():
         line = f" {count} {node_type}"
         available_node_report_lines.append(line)
     available_node_report = "\n".join(available_node_report_lines)
 
     pending_lines = []
-    for node_type, count in scaler_summary.pending_launches.items():
+    for node_type, count in cluster_scaler_summary.pending_launches.items():
         line = f" {node_type}, {count} launching"
         pending_lines.append(line)
-    for ip, node_type, status in scaler_summary.pending_nodes:
+    for ip, node_type, status in cluster_scaler_summary.pending_nodes:
         line = f" {ip}: {node_type}, {status.lower()}"
         pending_lines.append(line)
     if pending_lines:
@@ -1588,12 +1588,12 @@ def format_info_string(
         pending_report = " (no pending nodes)"
 
     failure_lines = []
-    for ip, node_type in scaler_summary.failed_nodes:
+    for ip, node_type in cluster_scaler_summary.failed_nodes:
         line = f" {ip}: {node_type}"
         failure_lines.append(line)
-    if scaler_summary.node_availability_summary:
+    if cluster_scaler_summary.node_availability_summary:
         records = sorted(
-            scaler_summary.node_availability_summary.node_availabilities.values(),
+            cluster_scaler_summary.node_availability_summary.node_availabilities.values(),
             key=lambda record: record.last_checked_timestamp,
         )
         for record in records:

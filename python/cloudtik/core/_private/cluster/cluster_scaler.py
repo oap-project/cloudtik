@@ -274,6 +274,7 @@ class ClusterScaler:
         # Node launchers
         self.launch_queue = queue.Queue()
         self.pending_launches = ConcurrentCounter()
+        self._pending_launches = defaultdict(int)
         max_batches = math.ceil(
             max_concurrent_launches / float(max_launch_batch))
         for i in range(int(max_batches)):
@@ -365,6 +366,26 @@ class ClusterScaler:
                 raise e
 
     def _update(self):
+        """
+        A single update needs at least a weak consistent view of the current status of:
+        a. nodes launched (active or pending nodes) -> non_terminated_nodes
+        b. nodes pending launch -> pending_launches
+
+        Strong consistent:
+          if we have N nodes launched (A) and to launch (B), A + B = N
+          This is hard to achieve if non_terminated_nodes and the node creation process,
+          and pending_launches decrease are done async.
+        Weak consistent:
+          if we have N nodes launched (A) and to launch (B), A + B >= N
+          This because non_terminated_nodes may get the nodes created
+          but not decreased in pending_launches since pending_launches decrease
+          is done async in node launcher after all requested count of nodes complete creation.
+
+        One typical trap causing issues is getting non_terminated_nodes
+        and use it with pending_launches at another point of time which may
+        result A + B < N and thus cause more nodes created.
+        A + B >= N will only cause a delay of scaling up which is not serious issue for user.
+        """
         now = time.time()
         # Throttle autoscaling updates to this interval to avoid exceeding
         # rate limits on API calls.
@@ -373,8 +394,11 @@ class ClusterScaler:
 
         self.last_update_time = now
 
-        # Query the provider to update the list of non-terminated nodes
-        self.non_terminated_nodes = NonTerminatedNodes(self.provider)
+        # Make a weak consistency snapshot of non_terminated_nodes and pending_launches
+        with self.pending_launches.lock():
+            # Query the provider to update the list of non-terminated nodes
+            self.non_terminated_nodes = NonTerminatedNodes(self.provider)
+            self._pending_launches = self.pending_launches.breakdown()
 
         # This will accumulate the nodes we need to terminate.
         self.nodes_to_terminate = []
@@ -423,7 +447,7 @@ class ClusterScaler:
         to_launch, unfulfilled = (
             self.resource_demand_scheduler.get_nodes_to_launch(
                 self.non_terminated_nodes.all_node_ids,
-                self.pending_launches.breakdown(),
+                self._pending_launches,
                 self.cluster_metrics.get_resource_demands(),
                 self.cluster_metrics.get_resource_utilization(),
                 self.cluster_metrics.get_static_node_resources_by_ip(),
@@ -1383,7 +1407,7 @@ class ClusterScaler:
         # The concurrent counter leaves some 0 counts in, so we need to
         # manually filter those out.
         pending_launches = {}
-        for node_type, count in self.pending_launches.breakdown().items():
+        for node_type, count in self._pending_launches.items():
             if count:
                 pending_launches[node_type] = count
 

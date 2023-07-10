@@ -411,14 +411,14 @@ class ClusterScaler:
         #    (get_static_node_resources_by_ip)
         # Dict[NodeType, int], List[ResourceDict]
         to_launch, unfulfilled = (
-            self.resource_demand_scheduler.get_nodes_to_launch(
+            self.resource_demand_scheduler.get_nodesg_to_launch(
                 self.non_terminated_nodes.all_node_ids,
                 self.pending_launches.breakdown(),
                 self.cluster_metrics.get_resource_demands(),
                 self.cluster_metrics.get_resource_utilization(),
                 self.cluster_metrics.get_static_node_resources_by_ip(),
-                ensure_min_cluster_size=self.cluster_metrics.
-                get_resource_requests()))
+                ensure_min_cluster_size=self.cluster_metrics.get_resource_requests(),
+                node_availability_summary=self.node_availability_tracker.summary(),))
         self._report_pending_infeasible(unfulfilled)
 
         self.launch_required_nodes(to_launch)

@@ -1,4 +1,5 @@
 import copy
+import sys
 import threading
 from collections import defaultdict, OrderedDict
 import logging
@@ -7,7 +8,7 @@ from typing import Any, Dict, List
 
 import botocore
 
-from cloudtik.core.node_provider import NodeProvider
+from cloudtik.core.node_provider import NodeProvider, NodeLaunchException
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_NAME, \
     CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_USER_NODE_TYPE
 
@@ -394,7 +395,22 @@ class AWSNodeProvider(NodeProvider):
                                 info=state_reason["Message"]))
                 break
             except botocore.exceptions.ClientError as exc:
+                # Launch failure may be due to instance type availability in
+                # the given AZ
+                subnet_idx += 1
                 if attempt == max_tries:
+                    try:
+                        exc = NodeLaunchException(
+                            category=exc.response["Error"]["Code"],
+                            description=exc.response["Error"]["Message"],
+                            src_exc_info=sys.exc_info(),
+                        )
+                    except Exception:
+                        # In theory, all ClientError's we expect to get should
+                        # have these fields, but just in case we can't parse
+                        # it, it's fine, just throw the original error.
+                        logger.warning("Couldn't parse exception.", exc)
+                        pass
                     cli_logger.abort(
                         "Failed to launch instances. Max attempts exceeded.",
                         exc=exc,
@@ -410,10 +426,6 @@ class AWSNodeProvider(NodeProvider):
                     if "InstanceMarketOptions" in conf:
                         cli_logger.warning("Retrying request for on-demand instance instead of spot.")
                         conf.pop("InstanceMarketOptions")
-
-                # Launch failure may be due to instance type availability in
-                # the given AZ
-                subnet_idx += 1
 
         return created_nodes_dict
 

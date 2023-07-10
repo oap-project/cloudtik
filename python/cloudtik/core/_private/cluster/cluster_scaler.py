@@ -9,12 +9,12 @@ import logging
 import math
 import operator
 import os
+import queue
 import subprocess
 import threading
 import time
 import yaml
 from enum import Enum
-from six.moves import queue
 
 from cloudtik.core._private import constants
 from cloudtik.core._private.call_context import CallContext
@@ -56,7 +56,8 @@ from cloudtik.core._private.utils import validate_config, \
     process_config_with_privacy, decrypt_config, CLOUDTIK_CLUSTER_SCALING_STATUS
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
-    CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS
+    CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS, \
+    CLOUDTIK_SCALER_PERIODIC_STATUS_LOG
 
 logger = logging.getLogger(__name__)
 
@@ -324,10 +325,13 @@ class ClusterScaler:
 
     def update_status(self, status):
         cluster_scaler_summary = self.summary()
-        self.emit_metrics(cluster_scaler_summary)
-
         if cluster_scaler_summary:
             status["cluster_scaler_report"] = asdict(cluster_scaler_summary)
+
+            try:
+                self.emit_metrics(cluster_scaler_summary)
+            except Exception:
+                logger.exception("Error emitting cluster scaler metrics")
 
         for msg in self.event_summarizer.summary():
             # Need to prefix each line of the message for the lines to
@@ -386,7 +390,8 @@ class ClusterScaler:
         ])
 
         # Update status strings
-        logger.info(self.info_string())
+        if CLOUDTIK_SCALER_PERIODIC_STATUS_LOG:
+            logger.info(self.info_string())
 
         self.collect_quorum_minimal_nodes()
         self.terminate_nodes_to_enforce_config_constraints(now)
@@ -1645,9 +1650,6 @@ class ClusterScaler:
             for_what, nodes_number, minimal_nodes_info["minimal"], minimal_nodes_info["runtimes"]))
 
     def emit_metrics(self, cluster_scaler_summary):
-        if cluster_scaler_summary is None:
-            return None
-
         node_types = self.all_node_types
 
         pending_node_count = Counter()

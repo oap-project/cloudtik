@@ -1,9 +1,16 @@
-from typing import List
+from threading import RLock
+from typing import Dict, List
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cloudtik.providers._private.gcp.node import GCPCompute
-from cloudtik.providers._private.gcp.node_provider import _retry
+from cloudtik.providers._private.gcp.node import (
+    GCPCompute,
+    GCPNode,
+    GCPNodeType,
+    GCPResource,
+)
+from cloudtik.providers._private.gcp.node_provider import _retry, GCPNodeProvider
 
 _PROJECT_NAME = "project-one"
 _AZ = "us-west1-b"
@@ -66,6 +73,33 @@ def test_gcp_broken_pipe_retry(error_input, expected_error_raised):
     else:
         ret = provider.mock_method(1, 2, a=4, b=5)
         assert ret == ((1, 2), {"a": 4, "b": 5})
+
+
+def test_gcp_terminate_nodes():
+    mock_node_config = {"machineType": "n2-standard-8"}
+    node_type = GCPNodeType.COMPUTE.value
+    id1, id2 = f"instance-id1-{node_type}", f"instance-id2-{node_type}"
+    terminate_node_ids = [id1, id2]
+    mock_resource = MagicMock()
+    mock_resource.create_instances.return_value = [
+        ({"dict": 1}, id1),
+        ({"dict": 2}, id2),
+    ]
+    mock_resource.delete_instance.return_value = "test"
+    expected_terminate_nodes_result_len = 2
+
+    def __init__(self, provider_config: dict, cluster_name: str):
+        self.lock = RLock()
+        self.cached_nodes: Dict[str, GCPNode] = {}
+        self.resources: Dict[GCPNodeType, GCPResource] = {}
+        self.resources[GCPNodeType.COMPUTE] = mock_resource
+
+    with patch.object(GCPNodeProvider, "__init__", __init__):
+        node_provider = GCPNodeProvider({}, "")
+        node_provider.create_node(mock_node_config, {}, 1)
+        create_results = node_provider.terminate_nodes(terminate_node_ids)
+
+    assert len(create_results) == expected_terminate_nodes_result_len
 
 
 @pytest.mark.parametrize(

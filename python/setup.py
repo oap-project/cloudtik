@@ -142,7 +142,6 @@ setup_spec.install_requires = [
     "pyyaml",
     "redis >= 3.5.0",
     "requests",
-    "six",
     "smart_open",
     "prettytable",
     "ipaddr",

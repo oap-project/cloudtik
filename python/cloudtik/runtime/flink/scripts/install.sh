@@ -94,7 +94,7 @@ function download_hadoop_cloud_jars() {
     GCS_HADOOP_CONNECTOR="gcs-connector-hadoop3-latest.jar"
     if [ ! -f "${HADOOP_TOOLS_LIB}/${GCS_HADOOP_CONNECTOR}" ]; then
         # Download gcs-connector to ${HADOOP_HOME}/share/hadoop/tools/lib/* for gcp cloud storage support
-        wget -q --show-progress -nc -P "${HADOOP_TOOLS_LIB}"  https://storage.googleapis.com/hadoop-lib/gcs/${GCS_HADOOP_CONNECTOR}
+        wget -q -nc -P "${HADOOP_TOOLS_LIB}"  https://storage.googleapis.com/hadoop-lib/gcs/${GCS_HADOOP_CONNECTOR}
     fi
 
     # Copy Jetty Utility jars from HADOOP_HDFS_LIB to HADOOP_TOOLS_LIB for Azure cloud storage support
@@ -109,7 +109,7 @@ function download_flink_cloud_jars() {
     FLINK_JARS=${FLINK_HOME}/jars
     FLINK_HADOOP_CLOUD_JAR="flink-hadoop-cloud_2.12-${FLINK_VERSION}.jar"
     if [ ! -f "${FLINK_JARS}/${FLINK_HADOOP_CLOUD_JAR}" ]; then
-        wget -q --show-progress -nc -P "${FLINK_JARS}"  https://repo1.maven.org/maven2/org/apache/flink/flink-hadoop-cloud_2.12/${FLINK_VERSION}/${FLINK_HADOOP_CLOUD_JAR}
+        wget -q -nc -P "${FLINK_JARS}"  https://repo1.maven.org/maven2/org/apache/flink/flink-hadoop-cloud_2.12/${FLINK_VERSION}/${FLINK_HADOOP_CLOUD_JAR}
     fi
 }
 

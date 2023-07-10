@@ -46,7 +46,7 @@ function install_ml() {
     fi
 
     # Install Machine Learning libraries and components
-    echo "Installing machine learning tools: mlflow, hyperopt..."
+    echo "Installing machine learning tools and libraries..."
     # chardet==3.0.4 from azure-cli
     pip --no-cache-dir -qq install \
         mlflow==2.3.1 \
@@ -70,7 +70,7 @@ function install_ml() {
 
     mkdir -p $RUNTIME_PATH/mlflow
 
-    echo "Installing deep learning frameworks: tensorflow, pytorch..."
+    echo "Installing deep learning frameworks and libraries..."
     pip --no-cache-dir -qq install tensorflow==2.12.0
 
     if [ "$AI_WITH_GPU" == "true" ]; then
@@ -90,12 +90,7 @@ function install_ml() {
     fi
 
     pip --no-cache-dir -qq install transformers==4.11.0
-
-    echo "Installing deep learning libraries for music and audio analysis..."
-    pip --no-cache-dir -qq install librosa==0.9.2
-
-    echo "Installing deep learning libraries for facial recognition..."
-    pip --no-cache-dir -qq install opencv-python-headless==4.6.0.66 tensorflow-addons==0.17.1
+    pip --no-cache-dir -qq install librosa==0.9.2 opencv-python-headless==4.6.0.66 tensorflow-addons==0.17.1
 
     # Installing MPI
     if ([ "$AI_WITH_ONEAPI" == "true" ] || [ "$AI_WITH_INTEL_MPI" == "true" ]) \

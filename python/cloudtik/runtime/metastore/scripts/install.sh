@@ -37,7 +37,7 @@ function install_hive_metastore() {
           mkdir -p "$METASTORE_HOME" && \
           tar --extract --file hive-standalone-metastore.tar.gz --directory "$METASTORE_HOME" --strip-components 1 --no-same-owner && \
           rm hive-standalone-metastore.tar.gz)
-        wget -q --show-progress https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.30/mysql-connector-java-8.0.30.jar -P $METASTORE_HOME/lib/
+        wget -q https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.30/mysql-connector-java-8.0.30.jar -P $METASTORE_HOME/lib/
         echo "export METASTORE_HOME=$METASTORE_HOME">> ${USER_HOME}/.bashrc
     fi
 }

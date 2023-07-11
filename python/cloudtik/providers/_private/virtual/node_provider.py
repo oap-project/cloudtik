@@ -1,7 +1,7 @@
 import copy
 import logging
 from types import ModuleType
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.utils import FILE_MOUNTS_CONFIG_KEY, AUTH_CONFIG_KEY
@@ -65,6 +65,9 @@ class VirtualNodeProvider(NodeProvider):
 
     def terminate_node(self, node_id):
         self.virtual_scheduler.terminate_node(node_id)
+
+    def terminate_nodes(self, node_ids: List[str]) -> Optional[Dict[str, Any]]:
+        return self.virtual_scheduler.terminate_nodes(node_ids)
 
     def get_node_info(self, node_id):
         return self.virtual_scheduler.get_node_info(node_id)

@@ -1,3 +1,4 @@
+import concurrent.futures
 import copy
 import json
 import logging
@@ -6,9 +7,10 @@ import subprocess
 import uuid
 from threading import RLock
 from types import ModuleType
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.command_executor.docker_command_executor import DockerCommandExecutor
 from cloudtik.core._private.core_utils import get_memory_in_bytes
 from cloudtik.core._private.state.file_state_store import FileStateStore
@@ -170,15 +172,34 @@ class VirtualContainerScheduler:
         else:
             self.state = None
 
+    def _create_node(self, node_config, tags):
+        return self._start_container(node_config, tags)
+
     def create_node(self, node_config, tags, count):
         # We should not lock here
-        launched = 0
-        while launched < count:
-            # create one container
-            self._start_container(node_config, tags)
-            launched = launched + 1
-            if count == launched:
-                return
+        if count <= 0:
+            return
+
+        if count == 1:
+            self._create_node(node_config, tags)
+            return
+
+        launched_nodes = {}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            indices = range(count)
+            futures = {}
+            for index in indices:
+                futures[index] = executor.submit(
+                    self._create_node, node_config=node_config, tags=tags)
+
+            for index, future in futures.items():
+                try:
+                    node_id = future.result()
+                    launched_nodes[index] = node_id
+                except Exception as e:
+                    cli_logger.error("Create node {} failed: {}", index, str(e))
+
+        launched = len(launched_nodes)
         if launched < count:
             raise RuntimeError(
                 "No enough free nodes. {} nodes requested / {} launched.".format(
@@ -240,6 +261,9 @@ class VirtualContainerScheduler:
 
     def terminate_node(self, node_id):
         # We shall not lock here
+        self._terminate_node(node_id)
+
+    def _terminate_node(self, node_id):
         with self.lock:
             node = self._get_cached_node(node_id)
 
@@ -252,6 +276,26 @@ class VirtualContainerScheduler:
         # with self.lock:
         #   node = self._get_cached_node(node_id)
         #   node["state"] = "terminated"
+
+    def terminate_nodes(self, node_ids: List[str]):
+        if not node_ids:
+            return None
+
+        result = {}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {}
+            for node_id in node_ids:
+                futures[node_id] = executor.submit(
+                    self._terminate_node, node_id=node_id)
+
+            for node_id, future in futures.items():
+                try:
+                    r = future.result()
+                    result[node_id] = r
+                except Exception as e:
+                    result[node_id] = e
+                    cli_logger.error("Terminate node {} failed: {}", node_id, str(e))
+        return result
 
     def get_node_info(self, node_id):
         with self.lock:
@@ -461,6 +505,7 @@ class VirtualContainerScheduler:
             as_head=is_head_node,
             file_mounts=file_mounts,
             shared_memory_ratio=shared_memory_ratio)
+        return container_name
 
     def _get_cached_node(self, node_id: str):
         if node_id in self.cached_nodes:
@@ -484,8 +529,9 @@ class VirtualContainerScheduler:
 
     def _is_container_exists(self, container_name):
         # try cache first
-        if container_name in self.cached_nodes:
-            return True
+        with self.lock:
+            if container_name in self.cached_nodes:
+                return True
 
         # try getting the container
         container = self._get_container(container_name)

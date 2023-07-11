@@ -607,9 +607,9 @@ class VirtualContainerScheduler:
         delete_on_termination = self.provider_config.get(
             "data_disks.delete_on_termination", True)
         if delete_on_termination:
-            self._delete_data_disks(container)
+            self._delete_data_disks(scheduler_executor, container)
 
-    def _delete_data_disks(self, container):
+    def _delete_data_disks(self, scheduler_executor, container):
         container_object = container["object"]
         binds = container_object.get("binds")
         if not binds:
@@ -625,7 +625,7 @@ class VirtualContainerScheduler:
                 continue
 
             # delete bind src
-            self.scheduler_executor.run(
+            scheduler_executor.run(
                 "rm -rf '{path}'".format(path=bind_src),
                 run_env="host")
 

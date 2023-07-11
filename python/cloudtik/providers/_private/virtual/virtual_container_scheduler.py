@@ -210,9 +210,10 @@ class VirtualContainerScheduler:
             for index, future in futures.items():
                 try:
                     node_id = future.result()
-                    launched_nodes[index] = node_id
                 except Exception as e:
                     cli_logger.error("Create node {} failed: {}", index, str(e))
+                else:
+                    launched_nodes[index] = node_id
 
         launched = len(launched_nodes)
         if launched < count:
@@ -315,10 +316,11 @@ class VirtualContainerScheduler:
             for node_id, future in futures.items():
                 try:
                     r = future.result()
-                    result[node_id] = r
                 except Exception as e:
                     result[node_id] = e
                     cli_logger.error("Terminate node {} failed: {}", node_id, str(e))
+                else:
+                    result[node_id] = r
         return result
 
     def get_node_info(self, node_id):

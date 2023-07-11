@@ -1,3 +1,4 @@
+import concurrent.futures
 import copy
 import json
 import logging
@@ -6,9 +7,10 @@ import subprocess
 import uuid
 from threading import RLock
 from types import ModuleType
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 from cloudtik.core._private.call_context import CallContext
+from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.command_executor.docker_command_executor import DockerCommandExecutor
 from cloudtik.core._private.core_utils import get_memory_in_bytes
 from cloudtik.core._private.state.file_state_store import FileStateStore
@@ -43,6 +45,11 @@ INSPECT_FORMAT = (
     '"cpus":{{json .HostConfig.NanoCpus}},'
     '"memory":{{json .HostConfig.Memory}},'
     '"binds":{{json .HostConfig.Binds}}'
+    '}')
+
+INSPECT_FORMAT_FOR_EXIST = (
+    '{'
+    '"name":{{json .Name}}'
     '}')
 
 
@@ -154,7 +161,7 @@ class VirtualContainerScheduler:
 
         # shared scheduler container for common operations
         self.scheduler_executor = self._get_scheduler_executor(
-            None, docker_config=self.docker_config)
+            self.call_context, None, docker_config=self.docker_config)
 
         # Use state only for cluster cases because the state is per cluster state
         if self.cluster_name:
@@ -170,15 +177,44 @@ class VirtualContainerScheduler:
         else:
             self.state = None
 
+    def _create_node(
+            self, call_context: CallContext, node_config, tags):
+        return self._start_container(call_context, node_config, tags)
+
     def create_node(self, node_config, tags, count):
         # We should not lock here
-        launched = 0
-        while launched < count:
-            # create one container
-            self._start_container(node_config, tags)
-            launched = launched + 1
-            if count == launched:
-                return
+        if count <= 0:
+            return
+
+        if count == 1:
+            self._create_node(self.call_context, node_config, tags)
+            return
+
+        # for multi-thread executing of SSH command, we need a new call context
+        # whose output is redirected
+        call_context = self.call_context.new_call_context()
+        call_context.set_output_redirected(True)
+        call_context.set_allow_interactive(False)
+
+        launched_nodes = {}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            indices = range(count)
+            futures = {}
+            for index in indices:
+                futures[index] = executor.submit(
+                    self._create_node,
+                    call_context=call_context.new_call_context(),
+                    node_config=node_config,
+                    tags=tags)
+
+            for index, future in futures.items():
+                try:
+                    node_id = future.result()
+                    launched_nodes[index] = node_id
+                except Exception as e:
+                    cli_logger.error("Create node {} failed: {}", index, str(e))
+
+        launched = len(launched_nodes)
         if launched < count:
             raise RuntimeError(
                 "No enough free nodes. {} nodes requested / {} launched.".format(
@@ -240,10 +276,14 @@ class VirtualContainerScheduler:
 
     def terminate_node(self, node_id):
         # We shall not lock here
+        self._terminate_node(self.call_context, node_id)
+
+    def _terminate_node(
+            self, call_context: CallContext, node_id):
         with self.lock:
             node = self._get_cached_node(node_id)
 
-        self._stop_container(node_id, node)
+        self._stop_container(call_context, node_id, node)
 
         # shall we remove the node from cached node
         # the cached node list will be refreshed at next non_terminated_nodes
@@ -252,6 +292,34 @@ class VirtualContainerScheduler:
         # with self.lock:
         #   node = self._get_cached_node(node_id)
         #   node["state"] = "terminated"
+
+    def terminate_nodes(self, node_ids: List[str]):
+        if not node_ids:
+            return None
+
+        # for multi-thread executing of SSH command, we need a new call context
+        # whose output is redirected
+        call_context = self.call_context.new_call_context()
+        call_context.set_output_redirected(True)
+        call_context.set_allow_interactive(False)
+
+        result = {}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {}
+            for node_id in node_ids:
+                futures[node_id] = executor.submit(
+                    self._terminate_node,
+                    call_context=call_context.new_call_context(),
+                    node_id=node_id)
+
+            for node_id, future in futures.items():
+                try:
+                    r = future.result()
+                    result[node_id] = r
+                except Exception as e:
+                    result[node_id] = e
+                    cli_logger.error("Terminate node {} failed: {}", node_id, str(e))
+        return result
 
     def get_node_info(self, node_id):
         with self.lock:
@@ -320,7 +388,8 @@ class VirtualContainerScheduler:
             virtual_scheduler_lock_path,
             virtual_scheduler_state_path)
 
-    def _get_scheduler_executor(self, container_name, docker_config):
+    def _get_scheduler_executor(
+            self, call_context: CallContext, container_name, docker_config):
         log_prefix = "ContainerScheduler: "
         if self.cluster_name:
             log_prefix = log_prefix + "{}: ".format(self.cluster_name)
@@ -330,7 +399,7 @@ class VirtualContainerScheduler:
         # both for working node and head node
         auth_config = self.provider_config.get(AUTH_CONFIG_KEY, {})
         return self.get_command_executor(
-            self.call_context,
+            call_context,
             log_prefix=log_prefix,
             node_id=container_name,
             auth_config=auth_config,
@@ -340,11 +409,11 @@ class VirtualContainerScheduler:
             docker_config=docker_config,
         )
 
-    def _get_new_container_name(self):
+    def _get_new_container_name(self, scheduler_executor):
         retry = 0
         while retry < MAX_CONTAINER_NAME_RETRIES:
             container_name = self._get_random_container_name()
-            if not self._is_container_exists(container_name):
+            if not self._is_container_exists(scheduler_executor, container_name):
                 return container_name
             retry += 1
 
@@ -421,8 +490,11 @@ class VirtualContainerScheduler:
 
         return file_mounts
 
-    def _start_container(self, node_config, tags):
-        container_name = self._get_new_container_name()
+    def _start_container(
+            self, call_context: CallContext, node_config, tags):
+        anonymous_scheduler_executor = self._get_scheduler_executor(
+            call_context, None, docker_config=self.docker_config)
+        container_name = self._get_new_container_name(anonymous_scheduler_executor)
 
         # check CLOUDTIK_TAG_NODE_KIND: NODE_KIND_HEAD tag for head
         is_head_node = is_head_node_by_tags(tags)
@@ -452,7 +524,7 @@ class VirtualContainerScheduler:
         self._set_container_resources(node_config, docker_config)
 
         scheduler_executor = self._get_scheduler_executor(
-            container_name, docker_config=docker_config)
+            call_context, container_name, docker_config=docker_config)
 
         file_mounts = self._setup_docker_file_mounts(
             node_config, scheduler_executor)
@@ -461,6 +533,7 @@ class VirtualContainerScheduler:
             as_head=is_head_node,
             file_mounts=file_mounts,
             shared_memory_ratio=shared_memory_ratio)
+        return container_name
 
     def _get_cached_node(self, node_id: str):
         if node_id in self.cached_nodes:
@@ -482,14 +555,39 @@ class VirtualContainerScheduler:
             node["tags"] = tags
             return node
 
-    def _is_container_exists(self, container_name):
+    def _is_container_exists(self, scheduler_executor, container_name):
         # try cache first
-        if container_name in self.cached_nodes:
-            return True
+        with self.lock:
+            if container_name in self.cached_nodes:
+                return True
 
         # try getting the container
-        container = self._get_container(container_name)
-        return True if container else False
+        return self._check_container_exist(
+            scheduler_executor, container_name)
+
+    @staticmethod
+    def _check_container_exist(scheduler_executor, container_name):
+        output = scheduler_executor.run_docker_cmd(
+            "inspect --format='" + INSPECT_FORMAT_FOR_EXIST + "' " + container_name + " || true")
+        if not output:
+            return False
+        if output.startswith("Error: No such object:"):
+            return False
+
+        try:
+            container_object = json.loads(output)
+        except Exception as e:
+            return False
+
+        name = container_object.get("name")
+        if not name:
+            return False
+
+        if name.startswith("/"):
+            name = name[1:]
+        if name != container_name:
+            return False
+        return True
 
     def _get_container(self, container_name):
         output = self.scheduler_executor.run_docker_cmd(
@@ -500,9 +598,10 @@ class VirtualContainerScheduler:
             return None
         return self._load_container(output)
 
-    def _stop_container(self, container_name, container):
+    def _stop_container(
+            self, call_context: CallContext, container_name, container):
         scheduler_executor = self._get_scheduler_executor(
-            container_name, docker_config=self.docker_config)
+            call_context, container_name, docker_config=self.docker_config)
         scheduler_executor.stop_container()
 
         delete_on_termination = self.provider_config.get(

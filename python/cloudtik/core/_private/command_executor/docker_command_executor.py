@@ -298,7 +298,7 @@ class DockerCommandExecutor(CommandExecutor):
                 specific_image, cleaned_bind_mounts)
             if requires_re_init:
                 self.run_with_retry(
-                    "{} stop {} > /dev/null".format(
+                    "{} stop {} > /dev/null || true".format(
                         self.get_docker_cmd(), self.container_name),
                     run_env="host")
 
@@ -399,12 +399,10 @@ class DockerCommandExecutor(CommandExecutor):
 
     def run_terminate(self):
         """Stop the container if it is running"""
-        container_running = self._check_container_status()
-        if container_running:
-            self.run_with_retry(
-                "{} stop {} > /dev/null".format(
-                    self.get_docker_cmd(), self.container_name),
-                run_env="host")
+        self.run_with_retry(
+            "{} stop {} > /dev/null || true".format(
+                self.get_docker_cmd(), self.container_name),
+            run_env="host")
         self.initialized = False
 
     def bootstrap_data_disks(self) -> None:

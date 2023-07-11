@@ -47,7 +47,7 @@ INSPECT_FORMAT = (
     '"binds":{{json .HostConfig.Binds}}'
     '}')
 
-INSPECT_FORMAT_FOR_EXISTENCE = (
+INSPECT_FORMAT_FOR_EXIST = (
     '{'
     '"name":{{json .Name}}'
     '}')
@@ -568,7 +568,7 @@ class VirtualContainerScheduler:
     @staticmethod
     def _check_container_exist(scheduler_executor, container_name):
         output = scheduler_executor.run_docker_cmd(
-            "inspect --format='" + INSPECT_FORMAT_FOR_EXISTENCE + "' " + container_name + " || true")
+            "inspect --format='" + INSPECT_FORMAT_FOR_EXIST + "' " + container_name + " || true")
         if not output:
             return False
         if output.startswith("Error: No such object:"):

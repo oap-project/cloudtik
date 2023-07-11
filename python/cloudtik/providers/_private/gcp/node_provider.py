@@ -198,10 +198,23 @@ class GCPNodeProvider(NodeProvider):
         if not node_ids:
             return None
 
+        result = {}
         with self.lock, concurrent.futures.ThreadPoolExecutor() as executor:
-            result = executor.map(self._terminate_node, node_ids)
+            futures = {}
+            for node_id in node_ids:
+                futures[node_id] = executor.submit(
+                    self._terminate_node,
+                    node_id=node_id)
 
-        return list(result)
+            for node_id, future in futures.items():
+                try:
+                    r = future.result()
+                except Exception as e:
+                    result[node_id] = e
+                    cli_logger.error("Terminate node {} failed: {}", node_id, str(e))
+                else:
+                    result[node_id] = r
+        return result
 
     @_retry
     def _get_node(self, node_id: str) -> GCPNode:

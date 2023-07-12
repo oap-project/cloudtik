@@ -64,16 +64,21 @@ class OptimizedTrainingLauncher(DefaultTrainingLauncher):
             # for local single node
             cpuinfo = self.cpuinfo
         else:
-            # use master address for getting cpu info
-            cpuinfo = CPUinfo(host_ip=args.master_addr)
+            # use any worker address for getting cpu info
+            worker_addr = self.get_master_addr(args)
+            cpuinfo = CPUinfo(host_ip=worker_addr)
+
+        self.distributor.resolve(cpuinfo.sockets())
+
+        # call super set_environment to make sure other things are set
+        # since the distributor already resolved, it will not resolve twice
+        super().set_environment()
 
         node_cores = cpuinfo.node_physical_cores
         total_cores_per_node = cpuinfo.physical_cores()
         if args.use_logical_core:
             node_cores = cpuinfo.node_logical_cores
             total_cores_per_node = cpuinfo.logical_cores()
-
-        self.distributor.resolve(cpuinfo.sockets())
 
         nproc_per_node = self.distributor.nproc_per_node
 

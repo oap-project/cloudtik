@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 
+from cloudtik.runtime.ai.runner import get_cloudtik_rsh
 from cloudtik.runtime.ai.runner.util import utils
 from cloudtik.runtime.ai.runner.cpu.launcher import CPULauncher
 from cloudtik.runtime.ai.runner.distributed_training_launcher import DistributedTrainingLauncher
@@ -55,10 +56,6 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
         env = os.environ.copy()
         env_list = ' '.join(
             '-x %s' % key for key in sorted(env.keys()) if utils.is_exportable(key))
-
-        def get_cloudtik_rsh():
-            runtime_home = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-            return os.path.join(runtime_home, "scripts", "cloudtik-rsh.sh")
 
         extra_mpi_args = args.mpi_args
         if self.distributor.distributed and (not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
@@ -117,10 +114,6 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
             mpi_config += " -hosts {}".format(self.distributor.hosts_str)
             # Unified to pass by hosts instead of hostfile
             # mpi_config += " -hostfile {}".format(hostfile)
-
-        def get_cloudtik_rsh():
-            runtime_home = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-            return os.path.join(runtime_home, "scripts", "cloudtik-rsh.sh")
 
         # only add this for remote training
         if self.distributor.distributed:

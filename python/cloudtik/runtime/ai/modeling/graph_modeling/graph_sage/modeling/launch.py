@@ -31,12 +31,9 @@ from functools import partial
 from threading import Thread
 from typing import Optional
 
-
-# CloudTik: patch start
-from shlex import quote
+from cloudtik.runtime.ai.runner import get_cloudtik_exec
 
 SSH_COMMAND_PREFIX = 'ssh -o PasswordAuthentication=no -o StrictHostKeyChecking=no'
-CLOUDTIK_COMMAND_PREFIX = 'cloudtik head exec'
 
 
 def get_ssh_command(local_command, host, port=None, identity_file=None, timeout_s=None):
@@ -46,15 +43,10 @@ def get_ssh_command(local_command, host, port=None, identity_file=None, timeout_
     return f'{SSH_COMMAND_PREFIX} {host} {port_arg} {identity_file_arg} {timeout_arg} {local_command}'
 
 
-def get_cloudtik_ssh_command(local_command, host):
-    final_command = quote(local_command)
-    return f'{CLOUDTIK_COMMAND_PREFIX} {final_command} --node-ip={host}'
-
-
 def get_remote_command(local_command, host,
                        use_ssh=False, port=None, identity_file=None, timeout_s=None):
     return get_ssh_command(local_command, host, port, identity_file, timeout_s) if use_ssh \
-        else get_cloudtik_ssh_command(local_command, host)
+        else get_cloudtik_exec(local_command, host)
 
 
 def get_local_num_omp_threads(num_omp_threads, num_workers):

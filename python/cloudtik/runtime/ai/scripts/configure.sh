@@ -140,13 +140,6 @@ function patch_libraries() {
     if [ -f "${MLFLOW_AZURE_DATA_LAKE_ARTIFACT_REPO_FILE}" ]; then
         cp $output_dir/mlflow_store_artifact_azure_data_lake_artifact_repo.py.patch ${MLFLOW_AZURE_DATA_LAKE_ARTIFACT_REPO_FILE}
     fi
-
-    # Patch IPEX for integration
-    IPEX_PYTHON_HOME="${ROOT_DIR}/../../intel_extension_for_pytorch"
-    IPEX_CPU_LAUCNH_FILE="${IPEX_PYTHON_HOME}/cpu/launch.py"
-    if [ -f "${IPEX_CPU_LAUCNH_FILE}" ]; then
-        cp $output_dir/ipex_cpu_launch.py.patch ${IPEX_CPU_LAUCNH_FILE}
-    fi
 }
 
 function prepare_database_schema() {

@@ -1,7 +1,6 @@
 import logging
 import os
 import subprocess
-import sys
 
 from cloudtik.runtime.ai.runner.cpu.launcher import CPULauncher
 from cloudtik.runtime.ai.runner.util.utils import is_python_program
@@ -9,9 +8,9 @@ from cloudtik.runtime.ai.runner.util.utils import is_python_program
 logger = logging.getLogger(__name__)
 
 
-class MultiInstanceLauncher(CPULauncher):
+class LocalLauncher(CPULauncher):
     r"""
-     Launcher for single instance and multi-instance
+     Launcher for one or more instance on local machine
      """
 
     def __init__(self, args, distributor):
@@ -50,11 +49,9 @@ class MultiInstanceLauncher(CPULauncher):
                     cores = self.cpuinfo.get_node_physical_cores(args.node_id)
                 else:
                     cores = self.cpuinfo.get_all_physical_cores()
-            if not args.multi_instance and args.ninstances == -1 and args.ncore_per_instance == -1:
+            if args.ninstances == -1 and args.ncore_per_instance == -1:
                 args.ninstances = 1
                 args.ncore_per_instance = len(cores)
-            elif args.multi_instance and args.ninstances == -1 and args.ncore_per_instance == -1:
-                args.throughput_mode = True
             elif args.ncore_per_instance == -1 and args.ninstances != -1:
                 if args.ninstances > len(cores):
                     logger.error(

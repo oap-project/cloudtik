@@ -1,8 +1,6 @@
 import logging
-import sys
 
 from cloudtik.runtime.ai.runner.distributed_training_launcher import DistributedTrainingLauncher
-from cloudtik.runtime.ai.runner.util.utils import is_python_program
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +32,12 @@ class HorovodTrainingLauncher(DistributedTrainingLauncher):
         hargs.num_proc = self.distributor.num_proc
         hargs.hosts = self.distributor.hosts_slots_str
 
+        hargs.verbose = args.verbose
         hargs.mpi_args = args.mpi_args
         hargs.use_mpi = args.use_mpi
         hargs.use_gloo = args.use_gloo
         hargs.nics = args.nics
         hargs.output_filename = args.output_filename
-        hargs.verbose = args.verbose
 
         if args.run_func:
             hargs.run_func = args.run_func

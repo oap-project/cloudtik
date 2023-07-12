@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 
 from cloudtik.runtime.ai.runner.launcher import Launcher
 
@@ -19,28 +18,33 @@ class DistributedTrainingLauncher(Launcher):
         """
         Set ENVs and launch process for distributed training by calling run with command
         """
-        self.set_master()
         self.set_environment()
         self.run()
-
-    def set_master(self):
-        args = self.args
-
-        if self.distributor.distributed:
-            if not args.master_addr or args.master_addr == "127.0.0.1":
-                args.master_addr = self.distributor.hosts[0]["ip"]
-        else:
-            if not args.master_addr:
-                args.master_addr = "127.0.0.1"
-
-        # set distributed related environmental variables
-        # This is only necessary for pytorch based distributed training
-        self.set_env("MASTER_ADDR", args.master_addr)
-        self.set_env("MASTER_PORT", str(args.master_port))
 
     def set_environment(self):
         # we default to run single proc per node if not specified
         self.distributor.resolve()
+        self.set_master()
+
+    def get_master_addr(self, args):
+        if self.distributor.distributed:
+            if args.master_addr and args.master_addr != "127.0.0.1":
+                return args.master_addr
+            return self.distributor.hosts[0]["ip"]
+        else:
+            if args.master_addr:
+                return args.master_addr
+            return "127.0.0.1"
+
+    def set_master(self):
+        args = self.args
+        args.master_addr = self.get_master_addr(args)
+
+        # set distributed related environmental variables
+        # This is only necessary for pytorch based distributed training
+        # But other distributed launcher such as Horovod may also need this
+        self.set_env("MASTER_ADDR", args.master_addr)
+        self.set_env("MASTER_PORT", str(args.master_port))
 
     def get_command_to_run(self):
         args = self.args

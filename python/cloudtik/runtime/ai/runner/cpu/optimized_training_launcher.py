@@ -64,8 +64,9 @@ class OptimizedTrainingLauncher(DefaultTrainingLauncher):
             # for local single node
             cpuinfo = self.cpuinfo
         else:
-            # use master address for getting cpu info
-            cpuinfo = CPUinfo(host_ip=args.master_addr)
+            # use any worker address for getting cpu info
+            worker_addr = self.get_master_addr(args)
+            cpuinfo = CPUinfo(host_ip=worker_addr)
 
         self.distributor.resolve(cpuinfo.sockets())
 

@@ -104,6 +104,9 @@ def _sum_of_host_slots(normalized_hosts, validate = True):
 
 
 def _normalize_host_slots(normalized_hosts, nproc_per_node, force=False):
+    if not normalized_hosts:
+        return
+
     if force:
         for normalized_host in normalized_hosts:
             normalized_host["slots"] = nproc_per_node

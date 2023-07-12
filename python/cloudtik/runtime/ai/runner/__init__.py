@@ -44,7 +44,7 @@ class _LaunchArgs(object):
         self.log_file_prefix = None
         self.verbose = None
 
-        # Pytorch DPP
+        # Pytorch DDP
         self.master_addr = "127.0.0.1"
         self.master_port = 29500
 

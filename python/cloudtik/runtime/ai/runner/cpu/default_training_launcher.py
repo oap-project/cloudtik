@@ -27,15 +27,19 @@ class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
         super().set_environment()
         self.set_master()
 
+    def get_master_addr(self, args):
+        if self.distributor.distributed:
+            if args.master_addr and args.master_addr != "127.0.0.1":
+                return args.master_addr
+            return self.distributor.hosts[0]["ip"]
+        else:
+            if args.master_addr:
+                return args.master_addr
+            return "127.0.0.1"
+
     def set_master(self):
         args = self.args
-
-        if self.distributor.distributed:
-            if not args.master_addr or args.master_addr == "127.0.0.1":
-                args.master_addr = self.distributor.hosts[0]["ip"]
-        else:
-            if not args.master_addr:
-                args.master_addr = "127.0.0.1"
+        args.master_addr = self.get_master_addr(args)
 
         # set distributed related environmental variables
         # This is only necessary for pytorch based distributed training

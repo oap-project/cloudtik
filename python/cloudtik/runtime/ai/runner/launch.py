@@ -168,11 +168,12 @@ def add_memory_allocator_params(parser):
 
 
 def add_local_launcher_params(parser):
-    group = parser.add_argument_group("Multi-instance Parameters")
+    group = parser.add_argument_group("Local Instance Launching Parameters")
     # instances control
     group.add_argument("--ninstances",
                        default=-1, type=int,
-                       help="For multiple instances, you should give the cores number you used for per instance.")
+                       help="The number of instances to run local. "
+                            "You should give the cores number you used for per instance.")
     group.add_argument("--ncore-per-instance", "--ncore_per_instance",
                        default=-1, type=int,
                        help="Cores per instance")
@@ -191,7 +192,7 @@ def add_local_launcher_params(parser):
                        help="By default one instance per node and use all physical cores")
     group.add_argument("--node-id", "--node_id",
                        default=-1, type=int,
-                       help="node id for multiple instances, by default all nodes will be used")
+                       help="node id for the current instance, by default all nodes will be used")
     group.add_argument("--disable-numactl", "--disable_numactl",
                        action='store_true', default=False,
                        help="Disable numactl")

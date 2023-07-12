@@ -94,7 +94,7 @@ for well-improved multi-node distributed training performance as well.
 
 ::
 
-    >>> cloudtik-ai-run --distributed --nproc_per_node=xxx
+    >>> cloudtik-ai-run --nproc_per_node=xxx
                --nnodes=2 --hosts ip1,ip2 python_sript --arg1 --arg2 --arg3
                and all other arguments of your training script)
 """
@@ -307,7 +307,7 @@ def parse_args():
                     "\n3. Single-Node multi-process distributed training\n"
                     "\n    >>> cloudtik-ai-run --distributed  python_script args\n"
                     "\n4. Multi-Node multi-process distributed training: (e.g. two nodes)\n"
-                    "\n   >>> cloudtik-ai-run --distributed --nproc_per_node=2\n"
+                    "\n   >>> cloudtik-ai-run --nproc_per_node=2\n"
                     "\n       --nnodes=2 --hosts ip1,ip2 python_script args\n"
                     "\n############################################################################# \n",
                     formatter_class=RawTextHelpFormatter)

@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 
 from cloudtik.runtime.ai.runner.launcher import Launcher
 
@@ -19,24 +18,8 @@ class DistributedTrainingLauncher(Launcher):
         """
         Set ENVs and launch process for distributed training by calling run with command
         """
-        self.set_master()
         self.set_environment()
         self.run()
-
-    def set_master(self):
-        args = self.args
-
-        if self.distributor.distributed:
-            if not args.master_addr or args.master_addr == "127.0.0.1":
-                args.master_addr = self.distributor.hosts[0]["ip"]
-        else:
-            if not args.master_addr:
-                args.master_addr = "127.0.0.1"
-
-        # set distributed related environmental variables
-        # This is only necessary for pytorch based distributed training
-        self.set_env("MASTER_ADDR", args.master_addr)
-        self.set_env("MASTER_PORT", str(args.master_port))
 
     def set_environment(self):
         # we default to run single proc per node if not specified

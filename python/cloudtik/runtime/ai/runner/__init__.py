@@ -1,3 +1,19 @@
+import os
+from shlex import quote
+
+CLOUDTIK_COMMAND_PREFIX = 'cloudtik head exec'
+
+
+def get_cloudtik_exec(local_command, host):
+    final_command = quote(local_command)
+    return f'{CLOUDTIK_COMMAND_PREFIX} {final_command} --node-ip={host}'
+
+
+def get_cloudtik_rsh():
+    runtime_home = os.path.dirname(os.path.dirname(__file__))
+    return os.path.join(runtime_home, "scripts", "cloudtik-rsh.sh")
+
+
 class _LaunchArgs(object):
     def __init__(self):
         self.command = None
@@ -18,21 +34,19 @@ class _LaunchArgs(object):
         self.hosts = None
         self.hostfile = None
 
-        self.master_addr = "127.0.0.1"
-        self.master_port = 29500
-
-        self.nics = None
-        self.verbose = None
-        self.output_filename = None
-
-        # control flags
-        self.multi_instance = False
         self.distributed = False
         self.launcher = None
+
+        # control flags
         self.module = False
         self.no_python = False
         self.log_path = None
         self.log_file_prefix = None
+        self.verbose = None
+
+        # Pytorch DPP
+        self.master_addr = "127.0.0.1"
+        self.master_port = 29500
 
         # library arguments
         # MPI
@@ -53,6 +67,8 @@ class _LaunchArgs(object):
         # Horovod controller arguments
         self.use_gloo = None
         self.use_mpi = None
+        self.nics = None
+        self.output_filename = None
 
 
 def run(
@@ -64,13 +80,13 @@ def run(
         nproc_per_node=None,
         hosts=None,
         hostfile=None,
-        output_filename=None,
+        executable=None,
         verbose=None,
+        mpi_args=None,
         use_gloo=None,
         use_mpi=None,
-        mpi_args=None,
         network_interfaces=None,
-        executable=None,
+        output_filename=None,
        ):
     """
     Launch a job to run the specified process function and get the return value.
@@ -90,18 +106,18 @@ def run(
     :param hostfile: Path to a host file containing the list of host names and the number of
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
+    :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
+    :param verbose: If this flag is set, extra messages will be printed.
+    :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
+    :param use_gloo: Run using the Gloo
+    :param use_mpi: Run using the MPI
+    :param network_interfaces: List of network interfaces to use for communication. If not specified,
+                               Horovod will find the common NICs among all the workers.
+                               Example: ["eth0", "eth1"].
     :param output_filename: For Gloo, writes stdout / stderr of all processes to a filename of the form
                             <output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0
                             characters to ensure lexicographical order.
                             For MPI, delegates its behavior to mpirun.
-    :param verbose: If this flag is set, extra messages will be printed.
-    :param use_gloo: Run using the Gloo
-    :param use_mpi: Run using the MPI
-    :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
-    :param network_interfaces: List of network interfaces to use for communication. If not specified,
-                               Horovod will find the common NICs among all the workers.
-                               Example: ["eth0", "eth1"].
-    :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
     :return: Return a list which contains values return by all processes.
              The index of the list corresponds to the rank of each process.
              Returns only the first min_num_proc results, if set.
@@ -122,20 +138,20 @@ def run(
 
     largs = _LaunchArgs()
 
+    largs.run_func = wrapped_func
+    largs.executable = executable
     largs.num_proc = num_proc
     largs.nnodes = nnodes
     largs.nproc_per_node = nproc_per_node
     largs.hosts = hosts
     largs.hostfile = hostfile
     largs.launcher = "horovod"
-    largs.mpi_args = mpi_args
-    largs.output_filename = output_filename
     largs.verbose = verbose
+    largs.mpi_args = mpi_args
     largs.use_gloo = use_gloo
     largs.use_mpi = use_mpi
     largs.nics = set(network_interfaces) if network_interfaces else None
-    largs.run_func = wrapped_func
-    largs.executable = executable
+    largs.output_filename = output_filename
 
     return _run(largs)
 
@@ -148,12 +164,12 @@ def run_command(
         hosts=None,
         hostfile=None,
         launcher=None,
-        output_filename=None,
         verbose=None,
+        mpi_args=None,
         use_gloo=None,
         use_mpi=None,
-        mpi_args=None,
-        network_interfaces=None
+        network_interfaces=None,
+        output_filename=None,
        ):
     """
     Launch command to run the specified process function and get the return value.
@@ -170,17 +186,17 @@ def run_command(
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
     :param launcher: The launcher to use. Valid launchers are "default", "optimized", "horovod"
-    :param output_filename: For Gloo, writes stdout / stderr of all processes to a filename of the form
-                            <output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0
-                            characters to ensure lexicographical order.
-                            For MPI, delegates its behavior to mpirun.
     :param verbose: If this flag is set, extra messages will be printed.
+    :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
     :param use_gloo: Run using the Gloo
     :param use_mpi: Run using the MPI
-    :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
     :param network_interfaces: List of network interfaces to use for communication. If not specified,
                                Horovod will find the common NICs among all the workers.
                                Example: ["eth0", "eth1"].
+    :param output_filename: For Gloo, writes stdout / stderr of all processes to a filename of the form
+                        <output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0
+                        characters to ensure lexicographical order.
+                        For MPI, delegates its behavior to mpirun.
     :return: None
     """
     from cloudtik.runtime.ai.runner.launch import _run
@@ -193,18 +209,18 @@ def run_command(
 
     largs = _LaunchArgs()
 
+    largs.command = command
     largs.num_proc = num_proc
     largs.nnodes = nnodes
     largs.nproc_per_node = nproc_per_node
     largs.hosts = hosts
     largs.hostfile = hostfile
     largs.launcher = launcher
-    largs.mpi_args = mpi_args
-    largs.output_filename = output_filename
     largs.verbose = verbose
+    largs.mpi_args = mpi_args
     largs.use_gloo = use_gloo
     largs.use_mpi = use_mpi
     largs.nics = set(network_interfaces) if network_interfaces else None
-    largs.command = command
+    largs.output_filename = output_filename
 
     return _run(largs)

@@ -3,7 +3,7 @@ import glob
 import logging
 import os
 import platform
-from argparse import ArgumentParser, REMAINDER
+from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 
@@ -12,17 +12,18 @@ from cloudtik.runtime.ai.runner.util.distributor import Distributor
 logger = logging.getLogger(__name__)
 
 r"""
-This is a script for launching PyTorch training and inference on Intel Xeon CPU with optimal configurations.
-Now, single instance inference/training, multi-instance inference/training and distributed training
-with oneCCL backend is enabled.
+This is a launch program for launching local or distributed training and inference program.
 
-To get the peak performance on Intel Xeon CPU, the script optimizes the configuration of thread and memory
+This launch program can wrapper different launch methods and provide a abstracted view of launching
+python program.
+
+For the launching on CPU clusters, the script optimizes the configuration of thread and memory
 management. For thread management, the script configures thread affinity and the preload of Intel OMP library.
 For memory management, it configures NUMA binding and preload optimized memory allocation library (e.g. tcmalloc, jemalloc).
 
 **How to use this module:**
 
-*** Single instance inference/training ***
+*** Local single-instance inference/training ***
 
 1. Run single-instance inference or training on a single node with all CPU nodes.
 
@@ -36,11 +37,11 @@ For memory management, it configures NUMA binding and preload optimized memory a
 
    >>> cloudtik-ai-run --node_id 1 script.py args
 
-*** Multi-instance inference ***
+*** Local multi-instance inference ***
 
 1. Multi-instance
    By default, one instance per node. if you want to set the instance numbers and core per instance,
-   --ninstances and  --ncore_per_instance should be set.
+   --ninstances and --ncore_per_instance should be set.
 
 
    >>> cloudtik-ai-run -- python_script args
@@ -48,7 +49,7 @@ For memory management, it configures NUMA binding and preload optimized memory a
    eg: on CLX8280 with 14 instance, 4 cores per instance
 ::
 
-   >>> cloudtik-ai-run  --ninstances 14 --ncore_per_instance 4 python_script args
+   >>> cloudtik-ai-run --ninstances 14 --ncore_per_instance 4 python_script args
 
 2. Run single-instance inference among multiple instances.
    By default, runs all ninstances. If you want to independently run a single instance among ninstances, specify instance_idx.
@@ -56,17 +57,17 @@ For memory management, it configures NUMA binding and preload optimized memory a
    eg: run 0th instance among SKX with 2 instance (i.e., numactl -C 0-27)
 ::
 
-   >>> cloudtik-ai-run  --ninstances 2 --instance_idx 0 python_script args
+   >>> cloudtik-ai-run --ninstances 2 --instance_idx 0 python_script args
 
    eg: run 1st instance among SKX with 2 instance (i.e., numactl -C 28-55)
 ::
 
-   >>> cloudtik-ai-run  --ninstances 2 --instance_idx 1 python_script args
+   >>> cloudtik-ai-run --ninstances 2 --instance_idx 1 python_script args
 
    eg: run 0th instance among SKX with 2 instance, 2 cores per instance, first four cores (i.e., numactl -C 0-1)
 ::
 
-   >>> cloudtik-ai-run  --core_list "0, 1, 2, 3" --ninstances 2 --ncore_per_instance 2 --instance_idx 0 python_script args
+   >>> cloudtik-ai-run --core_list "0, 1, 2, 3" --ninstances 2 --ncore_per_instance 2 --instance_idx 0 python_script args
 
 *** Distributed Training ***
 
@@ -91,26 +92,11 @@ for well-improved multi-node distributed training performance as well.
 
 2. Multi-Node multi-process distributed training: (e.g. two nodes)
 
-
-rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*
-
 ::
 
     >>> cloudtik-ai-run --distributed --nproc_per_node=xxx
-               --nnodes=2 --hostfile hostfile python_sript --arg1 --arg2 --arg3
+               --nnodes=2 --hosts ip1,ip2 python_sript --arg1 --arg2 --arg3
                and all other arguments of your training script)
-
-
-3. To look up what optional arguments this module offers:
-
-::
-
-    >>> cloudtik-ai-run --help
-
-*** Memory allocator  ***
-
-"--enable_tcmalloc" and "--enable_jemalloc" can be used to enable different memory allocator.
-
 """
 
 
@@ -181,12 +167,12 @@ def add_memory_allocator_params(parser):
                        help="Use default memory allocator")
 
 
-def add_multi_instance_params(parser):
+def add_local_launcher_params(parser):
     group = parser.add_argument_group("Multi-instance Parameters")
-    # multi-instance control
+    # instances control
     group.add_argument("--ninstances",
                        default=-1, type=int,
-                       help="For multi-instance, you should give the cores number you used for per instance.")
+                       help="For multiple instances, you should give the cores number you used for per instance.")
     group.add_argument("--ncore-per-instance", "--ncore_per_instance",
                        default=-1, type=int,
                        help="Cores per instance")
@@ -205,7 +191,7 @@ def add_multi_instance_params(parser):
                        help="By default one instance per node and use all physical cores")
     group.add_argument("--node-id", "--node_id",
                        default=-1, type=int,
-                       help="node id for multi-instance, by default all nodes will be used")
+                       help="node id for multiple instances, by default all nodes will be used")
     group.add_argument("--disable-numactl", "--disable_numactl",
                        action='store_true', default=False,
                        help="Disable numactl")
@@ -311,30 +297,19 @@ def parse_args():
     @retval ArgumentParser
     """
     parser = ArgumentParser(
-        description="This is a script for launching PyTorch training and inference on Intel Xeon CPU "
-                    "with optimal configurations. Now, single instance inference/training, multi-instance "
-                    "inference/training and distributed training with oneCCL backend is enabled. "
-                    "To get the peak performance on Intel Xeon CPU, the script optimizes the configuration "
-                    "of thread and memory management. For thread management, the script configures thread "
-                    "affinity and the preload of Intel OMP library. For memory management, it configures "
-                    "NUMA binding and preload optimized memory allocation library (e.g. tcmalloc, jemalloc) "
+        description="This is a program for launching local or distributed training and inference."
                     "\n################################# Basic usage ############################# \n"
-                    "\n 1. single instance\n"
+                    "\n1. Local single-instance training or inference\n"
                     "\n   >>> cloudtik-ai-run python_script args \n"
-                    "\n2. multi-instance \n"
-                    "\n    >>> cloudtik-ai-run --ninstances xxx --ncore_per_instance xx python_script args\n"
+                    "\n2. Local multi-instance inference \n"
+                    "\n    >>> cloudtik-ai-run --ninstances 2 --ncore_per_instance 8 python_script args\n"
                     "\n3. Single-Node multi-process distributed training\n"
                     "\n    >>> cloudtik-ai-run --distributed  python_script args\n"
                     "\n4. Multi-Node multi-process distributed training: (e.g. two nodes)\n"
-                    "\n   rank 0: *(IP: 192.168.10.10, and has a free port: 295000)*\n"
                     "\n   >>> cloudtik-ai-run --distributed --nproc_per_node=2\n"
-                    "\n       --nnodes=2 --hostfile hostfile python_script args\n"
+                    "\n       --nnodes=2 --hosts ip1,ip2 python_script args\n"
                     "\n############################################################################# \n",
                     formatter_class=RawTextHelpFormatter)
-
-    parser.add_argument("--multi-instance", "--multi_instance",
-                        action='store_true', default=False,
-                        help="Enable multi-instance, by default one instance per node")
 
     parser.add_argument('--distributed',
                         action='store_true', default=False,
@@ -364,13 +339,12 @@ def parse_args():
                         default=False, action='store_true',
                         help='If this flag is set, extra messages will be printed.')
 
+    add_distributed_training_params(parser)
+    add_local_launcher_params(parser)
+
     add_cpu_option_params(parser)
     add_memory_allocator_params(parser)
     add_kmp_iomp_params(parser)
-
-    add_distributed_training_params(parser)
-    add_multi_instance_params(parser)
-
     add_auto_ipex_params(parser)
 
     add_horovod_params(parser)
@@ -439,9 +413,6 @@ def _run(args):
     if distributor.distributed:
         args.distributed = True
 
-    if args.distributed and args.multi_instance:
-        raise RuntimeError("Either args.distributed or args.multi_instance should be set")
-
     if not args.distributed:
         if args.latency_mode and args.throughput_mode:
             raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
@@ -465,9 +436,9 @@ def _run(args):
                 import OptimizedTrainingLauncher
             launcher = OptimizedTrainingLauncher(args, distributor)
     else:
-        from cloudtik.runtime.ai.runner.cpu.multi_instance_launcher \
-            import MultiInstanceLauncher
-        launcher = MultiInstanceLauncher(args, distributor)
+        from cloudtik.runtime.ai.runner.cpu.local_launcher \
+            import LocalLauncher
+        launcher = LocalLauncher(args, distributor)
 
     launcher.launch()
 

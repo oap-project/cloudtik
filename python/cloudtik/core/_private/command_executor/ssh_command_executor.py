@@ -88,14 +88,24 @@ class SSHCommandExecutor(HostCommandExecutor):
         self.ssh_ip = ssh_ip
         self.ssh_port = ssh_port
         self.ssh_proxy_command = auth_config.get("ssh_proxy_command", None)
+        self.ssh_log_level = auth_config.get("ssh_log_level", None)
+        self.ssh_extra_options = self._get_extra_ssh_options()
         self.ssh_options = SSHOptions(
             self.call_context,
             self.ssh_private_key,
             ssh_port=self.ssh_port,
             control_path=self.ssh_control_path,
-            ProxyCommand=self.ssh_proxy_command)
+            **self.ssh_extra_options)
         if self.ssh_ip:
             self._init_ssh_control_path()
+
+    def _get_extra_ssh_options(self):
+        extra_ssh_options = {}
+        if self.ssh_proxy_command:
+            extra_ssh_options["ProxyCommand"] = self.ssh_proxy_command
+        if self.ssh_log_level:
+            extra_ssh_options["LogLevel"] = self.ssh_log_level
+        return extra_ssh_options
 
     def _set_ssh_ip_if_required(self):
         if self.ssh_ip is not None:
@@ -139,15 +149,10 @@ class SSHCommandExecutor(HostCommandExecutor):
         if shutdown_after_run:
             cmd, cmd_to_print = _with_shutdown(cmd, cmd_to_print)
         if ssh_options_override_ssh_key:
-            if self.ssh_proxy_command:
-                ssh_options = SSHOptions(
-                    self.call_context, ssh_options_override_ssh_key,
-                    ssh_port=self.ssh_port,
-                    ProxyCommand=self.ssh_proxy_command)
-            else:
-                ssh_options = SSHOptions(
-                    self.call_context, ssh_options_override_ssh_key,
-                    ssh_port=self.ssh_port)
+            ssh_options = SSHOptions(
+                self.call_context, ssh_options_override_ssh_key,
+                ssh_port=self.ssh_port,
+                **self.ssh_extra_options)
         else:
             ssh_options = self.ssh_options
 

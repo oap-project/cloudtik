@@ -18,11 +18,11 @@ import numpy as np
 
 
 class DataTransformer:
-    def __init__(self, df, steps, dp_engine):
+    def __init__(self, df, steps, data_api):
         self.df = df 
         self.steps = steps 
         self.tmp = {}
-        self.dp_engine = dp_engine 
+        self.data_api = data_api
 
     def transform(self):
         for step in self.steps:
@@ -114,16 +114,10 @@ class DataTransformer:
     
     def min_max_normalization(self, features):
         for old_feature, new_feature in features.items():
-            self.df[new_feature] = (self.df[old_feature] - self.df[old_feature].min())/(self.df[old_feature].max() -  self.df[old_feature].min())
+            self.df[new_feature] = (self.df[old_feature] - self.df[old_feature].min())/(self.df[old_feature].max() - self.df[old_feature].min())
          
     def one_hot_encoding(self, features):
-        if self.dp_engine == 'modin':
-            import modin.pandas as pd
-        elif self.dp_engine == 'pandas':
-            import pandas as pd            
-        else:
-            raise ValueError("only modin or pandas is accepted as dp_engine")
-        
+        pd = self.data_api.pandas()
         for feature, is_drop in features.items():
             self.df = pd.concat([self.df, pd.get_dummies(self.df[[feature]])], axis=1)
             if is_drop:
@@ -135,14 +129,21 @@ class DataTransformer:
                 self.df[new_feature] = self.df[old_feature].map(lambda x: str(x).split(sep))
 
     def multi_hot_encoding(self, features):
-        if self.dp_engine == 'modin':
-            import modin.pandas as pd
-        elif self.dp_engine == 'pandas':
-            import pandas as pd            
+        pd = self.data_api.pandas()
+        # TODO: It's critical that the API implementation should compatible
+        #   why the code needs to handle specially for explode, groupby, and column names?
+        if self.data_api.native:
+            for feature, is_drop in features.items():
+                exploded = self.df[feature].explode()
+                raw_one_hot = pd.get_dummies(exploded, columns=[feature])
+                tmp_df = raw_one_hot.groupby(raw_one_hot.index).sum()
+                self.df = pd.concat([self.df, tmp_df], axis=1)
+                col_names = self.df.columns
+                if '' in col_names or 'nan' in col_names:
+                    self.df.drop(columns=['', 'nan'], axis=1, inplace=True)
+                if is_drop:
+                    self.df.drop(columns=[feature], axis=1, inplace=True)
         else:
-            raise ValueError("only modin or pandas is accepted as dp_engine")
-
-        if self.dp_engine == 'modin':
             for feature, is_drop in features.items():
                 exploded = self.df[feature].explode().to_frame()
                 raw_one_hot = pd.get_dummies(exploded, columns=[feature])
@@ -155,32 +156,17 @@ class DataTransformer:
                     self.df.drop(columns=['', 'nan'], axis=1, inplace=True)
                 if is_drop: 
                     self.df.drop(columns=[feature], axis=1, inplace=True)
-        else: 
-            for feature, is_drop in features.items():
-                exploded = self.df[feature].explode()
-                raw_one_hot = pd.get_dummies(exploded, columns=[feature])
-                tmp_df = raw_one_hot.groupby(raw_one_hot.index).sum()
-                self.df = pd.concat([self.df, tmp_df], axis=1) 
-                col_names = self.df.columns 
-                if '' in col_names or 'nan' in col_names: 
-                    self.df.drop(columns=['', 'nan'], axis=1, inplace=True)
-                if is_drop: 
-                    self.df.drop(columns=[feature], axis=1, inplace=True)
     
     def add_constant_feature(self, features):
-        if self.dp_engine == 'modin':
-            import modin.pandas as pd
-        elif self.dp_engine == 'pandas':
-            import pandas as pd            
-        else:
-            raise ValueError("only modin or pandas is accepted as dp_engine")
-        
-        if self.dp_engine == 'modin':
-            for target_feature, const_value in features.items():
-                self.df[target_feature] = pd.Series(np.zeros(self.df.shape[0]), dtype=np.int8)
-        else:
+        pd = self.data_api.pandas()
+        # TODO: It's critical that the API implementation should compatible
+        #   is this a bug to not respect the const_value for other cases?
+        if self.data_api.native:
             for target_feature, const_value in features.items():
                 self.df[target_feature] = const_value
+        else:
+            for target_feature, const_value in features.items():
+                self.df[target_feature] = pd.Series(np.zeros(self.df.shape[0]), dtype=np.int8)
 
     def define_variable(self, definitions):
         df = self.df

@@ -6,9 +6,6 @@ import yaml
 
 from cloudtik.runtime.ai.util.utils import clean_dir
 
-DATA_ENGINE_PANDAS = 'pandas'
-DATA_ENGINE_MODIN = 'modin'
-
 
 def existing_directory(raw_path):
     if not os.path.isdir(raw_path):
@@ -44,14 +41,7 @@ def read_csv_file(file, pd, ignore_cols=None):
     return csv
 
 
-def read_csv_files(raw_data_path, engine, ignore_cols=None):
-    if engine == DATA_ENGINE_PANDAS:
-        import pandas as pd
-    elif engine == DATA_ENGINE_MODIN:
-        import modin.pandas as pd
-    else:
-        raise ValueError('Engine can either be pandas or modin.')
-
+def read_csv_files(raw_data_path, pd, ignore_cols=None):
     if os.path.isfile(raw_data_path):
         # single csv file
         data = read_csv_file(raw_data_path, pd, ignore_cols)

@@ -2,10 +2,11 @@ import argparse
 import os
 import tempfile
 
+from cloudtik.runtime.ai.data.api import get_data_api, DataAPIType
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.data.process \
     import process_data
 from cloudtik.runtime.ai.modeling.classical_ml.classification_and_regression.xgboost.modeling.utils import \
-    existing_file, existing_path, load_config, read_csv_files, DATA_ENGINE_PANDAS, DATA_ENGINE_MODIN
+    existing_file, existing_path, load_config, read_csv_files
 
 
 def _get_config_dir():
@@ -13,7 +14,7 @@ def _get_config_dir():
         os.path.dirname(os.path.dirname(__file__)), "config")
 
 
-def _process_data(args, data_engine):
+def _process_data(args, data_api):
     if not args.raw_data_path:
         raise ValueError(
             "Must specify the raw data path which contains data to be processed.")
@@ -34,7 +35,7 @@ def _process_data(args, data_engine):
                 "Please specify the file path of processed data.")
     train_data, test_data = process_data(
         raw_data_path=args.raw_data_path,
-        data_engine=data_engine,
+        data_api=data_api,
         data_processing_config=args.data_processing_config,
         output_file=processed_data_path
     )
@@ -121,7 +122,7 @@ def _check_predict_output(args):
             args.predict_output))
 
 
-def _train(args, data_engine, train_data, test_data):
+def _train(args, data_api, train_data, test_data):
     if not args.in_memory and not args.processed_data_path:
         raise ValueError(
             "Must specify the processed-data-path which contains processed data to be trained.")
@@ -141,16 +142,12 @@ def _train(args, data_engine, train_data, test_data):
         print("training-config is not specified. Default to: {}".format(
             args.training_config))
 
+    pd = data_api.pandas()
     if args.in_memory:
-        if data_engine == DATA_ENGINE_PANDAS:
-            import pandas as pd
-        else:
-            import modin.pandas as pd
         data = pd.concat([train_data, test_data])
     else:
         print(f"loading data from: {args.processed_data_path}")
-        data = read_csv_files(
-            args.processed_data_path, engine=DATA_ENGINE_PANDAS)
+        data = read_csv_files(args.processed_data_path, pd)
 
     _train_on_data(
         args, data,
@@ -162,7 +159,7 @@ def _train(args, data_engine, train_data, test_data):
     )
 
 
-def _predict(args, test_data):
+def _predict(args, data_api, test_data):
     # for prediction the dataset config can be empty explicitly
     # for indicating dataset_config is not needed
     if args.dataset_config is None:
@@ -175,14 +172,14 @@ def _predict(args, test_data):
     if not args.in_memory and not args.processed_data_path:
         raise ValueError(
             "Must specify the processed-data-path which contains processed data to predict.")
+    # Will predict data always on native pandas?
+    pd = data_api.pandas()
     if args.in_memory:
-        # predict data always on pandas?
-        import pandas as pd
         data = test_data
     else:
         print(f"loading data from: {args.processed_data_path}")
         data = read_csv_files(
-            args.processed_data_path, engine=DATA_ENGINE_PANDAS)
+            args.processed_data_path, pd)
 
     if not args.model_file:
         raise ValueError(
@@ -205,21 +202,21 @@ def _predict(args, test_data):
 
 
 def run(args):
-    data_engine = DATA_ENGINE_PANDAS
-    if not args.single_node:
-        data_engine = DATA_ENGINE_MODIN
+    data_api_type = DataAPIType.PANDAS if args.single_node else DataAPIType.MODIN
+    data_api = get_data_api(data_api_type)
+
     train_data, test_data = (None, None)
     if not args.no_process_data or args.in_memory:
         train_data, test_data = _process_data(
-            args, data_engine)
+            args, data_api)
 
     if not args.no_train:
         _train(
-            args, data_engine, train_data, test_data)
+            args, data_api, train_data, test_data)
 
     if not args.no_predict:
         _predict(
-            args, test_data,
+            args, data_api, test_data
         )
 
 

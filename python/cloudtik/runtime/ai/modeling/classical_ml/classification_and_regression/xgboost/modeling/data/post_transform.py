@@ -19,7 +19,7 @@ from sklearn import preprocessing
 from scipy.special import expit
 
 
-class TargetEncoderModin:
+class MyTargetEncoder:
     def __init__(self, input_col=None, target_col=None, min_samples_leaf=20, smoothing=10):
         self.input_col = input_col
         self.target_col = target_col
@@ -70,11 +70,11 @@ class TargetEncoderModin:
 
 
 class PostTransformer:
-    def __init__(self, train_data, test_data, steps, dp_engine):
+    def __init__(self, train_data, test_data, steps, data_api):
         self.train_data = train_data
         self.test_data = test_data  
         self.steps = steps 
-        self.dp_engine = dp_engine
+        self.data_api = data_api
 
     def transform(self):
         for step in self.steps:
@@ -90,20 +90,23 @@ class PostTransformer:
         feature_cols = params['feature_cols']
         smoothing = params['smoothing']
 
-        if self.dp_engine == 'modin':
-            for col in feature_cols:
-                tgt_encoder = TargetEncoderModin(input_col=col, target_col=target_col, smoothing=smoothing)
-                self.train_data[col] = tgt_encoder.fit_transform(
-                    self.train_data)
-                self.test_data[col] = tgt_encoder.transform(
-                    self.test_data)
-        else:
+        # TODO: It's critical that the API implementation should compatible
+        #   TargetEncoder is not working for other pandas compatible implementations?
+        #   is the customized version working for all other implementations?
+        if self.data_api.native:
             for col in feature_cols:
                 tgt_encoder = TargetEncoder(smoothing=smoothing)
                 self.train_data[col] = tgt_encoder.fit_transform(
                     self.train_data[col], self.train_data[target_col]).astype('float32')
                 self.test_data[col] = tgt_encoder.transform(
                     self.test_data[col], self.test_data[target_col]).astype('float32')
+        else:
+            for col in feature_cols:
+                tgt_encoder = MyTargetEncoder(input_col=col, target_col=target_col, smoothing=smoothing)
+                self.train_data[col] = tgt_encoder.fit_transform(
+                    self.train_data)
+                self.test_data[col] = tgt_encoder.transform(
+                    self.test_data)
 
     def label_encoding(self, params):
         feature_cols = params['feature_cols']

@@ -71,7 +71,7 @@ if [[ "$USE_IPEX" == "true" ]]; then
   export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 fi
 
-cloudtik-ai-run \
+cloudtik-run \
   ${LAUNCH_ARGS} \
   ${MODEL_DIR}/models/shot_boundary_detection/pytorch/transnetv2/inference/cpu/inference.py \
   --batch_size $BATCH_SIZE \

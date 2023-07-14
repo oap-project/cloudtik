@@ -88,7 +88,7 @@ BATCH_SIZE=`expr $CORES \* 2`
 
 rm -rf ${OUTPUT_DIR}/maskrcnn_${PRECISION}_inference_throughput*
 
-cloudtik-ai-run \
+cloudtik-run \
     --enable_jemalloc \
     --throughput_mode \
     ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/test_net.py \

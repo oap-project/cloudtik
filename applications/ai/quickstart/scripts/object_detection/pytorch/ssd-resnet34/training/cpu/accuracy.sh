@@ -75,7 +75,7 @@ BATCH_SIZE=100
 
 rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_accuracy*
 
-cloudtik-ai-run \
+cloudtik-run \
     --use_default_allocator \
     --ninstances 1 \
     --ncore_per_instance ${CORES_PER_INSTANCE} \

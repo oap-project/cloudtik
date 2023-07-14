@@ -95,7 +95,7 @@ BATCH_SIZE=128
 
 rm -rf ./resnet50_training_log_*
 
-cloudtik-ai-run \
+cloudtik-run \
     --use_default_allocator \
     --ninstances 1 \
     --ncore_per_instance ${CORES_PER_INSTANCE} \

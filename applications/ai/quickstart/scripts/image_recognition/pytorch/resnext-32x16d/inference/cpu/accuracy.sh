@@ -97,7 +97,7 @@ if [[ "$USE_IPEX" == "true" ]]; then
 fi
 echo "Running using ${ARGS} args ..."
 
-cloudtik-ai-run \
+cloudtik-run \
     ${MULTI_INSTANCE_ARGS} \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \

@@ -79,7 +79,7 @@ BATCH_SIZE=1
 
 rm -rf ${OUTPUT_DIR}/maskrcnn_${PRECISION}_inference_realtime*
 
-cloudtik-ai-run \
+cloudtik-run \
     --enable_jemalloc \
     --latency_mode \
     ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/test_net.py \

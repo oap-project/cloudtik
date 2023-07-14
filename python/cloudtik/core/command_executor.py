@@ -1,6 +1,7 @@
 import time
 from typing import Any, List, Tuple, Dict, Optional
 
+from cloudtik.core._private.annotations import DeveloperAPI
 from cloudtik.core._private.call_context import CallContext
 
 COMMAND_RUN_DEFAULT_NUMBER_OF_RETRIES = 30
@@ -22,6 +23,7 @@ def get_cmd_to_print(cmd, verbose=False):
     return cmd_to_print
 
 
+@DeveloperAPI
 class CommandExecutor:
     """Interface to run commands on a remote cluster node.
 

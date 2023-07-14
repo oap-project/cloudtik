@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, Optional, List, Tuple
 
+from cloudtik.core._private.annotations import DeveloperAPI
 from cloudtik.core.job_waiter import JobWaiter
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.scaling_policy import ScalingPolicy
@@ -8,6 +9,7 @@ from cloudtik.core.scaling_policy import ScalingPolicy
 logger = logging.getLogger(__name__)
 
 
+@DeveloperAPI
 class Runtime:
     """Interface for runtime abstraction.
 

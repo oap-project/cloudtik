@@ -3,6 +3,7 @@
 from typing import Any, Callable, Dict, List, Optional, Union
 import os
 
+from cloudtik.core._private.annotations import PublicAPI
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _bootstrap_config, _load_cluster_config
 from cloudtik.core._private.utils import verify_runtime_list, load_head_cluster_config
@@ -15,6 +16,7 @@ from cloudtik.core._private import utils
 from cloudtik.core.workspace_provider import Existence
 
 
+@PublicAPI
 class Workspace:
     def __init__(self, workspace_config: Union[dict, str]) -> None:
         """Create a workspace object to operator on workspace.
@@ -56,6 +58,7 @@ class Workspace:
         return workspace_operator._list_workspace_clusters(self.config)
 
 
+@PublicAPI
 class Cluster:
     def __init__(
             self, cluster_config: Union[dict, str],
@@ -520,6 +523,7 @@ class Cluster:
         global_event_system.add_callback_handler(cluster_uri, event_name, callback)
 
 
+@PublicAPI
 class ThisCluster:
     def __init__(self, verbosity: Optional[int] = None) -> None:
         """Create a cluster object to operate on from head with this API."""
@@ -532,58 +536,6 @@ class ThisCluster:
             _cli_logger.set_verbosity(verbosity)
         self.call_context = CallContext(_cli_logger=_cli_logger)
         self.call_context.set_call_from_api(True)
-
-    def exec(self,
-             cmd: str,
-             *,
-             node_ip: str = None,
-             all_nodes: bool = False,
-             run_env: str = "auto",
-             screen: bool = False,
-             tmux: bool = False,
-             wait_for_workers: bool = False,
-             min_workers: Optional[int] = None,
-             wait_timeout: Optional[int] = None,
-             port_forward: Optional[cluster_operator.Port_forward] = None,
-             with_output: bool = False,
-             parallel: bool = True,
-             job_waiter: Optional[str] = None) -> Optional[str]:
-        """Runs a command on the specified cluster.
-
-        Args:
-            cmd (str): the command to run
-            node_ip (str): node ip on which to run the command
-            all_nodes (bool): whether to run the command on all nodes
-            run_env (str): whether to run the command on the host or in a
-                container. Select between "auto", "host" and "docker".
-            screen (bool): whether to run in a screen session
-            tmux (bool): whether to run in a tmux session
-            wait_for_workers (bool): whether wait for minimum number of ready workers
-            min_workers (int): The number of workers to wait for ready
-            wait_timeout (int): The timeout for wait for ready
-            port_forward ( (int,int) or list[(int,int)]): port(s) to forward.
-            with_output (bool): Whether to capture command output.
-            parallel (bool): Whether to run the commands on nodes in parallel.
-            job_waiter (str): The job waiter to use for waiting an async job to complete.
-        Returns:
-            The output of the command as a string.
-        """
-        return cluster_operator._exec_node_on_head(
-            config=self.config,
-            call_context=self.call_context,
-            node_ip=node_ip,
-            all_nodes=all_nodes,
-            cmd=cmd,
-            run_env=run_env,
-            screen=screen,
-            tmux=tmux,
-            wait_for_workers=wait_for_workers,
-            min_workers=min_workers,
-            wait_timeout=wait_timeout,
-            port_forward=port_forward,
-            with_output=with_output,
-            parallel=parallel,
-            job_waiter_name=job_waiter)
 
     def exec(self,
              cmd: str,

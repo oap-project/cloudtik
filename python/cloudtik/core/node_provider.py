@@ -2,6 +2,7 @@ import logging
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple
 
+from cloudtik.core._private.annotations import DeveloperAPI
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core.command_executor import CommandExecutor
@@ -13,6 +14,7 @@ from cloudtik.core._private.command_executor.docker_command_executor import \
 logger = logging.getLogger(__name__)
 
 
+@DeveloperAPI
 class NodeLaunchException(Exception):
     """A structured exception that can be thrown by a node provider during a
     `create_node` call to pass additional information for observability.
@@ -46,6 +48,7 @@ class NodeLaunchException(Exception):
         )
 
 
+@DeveloperAPI
 class NodeProvider:
     """Interface for getting and returning nodes from a Cloud.
 

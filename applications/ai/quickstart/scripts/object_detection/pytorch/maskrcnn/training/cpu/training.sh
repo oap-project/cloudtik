@@ -72,7 +72,7 @@ rm -rf ${OUTPUT_DIR}/maskrcnn_${PRECISION}_train_throughput*
 
 cloudtik-run \
     --memory-allocator=jemalloc \
-    --node-list=0 \
+    --nodes-list=0 \
     ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py \
     $ARGS \
     --iter-warmup 10 \

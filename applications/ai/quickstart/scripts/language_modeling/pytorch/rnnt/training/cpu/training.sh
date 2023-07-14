@@ -129,7 +129,7 @@ rm -rf ${OUTPUT_DIR}/throughput_log*
 
 cloudtik-run \
     --memory-allocator=default \
-    --node-list=0 \
+    --nodes-list=0 \
     --log-dir=${OUTPUT_DIR} \
     --log-file-prefix="./throughput_log_${precision}" \
     ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu/train.py \

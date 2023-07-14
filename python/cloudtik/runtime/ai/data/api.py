@@ -1,4 +1,5 @@
 from enum import Enum, auto
+from typing import Union, Optional
 
 
 class DataAPIType(Enum):
@@ -29,7 +30,7 @@ class DataAPI(object):
     things so that we can switch the implementation easily.
     """
 
-    def __init__(self, api_type: DataAPIType | str):
+    def __init__(self, api_type: Union[DataAPIType, str]):
         if type(api_type) is str:
             self.api_type = DataAPIType.from_str(api_type)
         else:
@@ -60,7 +61,7 @@ class DataAPI(object):
         return True if self.api_type == DataAPIType.PANDAS else False
 
 
-def get_data_api(api_type: DataAPIType | str | None = None):
+def get_data_api(api_type: Optional[Union[DataAPIType, str]] = None):
     """Return a Data API object based on the type"""
     if api_type is None:
         # default pandas native

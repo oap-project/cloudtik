@@ -257,6 +257,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
             ), 'Environment variable "KMP_AFFINITY" is detected. Please unset it when using all cores.'
             set_kmp_affinity = False
 
+        # TODO: if none of the memory allocator or OpenMP exists
         self.set_memory_allocator(args.memory_allocator, args.benchmark)
         omp_runtime = self.set_omp_runtime(args.omp_runtime, set_kmp_affinity)
         self.add_env("OMP_NUM_THREADS", str(args.ncores_per_instance))

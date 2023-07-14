@@ -146,6 +146,7 @@ class CPUTrainingLauncher(MPILauncher, CPULauncher):
             nodes_list=nodes_list,
         )
 
+        # TODO: if none of the memory allocator or OpenMP exists
         self.set_memory_allocator(args.memory_allocator, False, ["jemalloc"])
         self.set_omp_runtime(args.omp_runtime, True)
         omp_num_threads = len(

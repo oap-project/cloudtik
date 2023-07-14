@@ -3,7 +3,7 @@ import os
 
 from cloudtik.runtime.ai.runner.cpu.cpu_info import CPUPoolList
 from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher
-from cloudtik.runtime.ai.runner.mpi.mpi_training_launcher import MPITrainingLauncher
+from cloudtik.runtime.ai.runner.mpi.mpi_launcher import MPILauncher
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +27,12 @@ def add_cpu_training_launcher_params(parser):
     )
 
 
-class CPUTrainingLauncher(MPITrainingLauncher, CPULauncher):
+class CPUTrainingLauncher(MPILauncher, CPULauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """
     def __init__(self, args, distributor):
-        MPITrainingLauncher.__init__(self, args, distributor)
+        MPILauncher.__init__(self, args, distributor)
         CPULauncher.__init__(self)
 
         self.ld_preload_backup = None
@@ -97,24 +97,6 @@ class CPUTrainingLauncher(MPITrainingLauncher, CPULauncher):
             "pin_domain": f'[{",".join(domain_binaries)}]',
             "affinity": ",".join(affinity),
         }
-
-    def get_ccl_worker_affinity(self, nproc_per_node, ccl_worker_count, total_cores, flatten_node_cores):
-        """
-        Computation and communication use different cores when using oneCCL
-        backend for distributed training. we use first ccl_worker_count cores of
-        every rank for ccl communication
-        """
-        ppn = nproc_per_node
-        cores_per_rank = total_cores // ppn
-        affinity = ''
-        for proc in range(ppn):
-            for ccl_worker in range(ccl_worker_count):
-                # CloudTik: patch start
-                affinity += str(flatten_node_cores[proc * cores_per_rank + ccl_worker]) + ","
-                # affinity += str(proc * cores_per_rank + ccl_worker) + ","
-                # CloudTik: patch end
-        affinity = affinity[:-1]
-        return affinity
 
     def set_environment(self):
         """

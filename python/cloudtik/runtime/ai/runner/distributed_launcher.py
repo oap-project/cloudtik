@@ -6,7 +6,7 @@ from cloudtik.runtime.ai.runner.launcher import Launcher
 logger = logging.getLogger(__name__)
 
 
-def add_distributed_training_params(parser):
+def add_distributed_params(parser):
     group = parser.add_argument_group("Distributed Training Parameters")
     group.add_argument(
         '--num-proc', '--num_proc',
@@ -50,7 +50,7 @@ def add_distributed_training_params(parser):
              "training")
 
 
-class DistributedTrainingLauncher(Launcher):
+class DistributedLauncher(Launcher):
     r"""
      Launcher for distributed training
      """

@@ -10,9 +10,9 @@ from datetime import datetime
 from cloudtik.runtime.ai.runner.cpu.cpu_launcher import add_cpu_launcher_params
 from cloudtik.runtime.ai.runner.cpu.local_launcher import add_local_cpu_launcher_params, add_auto_ipex_params
 from cloudtik.runtime.ai.runner.cpu.training_launcher import add_cpu_training_launcher_params
-from cloudtik.runtime.ai.runner.distributed_training_launcher import add_distributed_training_params
-from cloudtik.runtime.ai.runner.horovod.horovod_training_launcher import add_horovod_params
-from cloudtik.runtime.ai.runner.mpi.mpi_training_launcher import add_mpi_params
+from cloudtik.runtime.ai.runner.distributed_launcher import add_distributed_params
+from cloudtik.runtime.ai.runner.horovod.horovod_launcher import add_horovod_params
+from cloudtik.runtime.ai.runner.mpi.mpi_launcher import add_mpi_params
 from cloudtik.runtime.ai.runner.util.distributor import Distributor
 
 logger = logging.getLogger(__name__)
@@ -169,7 +169,7 @@ def create_parser():
     add_auto_ipex_params(parser)
     add_cpu_training_launcher_params(parser)
 
-    add_distributed_training_params(parser)
+    add_distributed_params(parser)
     add_mpi_params(parser)
     add_horovod_params(parser)
 
@@ -253,13 +253,13 @@ def _run(args):
 
     if args.distributed:
         if args.launcher == "mpi":
-            from cloudtik.runtime.ai.runner.mpi.mpi_training_launcher \
-                import MPITrainingLauncher
-            launcher = MPITrainingLauncher(args, distributor)
+            from cloudtik.runtime.ai.runner.mpi.mpi_launcher \
+                import MPILauncher
+            launcher = MPILauncher(args, distributor)
         elif args.launcher == "horovod":
-            from cloudtik.runtime.ai.runner.horovod.horovod_training_launcher \
-                import HorovodTrainingLauncher
-            launcher = HorovodTrainingLauncher(args, distributor)
+            from cloudtik.runtime.ai.runner.horovod.horovod_launcher \
+                import HorovodLauncher
+            launcher = HorovodLauncher(args, distributor)
         else:
             from cloudtik.runtime.ai.runner.cpu.training_launcher \
                 import CPUTrainingLauncher

@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from cloudtik.runtime.ai.runner.distributed_training_launcher import DistributedTrainingLauncher
+from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def add_horovod_params(parser):
              'characters to ensure lexicographical order. For MPI, delegates its behavior to mpirun.')
 
 
-class HorovodTrainingLauncher(DistributedTrainingLauncher):
+class HorovodLauncher(DistributedLauncher):
     r"""
      Launcher for distributed training with Horovod
      """

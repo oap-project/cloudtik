@@ -5,7 +5,7 @@ import subprocess
 
 from cloudtik.runtime.ai.runner import get_cloudtik_rsh
 from cloudtik.runtime.ai.runner.util import utils
-from cloudtik.runtime.ai.runner.distributed_training_launcher import DistributedTrainingLauncher
+from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def add_mpi_params(parser):
         help="User can pass more parameters for mpirun")
 
 
-class MPITrainingLauncher(DistributedTrainingLauncher):
+class MPILauncher(DistributedLauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """
@@ -63,10 +63,10 @@ class MPITrainingLauncher(DistributedTrainingLauncher):
         binding_args = ' '.join(_NO_BINDING_ARGS)
         basic_args = '--allow-run-as-root --tag-output'
         env_list = ""
-        if self.environ_set:
+        env = self.environ_set
+        if env:
             # Shall we pass on all the local environment?
             # env = os.environ.copy()
-            env = self.environ_set
             env_list = ' '.join(
                 '-x %s' % key for key in sorted(env.keys()) if utils.is_exportable(key))
 

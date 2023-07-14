@@ -176,8 +176,8 @@ class LocalCPULauncher(Launcher, CPULauncher):
         cmd_s = " ".join(cmd)
         if args.log_dir:
             log_name = f'{args.log_file_prefix}_instance_{index}_cores_{cores_list_local.replace(",", "_")}.log'
-            log_name = os.path.join(args.log_dir, log_name)
-            cmd_s = f"{cmd_s} 2>&1 | tee {log_name}"
+            log_file = os.path.join(args.log_dir, log_name)
+            cmd_s = f"{cmd_s} 2>&1 | tee {log_file}"
         self.verbose("info", f"cmd: {cmd_s}")
         if len(set([c.node for c in pool])) > 1:
             self.verbose(

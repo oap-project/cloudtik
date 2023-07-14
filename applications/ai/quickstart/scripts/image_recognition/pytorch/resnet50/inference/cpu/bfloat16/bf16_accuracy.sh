@@ -30,7 +30,7 @@ if [ ! -d "${DATASET_DIR}" ]; then
   exit 1
 fi
 
-MALLOC_ARGS="--memory-allocator=tcmalloc"
+RUN_ARGS="--memory-allocator=tcmalloc"
 
 ARGS=""
 if [[ "$USE_IPEX" == "true" ]]; then
@@ -39,7 +39,7 @@ fi
 echo "Running using ${ARGS} args ..."
 
 cloudtik-run \
-    ${MALLOC_ARGS} \
+    ${RUN_ARGS} \
     models/image_recognition/pytorch/common/main.py \
     --arch resnet50 ${DATASET_DIR} \
     --evaluate \

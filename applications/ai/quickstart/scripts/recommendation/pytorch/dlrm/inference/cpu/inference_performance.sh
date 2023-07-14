@@ -73,7 +73,7 @@ fi
 export OMP_NUM_THREADS=1
 
 LOG_0="${LOG}/throughput.log"
-cloudtik-ai-run \
+cloudtik-run \
 --throughput_mode --enable_jemalloc $MODEL_SCRIPT \
 --raw-data-file=${DATASET_DIR}/day --processed-data-file=${DATASET_DIR}/terabyte_processed.npz \
 --data-set=terabyte \

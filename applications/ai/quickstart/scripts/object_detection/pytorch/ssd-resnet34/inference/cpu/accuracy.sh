@@ -122,7 +122,7 @@ if [ "$weight_sharing" = true ]; then
     wait
 else
     BATCH_SIZE=16
-    cloudtik-ai-run \
+    cloudtik-run \
         --use_default_allocator \
         ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer.py \
         --data ${DATASET_DIR}/coco \

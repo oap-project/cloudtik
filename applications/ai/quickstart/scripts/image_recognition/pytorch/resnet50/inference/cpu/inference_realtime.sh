@@ -84,7 +84,7 @@ export OMP_NUM_THREADS=$CORES_PER_INSTANCE
 
 NUMBER_INSTANCE=`expr $CORES / $CORES_PER_INSTANCE`
 
-cloudtik-ai-run \
+cloudtik-run \
     --use_default_allocator \
     --ninstance ${SOCKETS} \
     --log_path=${OUTPUT_DIR} \

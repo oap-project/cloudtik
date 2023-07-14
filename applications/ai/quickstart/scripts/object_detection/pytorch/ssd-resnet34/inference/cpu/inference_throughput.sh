@@ -124,7 +124,7 @@ if [ "$weight_sharing" = true ]; then
 
 else
     BATCH_SIZE=112
-    cloudtik-ai-run \
+    cloudtik-run \
         --use_default_allocator \
         --throughput_mode \
         ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer.py \

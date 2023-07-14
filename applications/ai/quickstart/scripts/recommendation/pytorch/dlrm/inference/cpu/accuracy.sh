@@ -84,7 +84,7 @@ numa_cmd="numactl -C 0-$((CORES-1))  "
 echo "will run on core 0-$((CORES-1)) on socket 0" 
 
 export OMP_NUM_THREADS=$CORES
-cloudtik-ai-run \
+cloudtik-run \
 --node_id=0 --enable_tcmalloc $MODEL_SCRIPT \
 --raw-data-file=${DATASET_DIR}/day --processed-data-file=${DATASET_DIR}/terabyte_processed.npz \
 --data-set=terabyte \

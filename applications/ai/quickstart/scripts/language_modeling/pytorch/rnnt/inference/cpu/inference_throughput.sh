@@ -63,7 +63,7 @@ PRECISION=$1
 
 rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_throughput*
 
-cloudtik-ai-run \
+cloudtik-run \
     --use_default_allocator \
     --throughput_mode \
     --log_path ${OUTPUT_DIR} \

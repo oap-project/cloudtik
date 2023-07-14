@@ -127,7 +127,7 @@ fi
 
 rm -rf ${OUTPUT_DIR}/throughput_log*
 
-cloudtik-ai-run \
+cloudtik-run \
     --use_default_allocator \
     --node_id=0 \
     --log_path=${OUTPUT_DIR} \

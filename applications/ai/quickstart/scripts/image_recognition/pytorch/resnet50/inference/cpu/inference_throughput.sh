@@ -129,7 +129,7 @@ if [ "$weight_sharing" = true ]; then
     wait
 
 else
-    cloudtik-ai-run \
+    cloudtik-run \
         --use_default_allocator \
         --ninstance ${SOCKETS} \
         --ncore_per_instance ${CORES_PER_INSTANCE} \

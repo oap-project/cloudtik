@@ -12,7 +12,7 @@ from cloudtik.runtime.ai.runner.util.distributor import Distributor
 logger = logging.getLogger(__name__)
 
 r"""
-This is a launch program for launching local or distributed training and inference program.
+This is a launch program for running local or distributed training and inference program.
 
 This launch program can wrapper different launch methods and provide a abstracted view of launching
 python program.
@@ -29,13 +29,13 @@ For memory management, it configures NUMA binding and preload optimized memory a
 
 ::
 
-   >>> cloudtik-ai-run --throughput_mode script.py args
+   >>> cloudtik-run --throughput_mode script.py args
 
 2. Run single-instance inference or training on a single CPU node.
 
 ::
 
-   >>> cloudtik-ai-run --node_id 1 script.py args
+   >>> cloudtik-run --node_id 1 script.py args
 
 *** Local multi-instance inference ***
 
@@ -44,12 +44,12 @@ For memory management, it configures NUMA binding and preload optimized memory a
    --ninstances and --ncore_per_instance should be set.
 
 
-   >>> cloudtik-ai-run -- python_script args
+   >>> cloudtik-run -- python_script args
 
    eg: on CLX8280 with 14 instance, 4 cores per instance
 ::
 
-   >>> cloudtik-ai-run --ninstances 14 --ncore_per_instance 4 python_script args
+   >>> cloudtik-run --ninstances 14 --ncore_per_instance 4 python_script args
 
 2. Run single-instance inference among multiple instances.
    By default, runs all ninstances. If you want to independently run a single instance among ninstances, specify instance_idx.
@@ -57,17 +57,17 @@ For memory management, it configures NUMA binding and preload optimized memory a
    eg: run 0th instance among SKX with 2 instance (i.e., numactl -C 0-27)
 ::
 
-   >>> cloudtik-ai-run --ninstances 2 --instance_idx 0 python_script args
+   >>> cloudtik-run --ninstances 2 --instance_idx 0 python_script args
 
    eg: run 1st instance among SKX with 2 instance (i.e., numactl -C 28-55)
 ::
 
-   >>> cloudtik-ai-run --ninstances 2 --instance_idx 1 python_script args
+   >>> cloudtik-run --ninstances 2 --instance_idx 1 python_script args
 
    eg: run 0th instance among SKX with 2 instance, 2 cores per instance, first four cores (i.e., numactl -C 0-1)
 ::
 
-   >>> cloudtik-ai-run --core_list "0, 1, 2, 3" --ninstances 2 --ncore_per_instance 2 --instance_idx 0 python_script args
+   >>> cloudtik-run --core_list "0, 1, 2, 3" --ninstances 2 --ncore_per_instance 2 --instance_idx 0 python_script args
 
 *** Distributed Training ***
 
@@ -87,14 +87,14 @@ for well-improved multi-node distributed training performance as well.
 
 ::
 
-    >>> cloudtik-ai-run --distributed  python_script  --arg1 --arg2 --arg3 and all other
+    >>> cloudtik-run --distributed  python_script  --arg1 --arg2 --arg3 and all other
                 arguments of your training script
 
 2. Multi-Node multi-process distributed training: (e.g. two nodes)
 
 ::
 
-    >>> cloudtik-ai-run --nproc_per_node=xxx
+    >>> cloudtik-run --nproc_per_node=xxx
                --nnodes=2 --hosts ip1,ip2 python_sript --arg1 --arg2 --arg3
                and all other arguments of your training script)
 """
@@ -301,13 +301,13 @@ def parse_args():
         description="This is a program for launching local or distributed training and inference."
                     "\n################################# Basic usage ############################# \n"
                     "\n1. Local single-instance training or inference\n"
-                    "\n   >>> cloudtik-ai-run python_script args \n"
+                    "\n   >>> cloudtik-run python_script args \n"
                     "\n2. Local multi-instance inference \n"
-                    "\n    >>> cloudtik-ai-run --ninstances 2 --ncore_per_instance 8 python_script args\n"
+                    "\n    >>> cloudtik-run --ninstances 2 --ncore_per_instance 8 python_script args\n"
                     "\n3. Single-Node multi-process distributed training\n"
-                    "\n    >>> cloudtik-ai-run --distributed  python_script args\n"
+                    "\n    >>> cloudtik-run --distributed  python_script args\n"
                     "\n4. Multi-Node multi-process distributed training: (e.g. two nodes)\n"
-                    "\n   >>> cloudtik-ai-run --nproc_per_node=2\n"
+                    "\n   >>> cloudtik-run --nproc_per_node=2\n"
                     "\n       --nnodes=2 --hosts ip1,ip2 python_script args\n"
                     "\n############################################################################# \n",
                     formatter_class=RawTextHelpFormatter)

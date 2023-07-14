@@ -104,7 +104,7 @@ BATCH_SIZE=128
 rm -rf ${OUTPUT_DIR}/resnet50_dist_training_log_*
 TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/image_recognition/pytorch/common/main.py}
 
-cloudtik-ai-run \
+cloudtik-run \
     --use_default_allocator \
     --distributed \
     --nnodes ${NNODES} \

@@ -133,7 +133,7 @@ fi
 
 rm -rf ${OUTPUT_DIR}/distributed_throughput_log*
 
-cloudtik-ai-run \
+cloudtik-run \
     --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \

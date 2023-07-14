@@ -101,7 +101,7 @@ else
 	SOURCE_PREFIX=\"translate English to Romanian: \"
 fi
 
-cloudtik-ai-run \
+cloudtik-run \
     --use_default_allocator \
 	--ninstances 1 \
     --ncore_per_instance ${CORES_PER_INSTANCE} \

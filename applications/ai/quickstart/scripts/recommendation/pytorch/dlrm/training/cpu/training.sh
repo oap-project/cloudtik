@@ -80,7 +80,7 @@ BATCHSIZE=32768 # a converged BS and have better performance on SPR
 export OMP_NUM_THREADS=$CORES
 
 LOG_0="${LOG}/socket_0"
-cloudtik-ai-run \
+cloudtik-run \
   --node_id=0 --enable_tcmalloc $MODEL_SCRIPT \
   --raw-data-file=${DATASET_DIR}/day --processed-data-file=${DATASET_DIR}/terabyte_processed.npz \
   --data-set=terabyte \

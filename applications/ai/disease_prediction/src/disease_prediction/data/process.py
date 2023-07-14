@@ -24,14 +24,16 @@ def get_output_annotations_file(output_dir):
         output_dir, "annotation", "annotation.csv")
 
 
-def process(data_path, image_path, output_dir):
+def process(data_path, image_path, output_dir, data_api):
     output_annotations_file = get_output_annotations_file(
         output_dir)
     process_dlsa(
         data_path=data_path,
+        data_api=data_api,
         output_annotations_file=output_annotations_file)
     process_vision(
         data_path=data_path,
+        data_api=data_api,
         image_path=image_path,
         output_dir=output_dir)
 

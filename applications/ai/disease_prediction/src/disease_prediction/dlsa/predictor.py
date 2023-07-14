@@ -13,7 +13,6 @@
 # and limitations under the License.
 #
 
-import pandas as pd
 from datasets import load_dataset, Features, Value, ClassLabel
 from transformers import (
     AutoTokenizer,
@@ -21,6 +20,7 @@ from transformers import (
     Trainer as TransformerTrainer
 )
 
+from cloudtik.runtime.ai.data.api import get_data_api
 from disease_prediction.dlsa.utils import \
     Benchmark, compute_metrics, save_test_metrics, save_predictions
 from disease_prediction.utils import label_to_id_mapping
@@ -59,6 +59,7 @@ class Predictor(object):
                 dataset_features = {}
 
                 # handles whether we have label column for prediction
+                pd = get_data_api().pandas()
                 dataset_samples = pd.read_csv(dataset_config.test, nrows=0)
                 columns_in_data = set(dataset_samples.columns)
                 label_column = None

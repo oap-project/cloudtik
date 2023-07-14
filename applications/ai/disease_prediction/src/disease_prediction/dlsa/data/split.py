@@ -1,7 +1,6 @@
 import os
 from os import path
-from pandas import DataFrame, read_csv
-from typing import Tuple
+from typing import Tuple, Any
 from sklearn.model_selection import train_test_split
 
 
@@ -10,7 +9,7 @@ def get_split_output_dir(output_dir):
 
 
 def split_data(
-        df: DataFrame, test_size: float) -> Tuple[DataFrame, DataFrame]:
+        df, test_size: float) -> Tuple[Any, Any]:
     """Split the dataset into training and testing sets for NLP.
 
     Args:
@@ -25,7 +24,9 @@ def split_data(
 
 def split(
         processed_data_dir, output_dir,
-        test_size, overwrite=True):
+        test_size, data_api,
+        overwrite=True):
+    pd = data_api.pandas()
     output_annotations_file = os.path.join(
         os.path.join(processed_data_dir, "annotation"), "annotation.csv")
 
@@ -42,7 +43,7 @@ def split(
 
     # create training and testing data for NLP if overwrite_training_testing_ids is True
     # read the input data
-    input_data = read_csv(output_annotations_file)
+    input_data = pd.read_csv(output_annotations_file)
 
     # create training and testing data
     training_data, testing_data = split_data(

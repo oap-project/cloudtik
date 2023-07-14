@@ -20,16 +20,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
-import pandas as pd
 import argparse
 import shutil
 from os import path
 from PIL import Image, ImageDraw
 import json
 
+from disease_prediction.utils import _get_data_api
+
 
 def classify_images(
-        image_path, annotation_file, output_dir):
+        image_path, annotation_file, output_dir, pd):
     print("Create folders for classified images")
 
     output_images_dir = os.path.join(output_dir, "vision_images")
@@ -68,7 +69,7 @@ def classify_images(
                 shutil.copy2(src, tgt)
     
 
-def segment_images(segmentation_path, output_dir, cesm_only=True):
+def segment_images(segmentation_path, output_dir, pd, cesm_only=True,):
     new_width = 512
     new_height = 512
 
@@ -211,18 +212,21 @@ def process_vision_data(
         image_path,
         manual_annotations_file,
         segmentation_path,
-        output_dir):
+        output_dir,
+        data_api):
+    pd = data_api.pandas()
     # Classify images data into Benign,Malignant,Normal
     classify_images(
-        image_path, manual_annotations_file, output_dir)
+        image_path, manual_annotations_file, output_dir, pd)
 
     # Segment the classified images and save the ROI tiles
     segment_images(
-        segmentation_path, output_dir)
+        segmentation_path, output_dir, pd)
 
 
 def process(
         data_path,
+        data_api,
         image_path=None,
         manual_annotations_file=None,
         segmentation_path=None,
@@ -263,12 +267,15 @@ def process(
         image_path,
         manual_annotations_file,
         segmentation_path,
-        output_dir)
+        output_dir,
+        data_api=data_api)
 
 
 def run(args):
+    data_api = _get_data_api(args)
     process(
         data_path=args.data_path,
+        data_api=data_api,
         image_path=args.image_path,
         manual_annotations_file=args.manual_annotations_file,
         segmentation_path=args.segmentation_path,

@@ -2,6 +2,7 @@ import argparse
 import os
 
 from disease_prediction.consult.trainer import Trainer as ConsultTrainer
+from disease_prediction.utils import _get_data_api
 
 
 class TrainerArguments:
@@ -25,6 +26,7 @@ class TrainerArguments:
 
 
 def run(args):
+    data_api = _get_data_api(args)
     if not args.no_train:
         # train data for inputs (set some meaningful default if not set)
         if not args.dlsa_train_input:
@@ -42,7 +44,7 @@ def run(args):
             print("model-file is not specified. Default to: {}".format(
                 args.model_file))
 
-        consult_trainer = ConsultTrainer()
+        consult_trainer = ConsultTrainer(data_api)
 
         print("Start consult training...")
         consult_trainer.train(
@@ -76,7 +78,7 @@ def run(args):
             raise ValueError(
                 "Must specify the predict output for storing test results.")
 
-        consult_predictor = ConsultTrainer()
+        consult_predictor = ConsultTrainer(data_api)
         # load model
         consult_predictor.load_model(
             args.model_file)

@@ -1,7 +1,6 @@
 import os
 import shutil
 from os import path, listdir
-from pandas import DataFrame
 from pathlib import Path
 
 from cloudtik.runtime.ai.util.utils import remove_dir
@@ -12,7 +11,7 @@ def get_split_output_dir(output_dir):
     return os.path.join(output_dir, "split_images")
 
 
-def copy_images(patient_ids: DataFrame, source_folder: str, target_folder: str) -> None:
+def copy_images(patient_ids, source_folder: str, target_folder: str) -> None:
     """Copy images of selected patients from the source folder to the target folder.
 
     Args:
@@ -27,14 +26,14 @@ def copy_images(patient_ids: DataFrame, source_folder: str, target_folder: str) 
 
 
 def split_data(
-        train_data: DataFrame, test_data: DataFrame,
+        train_data, test_data,
         processed_data_dir, dataset_config, output_dir):
     """
     This function creates and organizes the train and test dataset for vision task.
 
     Parameters:
-    train_data (pd.DataFrame): A pandas DataFrame containing the training data.
-    test_data (pd.DataFrame): A pandas DataFrame containing the testing data.
+    train_data: A pandas DataFrame containing the training data.
+    test_data: A pandas DataFrame containing the testing data.
     processed_data_dir (str): The root directory path for the processed path.
     dataset_config (dict): A dictionary containing the dataset information.
     output_dir (str): The output dir.

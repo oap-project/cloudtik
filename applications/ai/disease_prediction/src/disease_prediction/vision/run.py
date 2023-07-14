@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from disease_prediction.vision.trainer import train, collect_class_labels, predict, load_model_meta
+from disease_prediction.vision.trainer import train, predict, load_model_meta
 
 from disease_prediction.utils import DEFAULT_TRAIN_OUTPUT, DEFAULT_PREDICT_OUTPUT
 

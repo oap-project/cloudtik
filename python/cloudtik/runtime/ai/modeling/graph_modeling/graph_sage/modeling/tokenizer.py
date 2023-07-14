@@ -14,7 +14,6 @@ limitations under the License.
 Author: Chen Haifeng
 """
 
-import pandas as pd
 from collections import OrderedDict
 
 
@@ -31,7 +30,7 @@ def get_node_type_columns(node_columns):
     return node_type_columns
 
 
-def values_of_node(df, columns):
+def values_of_node(df, columns, pd):
     node_value_list = []
     for column in columns:
         column_values = df[column]
@@ -54,8 +53,8 @@ def get_mapped_column_of(column_name, col_map, node_columns):
     return col_map_of_node[column_name]
 
 
-def mapping_of_node(df, columns, offset):
-    node_values = values_of_node(df, columns)
+def mapping_of_node(df, columns, offset, pd):
+    node_values = values_of_node(df, columns, pd)
     return column_index(node_values, offset=offset)
 
 
@@ -69,7 +68,7 @@ def map_columns(df, columns, mapping):
     return col_map_of_node
 
 
-def tokenize_node_ids(df, config, heterogeneous):
+def tokenize_node_ids(df, config, heterogeneous, pd):
     # create dictionary of dictionary to store node mapping for all node types
     offset = 0
     mapping = OrderedDict()
@@ -86,7 +85,7 @@ def tokenize_node_ids(df, config, heterogeneous):
     for i, node in enumerate(node_types):
         key = str(node + "_2idx")
         columns = node_type_columns[node]
-        mapping[key] = mapping_of_node(df, columns, offset=offset)
+        mapping[key] = mapping_of_node(df, columns, offset=offset, pd=pd)
         col_map[node] = map_columns(df, columns, mapping[key])
         if not heterogeneous:
             offset = len(mapping[key])

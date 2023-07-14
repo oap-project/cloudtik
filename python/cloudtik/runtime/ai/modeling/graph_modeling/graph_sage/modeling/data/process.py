@@ -1,7 +1,6 @@
 # Copyright (C) 2023 Intel Corporation
 # SPDX-License-Identifier: MIT
 
-import pandas as pd
 import numpy as np
 import time
 import math
@@ -12,9 +11,10 @@ from category_encoders import TargetEncoder
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import df_to_csv
 
 
-def process_data(raw_data_path, output_file):
+def process_data(raw_data_path, output_file, data_api):
     # Step 1: read and clean the dataframe
     tic = time.time()
+    pd = data_api.pandas()
     df = pd.read_csv(raw_data_path)
     df.columns = df.columns.str.replace(" ", "_").str.lower()
     print(

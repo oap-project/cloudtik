@@ -14,8 +14,6 @@ limitations under the License.
 Author: Chen Haifeng
 """
 
-
-import pandas as pd
 import numpy as np
 
 import time
@@ -28,8 +26,11 @@ from cloudtik.runtime.ai.util.utils import clean_dir
 
 
 def build_graph(
-        input_file, output_dir, dataset_name,
-        tabular2graph):
+        input_file,
+        output_dir,
+        dataset_name,
+        tabular2graph,
+        data_api):
     with open(tabular2graph, "r") as file:
         config = yaml.safe_load(file)
 
@@ -50,6 +51,7 @@ def build_graph(
     # 1. Load CSV file output for preprocessing
     print("Loading processed data")
     start = time.time()
+    pd = data_api.pandas()
     df = pd.read_csv(input_file)  # , nrows=10000)
     t_load_data = time.time()
     print("Time to load processed data", t_load_data - start)
@@ -58,7 +60,7 @@ def build_graph(
     print("Node renumbering")
     # heterogeneous mapping where all types start from zero
     mapping, col_map = tokenize_node_ids(
-        df, config, heterogeneous=True)
+        df, config, heterogeneous=True, pd=pd)
 
     t_renum = time.time()
     print("Time to renumerate", t_renum - t_load_data)
@@ -131,7 +133,7 @@ def build_graph(
         if num_features <= 0:
             # if there is no future columns, simple path
             mapped_columns = [col_map_of_node[column] for column in columns]
-            node_values = values_of_node(df, mapped_columns)
+            node_values = values_of_node(df, mapped_columns, pd)
             np.savetxt(
                 os.path.join(output_dataset_dir, file_name),
                 node_values.unique(),
@@ -149,7 +151,7 @@ def build_graph(
             # all the columns of the same node type must have the same identical features if has
             mapped_columns = [(col_map_of_node[column], node_features.get(column)) for column in columns]
             # all the columns will renamed in the form of (node_id, feat_1, feat_2, ...) and concat vertically
-            df_node_columns = _concat_columns_of_node(df, mapped_columns)
+            df_node_columns = _concat_columns_of_node(df, mapped_columns, pd)
 
             # use the node_id to drop the duplicates
             df_unique = df_node_columns.drop_duplicates(subset=['node_id'])
@@ -201,7 +203,7 @@ def build_graph(
             df["edge_feat_as_str"] = df[feat_keys].astype(float).astype(str).apply(",".join, axis=1)
             if len(feat_keys) == 1:
                 # append a "," if there is only one value for forcing to double quotes
-                df_unique["node_feat_as_str"] = df_unique["node_feat_as_str"] + ","
+                df["node_feat_as_str"] = df["node_feat_as_str"] + ","
             edge_header.append("feat")
             edge_df_cols.append("edge_feat_as_str")
         assert len(edge_df_cols) == len(edge_header)
@@ -227,7 +229,7 @@ def _get_num_features_of_node(columns, node_features):
     return num_features
 
 
-def _concat_columns_of_node(df, mapped_columns):
+def _concat_columns_of_node(df, mapped_columns, pd):
     node_dfs = []
     for mapped_column in mapped_columns:
         id_column = mapped_column[0]

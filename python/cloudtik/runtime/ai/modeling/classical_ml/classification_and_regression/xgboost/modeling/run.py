@@ -14,6 +14,11 @@ def _get_config_dir():
         os.path.dirname(os.path.dirname(__file__)), "config")
 
 
+def _get_data_api(args):
+    data_api_type = DataAPIType.PANDAS if args.single_node else DataAPIType.MODIN
+    return get_data_api(data_api_type)
+
+
 def _process_data(args, data_api):
     if not args.raw_data_path:
         raise ValueError(
@@ -202,8 +207,7 @@ def _predict(args, data_api, test_data):
 
 
 def run(args):
-    data_api_type = DataAPIType.PANDAS if args.single_node else DataAPIType.MODIN
-    data_api = get_data_api(data_api_type)
+    data_api = _get_data_api(args)
 
     train_data, test_data = (None, None)
     if not args.no_process_data or args.in_memory:

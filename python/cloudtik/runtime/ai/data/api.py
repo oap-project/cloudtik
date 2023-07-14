@@ -60,6 +60,9 @@ class DataAPI(object):
         return True if self.api_type == DataAPIType.PANDAS else False
 
 
-def get_data_api(api_type):
+def get_data_api(api_type: DataAPIType | str | None):
     """Return a Data API object based on the type"""
+    if api_type is None:
+        # default pandas native
+        api_type = DataAPIType.PANDAS
     return DataAPI(api_type)

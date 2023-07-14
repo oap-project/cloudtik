@@ -85,10 +85,10 @@ export OMP_NUM_THREADS=$CORES_PER_INSTANCE
 NUMBER_INSTANCE=`expr $CORES / $CORES_PER_INSTANCE`
 
 cloudtik-run \
-    --use_default_allocator \
+    --memory-allocator=default \
     --ninstance ${SOCKETS} \
-    --log_path=${OUTPUT_DIR} \
-    --log_file_prefix="./resnet50_latency_log_${PRECISION}" \
+    --log-dir=${OUTPUT_DIR} \
+    --log-file-prefix="./resnet50_latency_log_${PRECISION}" \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \
     -j 0 \

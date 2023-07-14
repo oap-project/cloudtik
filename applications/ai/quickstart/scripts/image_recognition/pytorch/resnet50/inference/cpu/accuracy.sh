@@ -131,7 +131,7 @@ if [ "$weight_sharing" = true ]; then
 else
 
   cloudtik-run \
-      --use_default_allocator \
+      --memory-allocator=default \
       ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
       $ARGS \
       --pretrained \

@@ -48,7 +48,7 @@ EVAL_SCRIPT=${EVAL_SCRIPT:-"./transformers/examples/pytorch/question-answering/r
 
 rm -rf ${OUTPUT_DIR}/accuracy_log*
 cloudtik-run \
-  --enable_jemalloc --log_path=${OUTPUT_DIR} --log_file_prefix="accuracy_log_${precision}_${mode}" \
+  --memory-allocator=jemalloc --log-dir=${OUTPUT_DIR} --log-file-prefix="accuracy_log_${precision}_${mode}" \
   ${EVAL_SCRIPT} $ARGS \
   --model_name_or_path   ${FINETUNED_MODEL} \
   --dataset_name squad \

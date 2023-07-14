@@ -128,10 +128,10 @@ fi
 rm -rf ${OUTPUT_DIR}/throughput_log*
 
 cloudtik-run \
-    --use_default_allocator \
-    --node_id=0 \
-    --log_path=${OUTPUT_DIR} \
-    --log_file_prefix="./throughput_log_${precision}" \
+    --memory-allocator=default \
+    --nodes-list=0 \
+    --log-dir=${OUTPUT_DIR} \
+    --log-file-prefix="./throughput_log_${precision}" \
     ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/training/cpu/train.py \
     $CMD
 

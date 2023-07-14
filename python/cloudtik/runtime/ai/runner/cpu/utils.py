@@ -24,12 +24,10 @@ class CPUinfo:
         if platform.system() == "Windows":
             raise RuntimeError("Windows platform is not supported!!!")
         elif platform.system() == "Linux":
-            # CloudTik: patch start
             if host_ip is None:
                 args = ["lscpu", "--parse=CPU,Core,Socket,Node"]
             else:
                 args = ["cloudtik", "head", "exec", "--node-ip", host_ip, "lscpu --parse=CPU,Core,Socket,Node"]
-            # CloudTik: patch end
             env_lang = os.getenv('LANG', 'UNSET')
             os.environ['LANG'] = 'C'
             lscpu_info = subprocess.check_output(args, env=os.environ, universal_newlines=True).split("\n")

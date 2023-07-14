@@ -61,10 +61,10 @@ rm -rf ${OUTPUT_DIR}/transnetv2_latency_log_${PRECISION}_*
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 
-LAUNCH_ARGS="--use_default_allocator \
+RUN_ARGS="--memory-allocator=default \
   --latency_mode \
-  --log_path=${OUTPUT_DIR} \
-  --log_file_prefix="transnetv2_latency_log_${PRECISION}""
+  --log-dir=${OUTPUT_DIR} \
+  --log-file-prefix="transnetv2_latency_log_${PRECISION}""
 
 if [[ "$USE_IPEX" == "true" ]]; then
   ARGS="$ARGS --ipex --jit"
@@ -72,7 +72,7 @@ if [[ "$USE_IPEX" == "true" ]]; then
 fi
 
 cloudtik-run \
-  ${LAUNCH_ARGS} \
+  ${RUN_ARGS} \
   ${MODEL_DIR}/models/shot_boundary_detection/pytorch/transnetv2/inference/cpu/inference.py \
   --batch_size $BATCH_SIZE \
   -w 50 \

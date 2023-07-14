@@ -71,8 +71,8 @@ BATCH_SIZE=${BATCH_SIZE-112}
 rm -rf ${OUTPUT_DIR}/maskrcnn_${PRECISION}_train_throughput*
 
 cloudtik-run \
-    --enable_jemalloc \
-    --node_id=0 \
+    --memory-allocator=jemalloc \
+    --nodes-list=0 \
     ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py \
     $ARGS \
     --iter-warmup 10 \

@@ -1,7 +1,8 @@
 import argparse
 import logging
+import os
 
-from cloudtik.runtime.ai.runner.distributed_training_launcher import DistributedTrainingLauncher
+from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
 
 logger = logging.getLogger(__name__)
 
@@ -43,29 +44,31 @@ def make_nic_action():
 
 def add_horovod_params(parser):
     group = parser.add_argument_group("Horovod Parameters")
-    group.add_argument('--gloo',
-                       action='store_true', dest='use_gloo',
-                       help='Run Horovod using the Gloo controller. This will '
-                            'be the default if Horovod was not built with MPI support.')
-    group.add_argument('--mpi',
-                       action='store_true', dest='use_mpi',
-                       help='Run Horovod using the MPI controller. This will '
-                            'be the default if Horovod was built with MPI support.')
+    group.add_argument(
+        '--gloo',
+        action='store_true', dest='use_gloo',
+        help='Run Horovod using the Gloo controller. This will '
+             'be the default if Horovod was not built with MPI support.')
+    group.add_argument(
+        '--mpi',
+        action='store_true', dest='use_mpi',
+        help='Run Horovod using the MPI controller. This will '
+             'be the default if Horovod was built with MPI support.')
+    group.add_argument(
+        '--network-interfaces', '--network_interfaces',
+        action=make_nic_action(), dest='nics',
+        help='Network interfaces that can be used for communication separated by '
+             'comma. If not specified, will find the common NICs among all '
+             'the workers. Example: --network-interfaces "eth0,eth1".')
+    group.add_argument(
+        '--output-filename', '--output_filename',
+        action='store',
+        help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
+             '<output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0 '
+             'characters to ensure lexicographical order. For MPI, delegates its behavior to mpirun.')
 
-    group.add_argument('--network-interfaces', '--network_interfaces',
-                       action=make_nic_action(), dest='nics',
-                       help='Network interfaces that can be used for communication separated by '
-                            'comma. If not specified, will find the common NICs among all '
-                            'the workers. Example: --network-interfaces "eth0,eth1".')
 
-    group.add_argument('--output-filename', '--output_filename',
-                       action='store',
-                       help='For Gloo, writes stdout / stderr of all processes to a filename of the form '
-                            '<output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0 '
-                            'characters to ensure lexicographical order. For MPI, delegates its behavior to mpirun.')
-
-
-class HorovodTrainingLauncher(DistributedTrainingLauncher):
+class HorovodLauncher(DistributedLauncher):
     r"""
      Launcher for distributed training with Horovod
      """
@@ -105,5 +108,10 @@ class HorovodTrainingLauncher(DistributedTrainingLauncher):
         else:
             command = self.get_command_to_run()
             hargs.command = command
+
+        if self.environ_set:
+            # Horovod use os.environ
+            for k, v in self.environ_set.items():
+                os.environ[k] = v
 
         return _run(hargs)

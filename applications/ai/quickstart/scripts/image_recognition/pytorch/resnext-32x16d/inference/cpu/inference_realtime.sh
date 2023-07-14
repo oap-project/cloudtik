@@ -77,8 +77,8 @@ CORES_PER_INSTANCE=4
 export OMP_NUM_THREADS=$CORES_PER_INSTANCE
 
 NUMBER_INSTANCE=`expr $CORES / $CORES_PER_INSTANCE`
-MULTI_INSTANCE_ARGS="--use_default_allocator --ninstance ${SOCKETS} --log_path=${OUTPUT_DIR} \
---log_file_prefix="./resnext101_latency_log_${PRECISION}""
+RUN_ARGS="--memory-allocator=default --ninstance ${SOCKETS} --log-dir=${OUTPUT_DIR} \
+--log-file-prefix="./resnext101_latency_log_${PRECISION}""
 
 if [[ "$USE_IPEX" == "true" ]]; then
     if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
@@ -91,7 +91,7 @@ fi
 echo "Running using ${ARGS} args ..."
 
 cloudtik-run \
-    ${MULTI_INSTANCE_ARGS} \
+    ${RUN_ARGS} \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \
     -j 0 \

@@ -5,7 +5,7 @@ import subprocess
 
 from cloudtik.runtime.ai.runner import get_cloudtik_rsh
 from cloudtik.runtime.ai.runner.util import utils
-from cloudtik.runtime.ai.runner.distributed_training_launcher import DistributedTrainingLauncher
+from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +17,13 @@ def add_mpi_params(parser):
     group = parser.add_argument_group("MPI Parameters")
 
     # mpi control
-    group.add_argument("--mpi-args", "--mpi_args", "--more_mpi_params",
-                       action='store', dest='mpi_args', default="", type=str,
-                       help="User can pass more parameters for mpirun")
+    group.add_argument(
+        "--mpi-args", "--mpi_args",
+        action='store', dest='mpi_args', default="", type=str,
+        help="User can pass more parameters for mpirun")
 
 
-class MPITrainingLauncher(DistributedTrainingLauncher):
+class MPILauncher(DistributedLauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """
@@ -61,9 +62,13 @@ class MPITrainingLauncher(DistributedTrainingLauncher):
             hosts_arg = ''
         binding_args = ' '.join(_NO_BINDING_ARGS)
         basic_args = '--allow-run-as-root --tag-output'
-        env = os.environ.copy()
-        env_list = ' '.join(
-            '-x %s' % key for key in sorted(env.keys()) if utils.is_exportable(key))
+        env_list = ""
+        env = self.environ_set
+        if env:
+            # Shall we pass on all the local environment?
+            # env = os.environ.copy()
+            env_list = ' '.join(
+                '-x %s' % key for key in sorted(env.keys()) if utils.is_exportable(key))
 
         extra_mpi_args = args.mpi_args
         if self.distributor.distributed and (not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
@@ -114,9 +119,13 @@ class MPITrainingLauncher(DistributedTrainingLauncher):
         nproc_per_node = self.distributor.nproc_per_node
 
         cmd = ['mpirun']
-        mpi_config = "-l -np {} -ppn {} ".format(
+        mpi_config = "-l -np {} -ppn {}".format(
             num_proc, nproc_per_node)
-        mpi_config += args.mpi_args
+        if self.environ_set:
+            genvs = [f"-genv {k}={v}" for k, v in self.environ_set.items()]
+            mpi_config += " {}".format(' '.join(genvs))
+        if args.mpi_args:
+            mpi_config += " {}".format(args.mpi_args)
 
         if self.distributor.distributed:
             mpi_config += " -hosts {}".format(self.distributor.hosts_str)
@@ -133,6 +142,7 @@ class MPITrainingLauncher(DistributedTrainingLauncher):
         cmd.extend(mpi_config.split())
         mpi_command = " ".join(cmd)
 
+        # TODO: handle log to file
         final_command = "{mpi_command} {command}".format(
             mpi_command=mpi_command,
             command=command

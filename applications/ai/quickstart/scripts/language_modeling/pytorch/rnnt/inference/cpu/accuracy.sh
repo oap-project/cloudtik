@@ -64,7 +64,7 @@ PRECISION=$1
 rm -rf ${OUTPUT_DIR}/rnnt_${PRECISION}_inference_accuracy*
 
 cloudtik-run \
-    --use_default_allocator \
+    --memory-allocator=default \
     ${MODEL_DIR}/models/language_modeling/pytorch/rnnt/inference/cpu/inference.py \
     --dataset_dir ${DATASET_DIR}/dataset/LibriSpeech/ \
     --val_manifest ${DATASET_DIR}/dataset/LibriSpeech/librispeech-dev-clean-wav.json \

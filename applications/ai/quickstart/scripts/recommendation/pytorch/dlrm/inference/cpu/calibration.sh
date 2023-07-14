@@ -55,7 +55,7 @@ echo "will run on core 0-$((CORES-1)) on socket 0"
 
 export OMP_NUM_THREADS=$CORES
 cloudtik-run \
---node_id=0 --enable_tcmalloc $MODEL_SCRIPT \
+--nodes-list=0 --memory-allocator=tcmalloc $MODEL_SCRIPT \
 --raw-data-file=${DATASET_DIR}/day --processed-data-file=${DATASET_DIR}/terabyte_processed.npz \
 --data-set=terabyte \
 --memory-map --mlperf-bin-loader --round-targets=True --learning-rate=1.0 \

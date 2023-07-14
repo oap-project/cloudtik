@@ -130,11 +130,11 @@ if [ "$weight_sharing" = true ]; then
 
 else
     cloudtik-run \
-        --use_default_allocator \
+        --memory-allocator=default \
         --ninstance ${SOCKETS} \
-        --ncore_per_instance ${CORES_PER_INSTANCE} \
-        --log_path=${OUTPUT_DIR} \
-        --log_file_prefix="./resnet50_throughput_log_${PRECISION}" \
+        --ncores-per-instance ${CORES_PER_INSTANCE} \
+        --log-dir=${OUTPUT_DIR} \
+        --log-file-prefix="./resnet50_throughput_log_${PRECISION}" \
         ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
         $ARGS \
         --seed 2020 \

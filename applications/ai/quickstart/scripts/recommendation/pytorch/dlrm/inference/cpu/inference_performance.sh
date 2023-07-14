@@ -74,7 +74,7 @@ export OMP_NUM_THREADS=1
 
 LOG_0="${LOG}/throughput.log"
 cloudtik-run \
---throughput_mode --enable_jemalloc $MODEL_SCRIPT \
+--throughput_mode --memory-allocator=jemalloc $MODEL_SCRIPT \
 --raw-data-file=${DATASET_DIR}/day --processed-data-file=${DATASET_DIR}/terabyte_processed.npz \
 --data-set=terabyte \
 --memory-map --mlperf-bin-loader --round-targets=True --learning-rate=1.0 \

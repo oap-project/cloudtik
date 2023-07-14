@@ -65,15 +65,15 @@ fi
 
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
-MULTI_INSTANCE_ARGS=""
+RUN_ARGS=""
 
 CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
 CORES_PER_INSTANCE=$CORES
-MULTI_INSTANCE_ARGS="--use_default_allocator --ninstance ${SOCKETS} \
---ncore_per_instance ${CORES_PER_INSTANCE} --log_path=${OUTPUT_DIR} \
---log_file_prefix="./resnext101_throughput_log_${PRECISION}""
+RUN_ARGS="--memory-allocator=default --ninstance ${SOCKETS} \
+--ncores-per-instance ${CORES_PER_INSTANCE} --log-dir=${OUTPUT_DIR} \
+--log-file-prefix="./resnext101_throughput_log_${PRECISION}""
 
 if [[ "$USE_IPEX" == "true" ]]; then
     if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
@@ -91,7 +91,7 @@ export KMP_AFFINITY=granularity=fine,compact,1,0
 BATCH_SIZE=116
 
 cloudtik-run \
-    ${MULTI_INSTANCE_ARGS} \
+    ${RUN_ARGS} \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \
     --seed 2020 \

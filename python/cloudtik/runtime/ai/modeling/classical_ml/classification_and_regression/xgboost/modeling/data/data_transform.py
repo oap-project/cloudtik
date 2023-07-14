@@ -114,7 +114,8 @@ class DataTransformer:
     
     def min_max_normalization(self, features):
         for old_feature, new_feature in features.items():
-            self.df[new_feature] = (self.df[old_feature] - self.df[old_feature].min())/(self.df[old_feature].max() - self.df[old_feature].min())
+            self.df[new_feature] = (self.df[old_feature] - self.df[old_feature].min())/(
+                    self.df[old_feature].max() - self.df[old_feature].min())
          
     def one_hot_encoding(self, features):
         pd = self.data_api.pandas()

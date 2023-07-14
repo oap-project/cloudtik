@@ -1,9 +1,9 @@
 import os
 from typing import List, Optional
 
-import pandas as pd
 from datasets.arrow_dataset import Dataset
 
+from cloudtik.runtime.ai.data.api import get_data_api
 from cloudtik.runtime.ai.modeling.transfer_learning.common.pytorch.hugging_face.dataset import HuggingFaceDataset
 from cloudtik.runtime.ai.modeling.transfer_learning.text_classification.text_classification_dataset \
     import TextClassificationDataset
@@ -29,6 +29,7 @@ class PyTorchTextClassificationDataset(TextClassificationDataset, HuggingFaceDat
         exclude_cols: Optional[List[int]] = None,
         shuffle_files: Optional[bool] = True,
         num_workers: Optional[int] = 0,
+        data_api_type: Optional[str] = None,
     ):
         """
         A custom text classification dataset that can be used with Transformer models.
@@ -74,6 +75,7 @@ class PyTorchTextClassificationDataset(TextClassificationDataset, HuggingFaceDat
                 exclude_cols can be specified.
             shuffle_files (bool): optional; Whether to shuffle the data. Defaults to True.
             num_workers (int): Number of workers to pass into a DataLoader.
+            data_api_type (str): The data API type
 
         Raises:
             FileNotFoundError if the csv file is not found in the dataset directory
@@ -116,38 +118,20 @@ class PyTorchTextClassificationDataset(TextClassificationDataset, HuggingFaceDat
 
         print("WARNING: Using column {} as label column. To change this behavior, \
                specify the label_col argument".format(label_col))
-        if header:
-            dataset_df = pd.read_csv(dataset_file, delimiter=delimiter, encoding='utf-8', dtype=str, names=column_names,
-                                     header=0)
-        else:
-            dataset_df = pd.read_csv(dataset_file, delimiter=delimiter, encoding='utf-8', dtype=str, names=column_names,
-                                     header=None)
-            if not column_names:
-                column_names = {i: 'label' if i == label_col else f'text_{i}' for i in dataset_df.columns}
-                dataset_df.rename(column_names, axis=1, inplace=True)
 
-        if select_cols and not exclude_cols:
-            dataset_df = dataset_df[dataset_df.columns[select_cols]]
-        elif exclude_cols and not select_cols:
-            dataset_df = dataset_df.drop(dataset_df.columns[exclude_cols], axis=1)
-        elif select_cols and exclude_cols:
-            if not set(select_cols).isdisjoint(exclude_cols):
-                raise ValueError("select_cols and exclude_cols lists are ambiguous. \
-                                  Please make sure they are disjoint")
-            dataset_df = dataset_df.drop(dataset_df.columns[exclude_cols], axis=1)
-            dataset_df = dataset_df[dataset_df.columns[select_cols]]
-
-        if not class_names:
-            class_names = dataset_df.iloc[:, label_col].unique()
-
-        if not label_map_func:
-            label_str_dict = {label_name: idx for idx, label_name in enumerate(class_names)}
-
-            def label_map_func(x):
-                return label_str_dict[x]
-
-        dataset_df.iloc[:, label_col] = dataset_df.iloc[:, label_col].map(label_map_func)
-
+        data_api = get_data_api(data_api_type)
+        dataset_df, class_names = self.process(
+            dataset_file,
+            data_api,
+            class_names=class_names,
+            column_names=column_names,
+            label_map_func=label_map_func,
+            label_col=label_col,
+            delimiter=delimiter,
+            header=header,
+            select_cols=select_cols,
+            exclude_cols=exclude_cols,
+        )
         self._dataset = Dataset.from_pandas(dataset_df)
 
         self._info = {
@@ -178,3 +162,51 @@ class PyTorchTextClassificationDataset(TextClassificationDataset, HuggingFaceDat
     @property
     def info(self):
         return {'dataset_info': self._info, 'preprocessing_info': self._preprocessed}
+
+    def process(
+            self,
+            dataset_file,
+            data_api,
+            class_names: Optional[List[str]] = None,
+            column_names: Optional[List[str]] = None,
+            label_map_func: Optional[callable] = None,
+            label_col: Optional[int] = 0,
+            delimiter: Optional[str] = ",",
+            header: Optional[bool] = False,
+            select_cols: Optional[List[int]] = None,
+            exclude_cols: Optional[List[int]] = None,):
+        pd = data_api.pandas()
+        if header:
+            dataset_df = pd.read_csv(
+                dataset_file, delimiter=delimiter, encoding='utf-8',
+                dtype=str, names=column_names, header=0)
+        else:
+            dataset_df = pd.read_csv(
+                dataset_file, delimiter=delimiter, encoding='utf-8',
+                dtype=str, names=column_names, header=None)
+            if not column_names:
+                column_names = {i: 'label' if i == label_col else f'text_{i}' for i in dataset_df.columns}
+                dataset_df.rename(column_names, axis=1, inplace=True)
+
+        if select_cols and not exclude_cols:
+            dataset_df = dataset_df[dataset_df.columns[select_cols]]
+        elif exclude_cols and not select_cols:
+            dataset_df = dataset_df.drop(dataset_df.columns[exclude_cols], axis=1)
+        elif select_cols and exclude_cols:
+            if not set(select_cols).isdisjoint(exclude_cols):
+                raise ValueError("select_cols and exclude_cols lists are ambiguous. \
+                                          Please make sure they are disjoint")
+            dataset_df = dataset_df.drop(dataset_df.columns[exclude_cols], axis=1)
+            dataset_df = dataset_df[dataset_df.columns[select_cols]]
+
+        if not class_names:
+            class_names = dataset_df.iloc[:, label_col].unique()
+
+        if not label_map_func:
+            label_str_dict = {label_name: idx for idx, label_name in enumerate(class_names)}
+
+            def label_map_func(x):
+                return label_str_dict[x]
+
+        dataset_df.iloc[:, label_col] = dataset_df.iloc[:, label_col].map(label_map_func)
+        return dataset_df, class_names

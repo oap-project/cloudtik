@@ -20,13 +20,12 @@ import os
 import yaml
 
 import torch
-import pandas as pd
 
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.tokenizer import tokenize_node_ids
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.utils import torch_save, df_to_csv
 
 
-def _apply_embeddings_to_column(df, column, node_emb_dict, i, j):
+def _apply_embeddings_to_column(df, column, node_emb_dict, i, j, pd):
     emb = pd.DataFrame(df[column].map(node_emb_dict).tolist()).add_prefix(
         "n{}_c{}_e".format(i, j)
     )
@@ -39,18 +38,18 @@ def _apply_embeddings_to_column(df, column, node_emb_dict, i, j):
     return df
 
 
-def _apply_embeddings(df, node_embeddings, col_map):
+def _apply_embeddings(df, node_embeddings, col_map, pd):
     if isinstance(node_embeddings, dict):
         print("Apply heterogeneous embeddings to data.")
         return _apply_heterogeneous_embeddings(
-            df, node_embeddings, col_map)
+            df, node_embeddings, col_map, pd)
     else:
         print("Apply homogeneous embeddings to data.")
         return _apply_homogeneous_embeddings(
-            df, node_embeddings, col_map)
+            df, node_embeddings, col_map, pd)
 
 
-def _apply_homogeneous_embeddings(df, node_embeddings, col_map):
+def _apply_homogeneous_embeddings(df, node_embeddings, col_map, pd):
     node_emb_arr = node_embeddings.cpu().detach().numpy()
     node_emb_dict = {idx: val for idx, val in enumerate(node_emb_arr)}
 
@@ -59,13 +58,13 @@ def _apply_homogeneous_embeddings(df, node_embeddings, col_map):
         for j, column in enumerate(col_map_of_node.keys()):
             column_idx = col_map_of_node[column]
             df = _apply_embeddings_to_column(
-                df, column_idx, node_emb_dict, i, j)
+                df, column_idx, node_emb_dict, i, j, pd)
 
     print("CSV output shape:", df.shape)
     return df
 
 
-def _apply_heterogeneous_embeddings(df, node_embeddings, col_map):
+def _apply_heterogeneous_embeddings(df, node_embeddings, col_map, pd):
     for i, node in enumerate(col_map.keys()):
         node_emb = node_embeddings.get(node)
         if node_emb is None:
@@ -77,7 +76,7 @@ def _apply_heterogeneous_embeddings(df, node_embeddings, col_map):
         for j, column in enumerate(col_map_of_node.keys()):
             column_idx = col_map_of_node[column]
             df = _apply_embeddings_to_column(
-                df, column_idx, node_emb_dict, i, j)
+                df, column_idx, node_emb_dict, i, j, pd)
 
     print("CSV output shape:", df.shape)
     return df
@@ -121,14 +120,15 @@ def apply_embeddings(
         node_embeddings_file,
         output_file,
         tabular2graph,
-        heterogeneous):
-
+        heterogeneous,
+        data_api):
     with open(tabular2graph, "r") as file:
         config = yaml.safe_load(file)
 
     # 1. Load processed CSV file
     print("Loading processed data")
     start = time.time()
+    pd = data_api.pandas()
     df = pd.read_csv(processed_data_path)
     t_load_data = time.time()
     print("Time to load processed data:", t_load_data - start)
@@ -138,7 +138,7 @@ def apply_embeddings(
     # 2. Renumbering - generating node/edge ids starting from zero
     # homogeneous mapping because that is how the embeddings will be returned by GNN
     mapping, col_map = tokenize_node_ids(
-        df, config, heterogeneous=heterogeneous)
+        df, config, heterogeneous=heterogeneous, pd=pd)
     t_tokenize = time.time()
     print("Time to tokenize:", t_tokenize - t_load_data)
 
@@ -150,7 +150,7 @@ def apply_embeddings(
             '"{}" is not an existing file'.format(node_embeddings_file)
         )
     node_emb = torch.load(node_embeddings_file)
-    df = _apply_embeddings(df, node_emb, col_map)
+    df = _apply_embeddings(df, node_emb, col_map, pd)
 
     # write output combining the original columns with the new node embeddings as columns
     df_to_csv(df, output_file, index=False)

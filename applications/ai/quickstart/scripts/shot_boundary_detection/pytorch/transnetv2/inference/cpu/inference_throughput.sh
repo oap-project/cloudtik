@@ -61,7 +61,7 @@ rm -rf ${OUTPUT_DIR}/transnetv2_throughput_log_${PRECISION}_*
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 
-LAUNCH_ARGS="--memory-allocator=default \
+RUN_ARGS="--memory-allocator=default \
   --throughput_mode \
   --log-dir=${OUTPUT_DIR} \
   --log-file-prefix="transnetv2_throughput_log_${PRECISION}""
@@ -72,7 +72,7 @@ if [[ "$USE_IPEX" == "true" ]]; then
 fi
 
 cloudtik-run \
-  ${LAUNCH_ARGS} \
+  ${RUN_ARGS} \
   ${MODEL_DIR}/models/shot_boundary_detection/pytorch/transnetv2/inference/cpu/inference.py \
   --batch_size $BATCH_SIZE \
   -w 50 \

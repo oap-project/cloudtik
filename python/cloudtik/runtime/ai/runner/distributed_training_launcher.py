@@ -57,6 +57,7 @@ class DistributedTrainingLauncher(Launcher):
         """
         self.set_environment()
         self.run()
+        self.finalize()
 
     def set_environment(self):
         # we default to run single proc per node if not specified
@@ -100,3 +101,5 @@ class DistributedTrainingLauncher(Launcher):
         command = self.get_command_to_run()
         logger.info(command)
 
+    def finalize(self):
+        pass

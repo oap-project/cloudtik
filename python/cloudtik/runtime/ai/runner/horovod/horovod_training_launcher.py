@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 
 from cloudtik.runtime.ai.runner.distributed_training_launcher import DistributedTrainingLauncher
 
@@ -105,5 +106,10 @@ class HorovodTrainingLauncher(DistributedTrainingLauncher):
         else:
             command = self.get_command_to_run()
             hargs.command = command
+
+        if self.environ_set:
+            # Horovod use os.environ
+            for k, v in self.environ_set.items():
+                os.environ[k] = v
 
         return _run(hargs)

@@ -83,7 +83,7 @@ BATCH_SIZE=112
 rm -rf ${OUTPUT_DIR}/maskrcnn_${PRECISION}_accuracy*
 
 cloudtik-run \
-    --enable_jemalloc \
+    --memory-allocator=jemalloc \
     ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/test_net.py \
     $ARGS \
     --config-file "${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/configs/e2e_mask_rcnn_R_50_FPN_1x_coco2017_inf.yaml" \

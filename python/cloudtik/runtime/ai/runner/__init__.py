@@ -20,27 +20,24 @@ class _LaunchArgs(object):
         self.run_func = None
         self.executable = None
 
-        # nodes and processes
+        # distributed arguments
         # If nnodes and nproc_per_node is specified
-        # hosts/hostfile can be host address only without slots
+        # hosts/hostfile can be host address without slots
         # Or you can specify hosts with slots and specify the num_proc
         # all these are handled by Distributor
-
         self.num_proc = None
         self.nnodes = None
         self.nproc_per_node = None
-
-        # host arguments
         self.hosts = None
         self.hostfile = None
 
+        # common arguments
         self.distributed = False
         self.launcher = None
 
-        # control flags
         self.module = False
         self.no_python = False
-        self.log_path = None
+        self.log_dir = None
         self.log_file_prefix = None
         self.verbose = None
 
@@ -48,27 +45,41 @@ class _LaunchArgs(object):
         self.master_addr = "127.0.0.1"
         self.master_port = 29500
 
-        # library arguments
         # MPI
         self.mpi_args = None
-        self.tcp_flag = None
-        self.binding_args = None
-        self.num_nccl_streams = None
-        self.thread_affinity = None
 
-        # CPU, CCL, IOMP, Allocator options
-        self.use_logical_core = False
+        # CPU arguments
+        self.use_logical_cores = False
+        self.use_e_cores = False
+        self.memory_allocator = "auto"
+        self.omp_runtime = "auto"
+
+        # CPU local launcher arguments
+        self.ninstances = -1
+        self.ncores_per_instance = -1
+        self.instance_idx = -1
+        self.nodes_list = ""
+        self.cores_list = ""
+        self.task_manager = "auto"
+        self.skip_cross_node_cores = False
+        self.latency_mode = False
+        self.throughput_mode = False
+        self.benchmark = False
+
+        # CPU training arguments
         self.ccl_worker_count = 4
-        self.disable_iomp = False
-        self.enable_tcmalloc = False
-        self.enable_jemalloc = False
-        self.use_default_allocator = False
+        self.logical_cores_for_ccl = False
 
-        # Horovod controller arguments
+        # Horovod arguments
         self.use_gloo = None
         self.use_mpi = None
         self.nics = None
         self.output_filename = None
+
+        self.tcp_flag = None
+        self.binding_args = None
+        self.num_nccl_streams = None
+        self.thread_affinity = None
 
 
 def run(

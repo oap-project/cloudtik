@@ -85,7 +85,7 @@ fi
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 
-MULTI_INSTANCE_ARGS="--use_default_allocator"
+RUN_ARGS="--memory-allocator=default"
 
 if [[ "$USE_IPEX" == "true" ]]; then
     if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
@@ -98,7 +98,7 @@ fi
 echo "Running using ${ARGS} args ..."
 
 cloudtik-run \
-    ${MULTI_INSTANCE_ARGS} \
+    ${RUN_ARGS} \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \
     --pretrained \

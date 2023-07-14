@@ -76,9 +76,9 @@ BATCH_SIZE=100
 rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_accuracy*
 
 cloudtik-run \
-    --use_default_allocator \
+    --memory-allocator=default \
     --ninstances 1 \
-    --ncore_per_instance ${CORES_PER_INSTANCE} \
+    --ncores-per-instance ${CORES_PER_INSTANCE} \
     ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
     --epochs 5 \
     --warmup-factor 0 \

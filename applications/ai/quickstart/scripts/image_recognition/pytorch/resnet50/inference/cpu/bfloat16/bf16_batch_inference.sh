@@ -22,7 +22,7 @@ _get_platform_type
 
 CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-MULTI_INSTANCE_ARGS="--enable_tcmalloc --ninstances ${SOCKETS} --ncore_per_instance ${CORES}"
+RUN_ARGS="--memory-allocator=tcmalloc --ninstances ${SOCKETS} --ncores-per-instance ${CORES}"
 
 echo "Running '${SOCKETS}' instance"
 
@@ -33,7 +33,7 @@ fi
 echo "Running using ${ARGS} args ..."
 
 cloudtik-run \
-    ${MULTI_INSTANCE_ARGS} \
+    ${RUN_ARGS} \
     models/image_recognition/pytorch/common/main.py \
     --arch resnet50 ../ \
     --evaluate \

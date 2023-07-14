@@ -3,13 +3,86 @@ import os
 import subprocess
 
 from cloudtik.runtime.ai.runner.launcher import Launcher
-from cloudtik.runtime.ai.runner.cpu.launcher import CPULauncher
+from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher
 from cloudtik.runtime.ai.runner.util.utils import is_python_program
 
 logger = logging.getLogger(__name__)
 
+TASK_MANAGERS = ["auto", "none", "numactl", "taskset"]
 
-class LocalLauncher(Launcher, CPULauncher):
+
+def add_local_cpu_launcher_params(parser):
+    group = parser.add_argument_group("Local CPU Launching Parameters")
+    # instances control
+    group.add_argument(
+        "--ninstances",
+        default=-1, type=int,
+        help="The number of instances to run local. "
+             "You should give the cores number you used for per instance.")
+    group.add_argument(
+        "--ncores-per-instance", "--ncores_per_instance",
+        default=-1, type=int,
+        help="Cores per instance")
+    group.add_argument(
+        "--instance-idx", "--instance_idx",
+        default="-1", type=int,
+        help="Specify instance index to assign ncores_per_instance for instance_idx; "
+             "otherwise ncores_per_instance will be assigned sequentially to ninstances.")
+    group.add_argument(
+        "--nodes-list", "--nodes_list",
+        default="", type=str,
+        help='Specify nodes list for multiple instances to run on, in format of list of single node ids '
+             'node_id,node_id,..." or list of node ranges "node_id-node_id,...". By default all nodes will be used.',
+    )
+    group.add_argument(
+        "--cores-list", "--cores_list",
+        default="", type=str,
+        help='Specify cores list for multiple instances to run on, in format of list of single core ids '
+             'core_id,core_id,..." or list of core ranges "core_id-core_id,...". '
+             'By default all cores will be used.',
+    )
+    group.add_argument(
+        "--task-manager", "--task_manager",
+        default="auto", type=str, choices=TASK_MANAGERS,
+        help=f"Choose which task manager to run the workloads with. Supported choices are {TASK_MANAGERS}.", )
+    group.add_argument(
+        "--skip-cross-node-cores", "--skip_cross_node_cores",
+        action='store_true', default=False,
+        help="If specified --ncores_per_instance, skips cross-node cores.")
+    group.add_argument(
+        "--latency-mode", "--latency_mode",
+        action='store_true', default=False,
+        help="By default 4 core per instance and use all physical cores")
+    group.add_argument(
+        "--throughput-mode", "--throughput_mode",
+        action='store_true', default=False,
+        help="By default one instance per node and use all physical cores")
+    group.add_argument(
+        "--benchmark",
+        action='store_true', default=False,
+        help="Enable benchmark config. JeMalloc's MALLOC_CONF has been tuned for low latency. "
+             "Recommend to use this for benchmarking purpose; for other use cases, "
+             "this MALLOC_CONF may cause Out-of-Memory crash.")
+
+
+def add_auto_ipex_params(parser, auto_ipex_default_enabled=False):
+    group = parser.add_argument_group("Code_Free Parameters")
+    group.add_argument("--auto-ipex", "--auto_ipex",
+                       action='store_true', default=auto_ipex_default_enabled,
+                       help="Auto enabled the ipex optimization feature")
+    group.add_argument("--dtype",
+                       default="float32", type=str,
+                       choices=['float32', 'bfloat16'],
+                       help="The data type to run inference. float32 or bfloat16 is allowed.")
+    group.add_argument("--auto-ipex-verbose", "--auto_ipex_verbose",
+                       action='store_true', default=False,
+                       help="This flag is only used for debug and UT of auto ipex.")
+    group.add_argument("--disable-ipex-graph-mode", "--disable_ipex_graph_mode",
+                       action='store_true', default=False,
+                       help="Enable the Graph Mode for ipex.optimize")
+
+
+class LocalCPULauncher(Launcher, CPULauncher):
     r"""
      Launcher for one or more instance on local machine
      """
@@ -18,7 +91,6 @@ class LocalLauncher(Launcher, CPULauncher):
         Launcher.__init__(self, args, distributor)
         CPULauncher.__init__(self)
         self.program = None
-        self.tm_supported = ["auto", "none", "numactl", "taskset"]
 
     def add_env(self, env_name, env_value):
         self.set_env(env_name, env_value)
@@ -39,7 +111,7 @@ class LocalLauncher(Launcher, CPULauncher):
             pass
         return is_available
 
-    def set_multi_task_manager(self, multi_task_manager="auto", skip_list=None):
+    def set_task_manager(self, task_manager="auto", skip_list=None):
         """
         Set multi-task manager
         """
@@ -50,10 +122,10 @@ class LocalLauncher(Launcher, CPULauncher):
             "taskset": ["taskset", ""],
         }
         tm_local = self.set_lib_bin_from_list(
-            multi_task_manager,
+            task_manager,
             tm_bin_name,
             "multi-task manager",
-            self.tm_supported,
+            TASK_MANAGERS,
             self.is_command_available,
             skip_list,
         )
@@ -71,7 +143,7 @@ class LocalLauncher(Launcher, CPULauncher):
         pool_txt = pool.get_pool_txt()
         cores_list_local = pool_txt["cores"]
         nodes_list_local = pool_txt["nodes"]
-        if task_mgr != self.tm_supported[1]:
+        if task_mgr != TASK_MANAGERS[1]:
             params = ""
             if task_mgr == "numactl":
                 params = f"-C {cores_list_local} "
@@ -192,8 +264,8 @@ class LocalLauncher(Launcher, CPULauncher):
         skip_list = []
         if is_iomp_set and is_kmp_affinity_set:
             skip_list.append("numactl")
-        task_mgr = self.set_multi_task_manager(
-            args.multi_task_manager, skip_list=skip_list
+        task_mgr = self.set_task_manager(
+            args.task_manager, skip_list=skip_list
         )
 
         # Set environment variables for multi-instance execution
@@ -209,7 +281,7 @@ class LocalLauncher(Launcher, CPULauncher):
             environ_local["LD_PRELOAD"] = ":".join(self.ld_preload)
             self.verbose("info", f'env: LD_PRELOAD={environ_local["LD_PRELOAD"]}')
         for k, v in self.environ_set.items():
-            if task_mgr == self.tm_supported[1]:
+            if task_mgr == TASK_MANAGERS[1]:
                 if omp_runtime == "default" and k == "GOMP_CPU_AFFINITY":
                     continue
                 if omp_runtime == "intel" and k == "KMP_AFFINITY":

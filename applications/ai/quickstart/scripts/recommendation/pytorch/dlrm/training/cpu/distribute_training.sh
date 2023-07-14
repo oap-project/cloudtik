@@ -85,7 +85,7 @@ export OMP_NUM_THREADS=$CORES
 
 LOG_0="${LOG}/socket.log"
 cloudtik-run \
-  --enable_jemalloc --distributed \
+  --memory-allocator=jemalloc --distributed \
   $MODEL_SCRIPT \
   --raw-data-file=${DATASET_DIR}/day --processed-data-file=${DATASET_DIR}/terabyte_processed.npz \
   --data-set=terabyte \

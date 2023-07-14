@@ -2,7 +2,7 @@ import logging
 import os
 
 from cloudtik.runtime.ai.runner.cpu.cpu_info import CPUPoolList
-from cloudtik.runtime.ai.runner.cpu.launcher import CPULauncher
+from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher
 from cloudtik.runtime.ai.runner.mpi.mpi_training_launcher import MPITrainingLauncher
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,23 @@ logger = logging.getLogger(__name__)
 LD_PRELOAD_MARKER = "LD_PRELOAD_UNSET"
 
 
-class OptimizedTrainingLauncher(MPITrainingLauncher, CPULauncher):
+def add_cpu_training_launcher_params(parser):
+    group = parser.add_argument_group("Parameters for optimized CPU launcher")
+
+    # ccl control
+    group.add_argument(
+        "--ccl-worker-count", "--ccl_worker_count",
+        action='store', dest='ccl_worker_count', default=4, type=int,
+        help="Core numbers per rank used for ccl communication")
+
+    group.add_argument(
+        "--logical-cores-for-ccl", "--logical_cores_for_ccl",
+        action="store_true", default=False,
+        help="Use logical cores for the ccl worker.",
+    )
+
+
+class CPUTrainingLauncher(MPITrainingLauncher, CPULauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """
@@ -122,13 +138,9 @@ class OptimizedTrainingLauncher(MPITrainingLauncher, CPULauncher):
 
     def set_mpi_environment(self, cpuinfo):
         args = self.args
-        assert not (
-                args.logical_cores_for_ccl and args.use_logical_cores
-        ), "Can't use --logical-cores-for-ccl and --use-logical-cores at the same time."
-
         nodes_list = self.parse_list_argument(args.nodes_list)
-        if args.nprocs_per_node == 0:
-            args.nprocs_per_node = (
+        if args.nproc_per_node == 0:
+            args.nproc_per_node = (
                 len(set([c.node for c in cpuinfo.pool_all]))
                 if len(nodes_list) == 0
                 else len(nodes_list)
@@ -138,14 +150,14 @@ class OptimizedTrainingLauncher(MPITrainingLauncher, CPULauncher):
             if (
                     not args.logical_cores_for_ccl
                     or len([c for c in cpuinfo.pool_all if not c.is_physical_core])
-                    < args.nprocs_per_node * args.ccl_worker_count
+                    < args.nproc_per_node * args.ccl_worker_count
             ):
                 ncores_per_instance += args.ccl_worker_count
             ncores_per_instance = len(
                 [c for c in cpuinfo.pool_all if c.core < ncores_per_instance]
             )
         cpuinfo.gen_pools_ondemand(
-            ninstances=args.nprocs_per_node,
+            ninstances=args.nproc_per_node,
             ncores_per_instance=ncores_per_instance,
             use_logical_cores=True,
             use_e_cores=args.use_e_cores,

@@ -17,9 +17,10 @@ def add_mpi_params(parser):
     group = parser.add_argument_group("MPI Parameters")
 
     # mpi control
-    group.add_argument("--mpi-args", "--mpi_args", "--more_mpi_params",
-                       action='store', dest='mpi_args', default="", type=str,
-                       help="User can pass more parameters for mpirun")
+    group.add_argument(
+        "--mpi-args", "--mpi_args",
+        action='store', dest='mpi_args', default="", type=str,
+        help="User can pass more parameters for mpirun")
 
 
 class MPITrainingLauncher(DistributedTrainingLauncher):

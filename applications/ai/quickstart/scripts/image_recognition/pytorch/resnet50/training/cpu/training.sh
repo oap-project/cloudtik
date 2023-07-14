@@ -96,11 +96,11 @@ BATCH_SIZE=128
 rm -rf ./resnet50_training_log_*
 
 cloudtik-run \
-    --use_default_allocator \
+    --memory-allocator=default \
     --ninstances 1 \
-    --ncore_per_instance ${CORES_PER_INSTANCE} \
-    --log_path=${OUTPUT_DIR} \
-    --log_file_prefix="./resnet50_training_log_${PRECISION}" \
+    --ncores-per-instance ${CORES_PER_INSTANCE} \
+    --log-dir=${OUTPUT_DIR} \
+    --log-file-prefix="./resnet50_training_log_${PRECISION}" \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
     $ARGS \
     -j 0 \

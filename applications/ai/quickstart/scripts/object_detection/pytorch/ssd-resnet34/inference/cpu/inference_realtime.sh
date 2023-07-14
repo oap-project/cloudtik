@@ -90,7 +90,7 @@ if [ "$weight_sharing" = true ]; then
     export OMP_NUM_THREADS=$CORES_PER_INSTANCE
 
     cloudtik-run \
-        --use_default_allocator \
+        --memory-allocator=default \
         --ninstance ${SOCKETS} \
         ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer_weight_sharing.py \
         --data ${DATASET_DIR}/coco \
@@ -106,7 +106,7 @@ if [ "$weight_sharing" = true ]; then
     wait
 else
     cloudtik-run \
-        --use_default_allocator \
+        --memory-allocator=default \
         --latency_mode \
         ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer.py \
         --data ${DATASET_DIR}/coco \

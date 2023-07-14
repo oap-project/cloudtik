@@ -64,7 +64,7 @@ params="--train_batch_size=$LBS     --learning_rate=3.5e-4     --opt_lamb_beta_1
 
 # --dense_seq_output due to error for the output
 cloudtik-run \
-    --node_id 0 --enable_jemalloc --log_path=${OUTPUT_DIR} --log_file_prefix="./throughput_log_phase1_${precision}" ${TRAIN_SCRIPT} \
+    --node-list=0 --memory-allocator=jemalloc --log-dir=${OUTPUT_DIR} --log-file-prefix="./throughput_log_phase1_${precision}" ${TRAIN_SCRIPT} \
     --input_dir ${DATASET_DIR}/2048_shards_uncompressed_128/ \
     --eval_dir ${DATASET_DIR}/eval_set_uncompressed/ \
     --model_type 'bert' \

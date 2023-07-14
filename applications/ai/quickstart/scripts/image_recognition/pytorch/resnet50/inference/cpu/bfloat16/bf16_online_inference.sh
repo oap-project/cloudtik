@@ -25,7 +25,7 @@ SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
 CORES_PER_INSTANCE=4
 INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
-MULTI_INSTANCE_ARGS="--enable_tcmalloc --ninstances ${INSTANCES} --ncore_per_instance ${CORES_PER_INSTANCE}"
+RUN_ARGS="--memory-allocator=tcmalloc --ninstances ${INSTANCES} --ncores-per-instance ${CORES_PER_INSTANCE}"
 
 echo "Running '${INSTANCES}' instance"
 
@@ -36,7 +36,7 @@ fi
 echo "Running using ${ARGS} args ..."
 
 cloudtik-run \
-    ${MULTI_INSTANCE_ARGS} \
+    ${RUN_ARGS} \
     models/image_recognition/pytorch/common/main.py \
     --arch resnet50 ../ \
     --evaluate \

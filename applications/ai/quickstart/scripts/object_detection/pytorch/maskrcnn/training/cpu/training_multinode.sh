@@ -87,8 +87,8 @@ cloudtik-run \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \
     --nproc_per_node $SOCKETS \
-    --log_path=${OUTPUT_DIR} \
-    --log_file_prefix="./distributed_throughput_log_${PRECISION}" \
+    --log-dir=${OUTPUT_DIR} \
+    --log-file-prefix="./distributed_throughput_log_${PRECISION}" \
     ${MODEL_DIR}/models/object_detection/pytorch/maskrcnn/maskrcnn-benchmark/tools/train_net.py \
     $ARGS \
     --iter-warmup 10 \

@@ -105,12 +105,12 @@ rm -rf ${OUTPUT_DIR}/resnet50_dist_training_log_*
 TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/image_recognition/pytorch/common/main.py}
 
 cloudtik-run \
-    --use_default_allocator \
+    --memory-allocator=default \
     --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \
     --nproc_per_node ${SOCKETS} \
-    --ncore_per_instance ${CORES_PER_INSTANCE} \
+    --ncores-per-instance ${CORES_PER_INSTANCE} \
     ${TRAIN_SCRIPT} \
     $ARGS \
     -j 0 \

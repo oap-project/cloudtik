@@ -61,10 +61,10 @@ rm -rf ${OUTPUT_DIR}/transnetv2_throughput_log_${PRECISION}_*
 source "${MODEL_DIR}/scripts/utils.sh"
 _get_platform_type
 
-LAUNCH_ARGS="--use_default_allocator \
+LAUNCH_ARGS="--memory-allocator=default \
   --throughput_mode \
-  --log_path=${OUTPUT_DIR} \
-  --log_file_prefix="transnetv2_throughput_log_${PRECISION}""
+  --log-dir=${OUTPUT_DIR} \
+  --log-file-prefix="transnetv2_throughput_log_${PRECISION}""
 
 if [[ "$USE_IPEX" == "true" ]]; then
   ARGS="$ARGS --ipex --jit"

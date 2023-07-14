@@ -7,8 +7,9 @@ from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 
-from cloudtik.runtime.ai.runner.cpu.launcher import add_local_launcher_params, add_cpu_option_params, \
-    add_memory_allocator_params, add_auto_ipex_params
+from cloudtik.runtime.ai.runner.cpu.cpu_launcher import add_cpu_launcher_params
+from cloudtik.runtime.ai.runner.cpu.local_launcher import add_local_cpu_launcher_params, add_auto_ipex_params
+from cloudtik.runtime.ai.runner.cpu.training_launcher import add_cpu_training_launcher_params
 from cloudtik.runtime.ai.runner.distributed_training_launcher import add_distributed_training_params
 from cloudtik.runtime.ai.runner.horovod.horovod_training_launcher import add_horovod_params
 from cloudtik.runtime.ai.runner.mpi.mpi_training_launcher import add_mpi_params
@@ -46,7 +47,7 @@ For memory management, it configures NUMA binding and preload optimized memory a
 
 1. Multi-instance
    By default, one instance per node. if you want to set the instance numbers and core per instance,
-   --ninstances and --ncore_per_instance should be set.
+   --ninstances and --ncores-per-instance should be set.
 
 
    >>> cloudtik-run -- python_script args
@@ -54,7 +55,7 @@ For memory management, it configures NUMA binding and preload optimized memory a
    eg: on CLX8280 with 14 instance, 4 cores per instance
 ::
 
-   >>> cloudtik-run --ninstances 14 --ncore_per_instance 4 python_script args
+   >>> cloudtik-run --ninstances 14 --ncores-per-instance 4 python_script args
 
 2. Run single-instance inference among multiple instances.
    By default, runs all ninstances. If you want to independently run a single instance among ninstances, specify instance_idx.
@@ -62,17 +63,17 @@ For memory management, it configures NUMA binding and preload optimized memory a
    eg: run 0th instance among SKX with 2 instance (i.e., numactl -C 0-27)
 ::
 
-   >>> cloudtik-run --ninstances 2 --instance_idx 0 python_script args
+   >>> cloudtik-run --ninstances 2 --instance-idx 0 python_script args
 
    eg: run 1st instance among SKX with 2 instance (i.e., numactl -C 28-55)
 ::
 
-   >>> cloudtik-run --ninstances 2 --instance_idx 1 python_script args
+   >>> cloudtik-run --ninstances 2 --instance-idx 1 python_script args
 
    eg: run 0th instance among SKX with 2 instance, 2 cores per instance, first four cores (i.e., numactl -C 0-1)
 ::
 
-   >>> cloudtik-run --core_list "0, 1, 2, 3" --ninstances 2 --ncore_per_instance 2 --instance_idx 0 python_script args
+   >>> cloudtik-run --cores-list "0, 1, 2, 3" --ninstances 2 --ncores-per-instance 2 --instance-idx 0 python_script args
 
 *** Distributed Training ***
 
@@ -99,7 +100,7 @@ for well-improved multi-node distributed training performance as well.
 
 ::
 
-    >>> cloudtik-run --nproc_per_node=xxx
+    >>> cloudtik-run --nproc-per-node=2
                --nnodes=2 --hosts ip1,ip2 python_sript --arg1 --arg2 --arg3
                and all other arguments of your training script)
 """
@@ -123,7 +124,7 @@ def add_common_arguments(parser):
                         help="Do not prepend the --program script with \"python\" - just exec "
                              "it directly. Useful when the script is not a Python script.")
 
-    parser.add_argument("--log-path", "--log_path",
+    parser.add_argument("--log-dir", "--log_dir",
                         default="", type=str,
                         help="The log file directory. Default path is '', which means disable logging to files.")
     parser.add_argument("--log-file-prefix", "--log_file_prefix",
@@ -152,21 +153,21 @@ def create_parser():
                     "\n1. Local single-instance training or inference\n"
                     "\n   >>> cloudtik-run python_script args \n"
                     "\n2. Local multi-instance inference \n"
-                    "\n    >>> cloudtik-run --ninstances 2 --ncore_per_instance 8 python_script args\n"
+                    "\n    >>> cloudtik-run --ninstances 2 --ncores-per-instance 8 python_script args\n"
                     "\n3. Single-Node multi-process distributed training\n"
                     "\n    >>> cloudtik-run --distributed  python_script args\n"
                     "\n4. Multi-Node multi-process distributed training: (e.g. two nodes)\n"
-                    "\n   >>> cloudtik-run --nproc_per_node=2\n"
+                    "\n   >>> cloudtik-run --nproc-per-node=2\n"
                     "\n       --nnodes=2 --hosts ip1,ip2 python_script args\n"
                     "\n############################################################################# \n",
                     formatter_class=RawTextHelpFormatter)
 
     add_common_arguments(parser)
 
-    add_local_launcher_params(parser)
-    add_cpu_option_params(parser)
-    add_memory_allocator_params(parser)
+    add_cpu_launcher_params(parser)
+    add_local_cpu_launcher_params(parser)
     add_auto_ipex_params(parser)
+    add_cpu_training_launcher_params(parser)
 
     add_distributed_training_params(parser)
     add_mpi_params(parser)
@@ -210,14 +211,14 @@ def _setup_logger(args):
     root_logger = logging.getLogger("")
     root_logger.setLevel(logging.INFO)
 
-    if args.log_path:
-        path = os.path.dirname(args.log_path if args.log_path.endswith('/') else args.log_path + '/')
+    if args.log_dir:
+        path = os.path.dirname(args.log_dir if args.log_dir.endswith('/') else args.log_dir + '/')
         if not os.path.exists(path):
             os.makedirs(path)
-        args.log_path = path
+        args.log_dir = path
         args.log_file_prefix = '{}_{}'.format(args.log_file_prefix, datetime.now().strftime("%Y%m%d%H%M%S"))
 
-        fileHandler = logging.FileHandler("{0}/{1}_instances.log".format(args.log_path, args.log_file_prefix))
+        fileHandler = logging.FileHandler("{0}/{1}_instances.log".format(args.log_dir, args.log_file_prefix))
         logFormatter = logging.Formatter(format_str)
         fileHandler.setFormatter(logFormatter)
 
@@ -260,13 +261,13 @@ def _run(args):
                 import HorovodTrainingLauncher
             launcher = HorovodTrainingLauncher(args, distributor)
         else:
-            from cloudtik.runtime.ai.runner.cpu.optimized_training_launcher \
-                import OptimizedTrainingLauncher
-            launcher = OptimizedTrainingLauncher(args, distributor)
+            from cloudtik.runtime.ai.runner.cpu.training_launcher \
+                import CPUTrainingLauncher
+            launcher = CPUTrainingLauncher(args, distributor)
     else:
         from cloudtik.runtime.ai.runner.cpu.local_launcher \
-            import LocalLauncher
-        launcher = LocalLauncher(args, distributor)
+            import LocalCPULauncher
+        launcher = LocalCPULauncher(args, distributor)
 
     launcher.launch()
 

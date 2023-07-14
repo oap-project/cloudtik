@@ -102,11 +102,11 @@ else
 fi
 
 cloudtik-run \
-    --use_default_allocator \
+    --memory-allocator=default \
 	--ninstances 1 \
-    --ncore_per_instance ${CORES_PER_INSTANCE} \
-    --log_path=${OUTPUT_DIR} \
-    --log_file_prefix="./${MODEL_NAME}_log_${PRECISION}_${OPTIMIZATION}" \
+    --ncores-per-instance ${CORES_PER_INSTANCE} \
+    --log-dir=${OUTPUT_DIR} \
+    --log-file-prefix="./${MODEL_NAME}_log_${PRECISION}_${OPTIMIZATION}" \
     ${MODEL_DIR}/models/language_modeling/pytorch/t5/inference/cpu/run_translation.py \
     $ARGS \
     --model_name_or_path $MODEL_NAME \

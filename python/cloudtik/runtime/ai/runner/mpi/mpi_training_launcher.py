@@ -5,7 +5,6 @@ import subprocess
 
 from cloudtik.runtime.ai.runner import get_cloudtik_rsh
 from cloudtik.runtime.ai.runner.util import utils
-from cloudtik.runtime.ai.runner.cpu.launcher import CPULauncher
 from cloudtik.runtime.ai.runner.distributed_training_launcher import DistributedTrainingLauncher
 
 logger = logging.getLogger(__name__)
@@ -14,7 +13,16 @@ logger = logging.getLogger(__name__)
 _LARGE_CLUSTER_THRESHOLD = 64
 
 
-class DefaultTrainingLauncher(CPULauncher, DistributedTrainingLauncher):
+def add_mpi_params(parser):
+    group = parser.add_argument_group("MPI Parameters")
+
+    # mpi control
+    group.add_argument("--mpi-args", "--mpi_args", "--more_mpi_params",
+                       action='store', dest='mpi_args', default="", type=str,
+                       help="User can pass more parameters for mpirun")
+
+
+class MPITrainingLauncher(DistributedTrainingLauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """

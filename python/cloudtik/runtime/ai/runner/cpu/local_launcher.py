@@ -2,19 +2,20 @@ import logging
 import os
 import subprocess
 
+from cloudtik.runtime.ai.runner.launcher import Launcher
 from cloudtik.runtime.ai.runner.cpu.launcher import CPULauncher
 from cloudtik.runtime.ai.runner.util.utils import is_python_program
 
 logger = logging.getLogger(__name__)
 
 
-class LocalLauncher(CPULauncher):
+class LocalLauncher(Launcher, CPULauncher):
     r"""
      Launcher for one or more instance on local machine
      """
 
     def __init__(self, args, distributor):
-        super().__init__(args, distributor)
+        Launcher.__init__(self, args, distributor)
         self.program = None
 
     def launch(self):

@@ -20,6 +20,7 @@ from cloudtik.runtime.ai.util.utils import load_config_from
 from disease_prediction.data.download import download
 from disease_prediction.data.process import process
 from disease_prediction.data.split import split
+from disease_prediction.utils import _get_data_api
 
 
 def _get_dataset_config():
@@ -41,6 +42,7 @@ def run(args):
     if not args.no_download:
         download(args.dataset_path)
 
+    data_api = _get_data_api(args)
     if not args.no_process:
         if not os.path.isdir(args.dataset_path):
             raise ValueError("Dataset directory {} doesn't exist.".format(args.dataset_path))
@@ -55,7 +57,8 @@ def run(args):
         process(
             args.dataset_path,
             args.image_path,
-            args.output_dir)
+            args.output_dir,
+            data_api=data_api)
         print("Data process completed.")
 
     if not args.no_split:
@@ -69,7 +72,8 @@ def run(args):
             processed_data_dir=args.output_dir,
             output_dir=args.output_dir,
             test_size=args.test_size,
-            dataset_config=dataset_config)
+            dataset_config=dataset_config,
+            data_api=data_api)
         print("Data split completed.")
 
 

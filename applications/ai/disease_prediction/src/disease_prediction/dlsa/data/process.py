@@ -24,9 +24,9 @@ import tempfile
 import zipfile
 
 import docx2txt
-import pandas as pd
 
 from cloudtik.runtime.ai.util.utils import remove_dir
+from disease_prediction.utils import _get_data_api
 
 
 def read_right_and_left(tx):
@@ -102,7 +102,7 @@ def add_df_log(df, dict_text, manual_annotations, f_id):
     return df
 
 
-def label_correction(df):
+def label_correction(df, pd):
     label_column = "label"
     data_column = "symptoms"
     patient_id = "Patient_ID"
@@ -161,8 +161,10 @@ def _process(
     manual_annotations_file,
     output_annotations_file,
     temp_dir,
+    data_api,
 ):
     print("----- Starting the data preprocessing -----")
+    pd = data_api.pandas()
     manual_annotations = pd.read_excel(manual_annotations_file, sheet_name="all")
 
     medical_reports_folder = unzip_file(
@@ -196,12 +198,13 @@ def _process(
         "".join([str(df.loc[i, "ID"]), df.loc[i, "Side"]]) for i in df.index
     ]
     
-    df = label_correction(df)
+    df = label_correction(df, pd)
     save_annotation_file(df, output_annotations_file)
 
 
 def process(
         data_path,
+        data_api,
         medical_reports_folder=None,
         manual_annotations_file=None,
         output_annotations_file=None,
@@ -238,12 +241,16 @@ def process(
         medical_reports_folder,
         manual_annotations_file,
         output_annotations_file,
-        temp_dir)
+        temp_dir=temp_dir,
+        data_api=data_api,
+    )
 
 
 def run(args):
+    data_api = _get_data_api(args)
     process(
         data_path=args.data_path,
+        data_api=data_api,
         medical_reports_folder=args.medical_reports_folder,
         manual_annotations_file=args.manual_annotations_file,
         output_annotations_file=args.output_annotations_file,

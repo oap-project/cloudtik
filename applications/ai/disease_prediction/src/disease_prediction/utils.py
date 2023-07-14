@@ -2,9 +2,15 @@ import os
 
 import yaml
 
+from cloudtik.runtime.ai.data.api import get_data_api
 
 DEFAULT_TRAIN_OUTPUT = "train_output.yaml"
 DEFAULT_PREDICT_OUTPUT = "predict_output.yaml"
+
+
+def _get_data_api(args):
+    # TODO: use the proper data API based on arguments
+    return get_data_api()
 
 
 def read_yaml_file(yaml_path):

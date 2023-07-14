@@ -19,7 +19,7 @@ import os
 import sys
 import tempfile
 
-from cloudtik.runtime.ai.data.api import get_data_api, DataAPIType
+from cloudtik.runtime.ai.data.api import get_data_api
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.data.process \
     import process_data
 from cloudtik.runtime.ai.modeling.graph_modeling.graph_sage.modeling.model.\
@@ -43,7 +43,7 @@ GNN_HOME_PATH = os.path.abspath(os.path.dirname(__file__))
 
 def _get_data_api(args):
     # TODO: use the proper data API based on arguments
-    return get_data_api(DataAPIType.PANDAS)
+    return get_data_api()
 
 
 def _get_dataset_output_dir(temp_dir):

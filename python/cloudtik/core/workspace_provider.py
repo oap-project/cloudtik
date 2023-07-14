@@ -2,6 +2,8 @@ import logging
 from typing import Any, Dict, List, Optional
 from enum import Enum
 
+from cloudtik.core._private.annotations import DeveloperAPI
+
 logger = logging.getLogger(__name__)
 
 CLOUDTIK_MANAGED_CLOUD_STORAGE = "managed.cloud.storage"
@@ -21,6 +23,7 @@ class Existence(Enum):
     STORAGE_AND_DATABASE_ONLY = 6
 
 
+@DeveloperAPI
 class WorkspaceProvider:
     """Interface for preparing a workspace from a Cloud.
 

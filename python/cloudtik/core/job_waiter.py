@@ -1,9 +1,12 @@
 import logging
 from typing import Any, Dict, Optional
 
+from cloudtik.core._private.annotations import DeveloperAPI
+
 logger = logging.getLogger(__name__)
 
 
+@DeveloperAPI
 class JobWaiter:
     """Interface for plugin the method to check an async job completion.
 

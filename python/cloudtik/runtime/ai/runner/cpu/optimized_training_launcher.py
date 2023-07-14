@@ -1,20 +1,21 @@
 import logging
 
-from cloudtik.runtime.ai.runner.cpu.default_training_launcher import DefaultTrainingLauncher
+from cloudtik.runtime.ai.runner.cpu.launcher import CPULauncher
+from cloudtik.runtime.ai.runner.mpi.mpi_training_launcher import MPITrainingLauncher
 from cloudtik.runtime.ai.runner.cpu.utils import CPUinfo
 
 logger = logging.getLogger(__name__)
 
 
-class OptimizedTrainingLauncher(DefaultTrainingLauncher):
+class OptimizedTrainingLauncher(MPITrainingLauncher, CPULauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """
     def __init__(self, args, distributor):
-        super().__init__(args, distributor)
+        MPITrainingLauncher.__init__(self, args, distributor)
 
     def get_mpi_pin_domain(self, nproc_per_node, ccl_worker_count, total_cores, flatten_node_cores):
-        '''
+        """
         I_MPI_PIN_DOMAIN specify the cores used for every MPI process.
         The first ccl_worker_count cores of every rank for ccl communication
         and the other cores will be used to do computation.
@@ -22,7 +23,7 @@ class OptimizedTrainingLauncher(DefaultTrainingLauncher):
         CCL_WORKER_COUNT=4
         CCL_WORKER_AFFINITY="0,1,2,3,28,29,30,31"
         I_MPI_PIN_DOMAIN=[0xffffff0,0xffffff0000000]
-        '''
+        """
         ppn = nproc_per_node
         cores_per_rank = total_cores // ppn
 
@@ -41,11 +42,11 @@ class OptimizedTrainingLauncher(DefaultTrainingLauncher):
         return pin_domain
 
     def get_ccl_worker_affinity(self, nproc_per_node, ccl_worker_count, total_cores, flatten_node_cores):
-        '''
+        """
         Computation and communication use different cores when using oneCCL
         backend for distributed training. we use first ccl_worker_count cores of
         every rank for ccl communication
-        '''
+        """
         ppn = nproc_per_node
         cores_per_rank = total_cores // ppn
         affinity = ''

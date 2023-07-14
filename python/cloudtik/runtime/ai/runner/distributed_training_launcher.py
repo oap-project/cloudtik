@@ -6,6 +6,43 @@ from cloudtik.runtime.ai.runner.launcher import Launcher
 logger = logging.getLogger(__name__)
 
 
+def add_distributed_training_params(parser):
+    group = parser.add_argument_group("Distributed Training Parameters")
+    group.add_argument('--num-proc', '--num_proc',
+                       action='store', type=int, default=0,
+                       help="The number of process to run for distributed training")
+    group.add_argument("--nnodes",
+                       type=int, default=0,
+                       help="The number of nodes to use for distributed training")
+    group.add_argument("--nproc-per-node", "--nproc_per_node",
+                       action='store', type=int, default=0,
+                       help="The number of processes to launch on each node")
+    group.add_argument("--hosts",
+                       default="", type=str,
+                       help="List of hosts separated with comma for launching tasks. "
+                            "When hosts is specified, it implies distributed training. "
+                            "node address which should be either the IP address"
+                            "or the hostname with or without slots.")
+    group.add_argument("--hostfile",
+                       default="", type=str,
+                       help="Hostfile is necessary for multi-node multi-proc "
+                            "training. hostfile includes the node address list "
+                            "node address which should be either the IP address"
+                            "or the hostname with or without slots.")
+
+    group.add_argument("--master-addr", "--master_addr",
+                       action='store', default="127.0.0.1", type=str,
+                       help="Master node (rank 0)'s address, should be either "
+                            "the IP address or the hostname of node 0, for "
+                            "single node multi-proc training, the "
+                            "--master_addr can simply be 127.0.0.1")
+    group.add_argument("--master-port", "--master_port",
+                       action='store', default=29500, type=int,
+                       help="Master node (rank 0)'s free port that needs to "
+                            "be used for communication during distributed "
+                            "training")
+
+
 class DistributedTrainingLauncher(Launcher):
     r"""
      Launcher for distributed training

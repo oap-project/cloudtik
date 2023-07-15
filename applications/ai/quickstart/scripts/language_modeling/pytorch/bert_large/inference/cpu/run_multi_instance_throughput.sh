@@ -74,9 +74,9 @@ if [ ${WEIGHT_SHAREING} ]; then
   PROCESSES_PER_SOCKET=`expr $PROCESSES / $SOCKETS`
 
   echo "Running Bert_Large inference throughput with runtime extension enabled."
-  STREAM_PER_PROCESS=$CORES_PER_PROC
-  #export OMP_NUM_THREADS=`expr $BATCH_SIZE \/ $STREAM_PER_PROCESS`
-  BATCH_SIZE=$STREAM_PER_PROCESS
+  STREAMS_PER_PROCESS=$CORES_PER_PROC
+  #export OMP_NUM_THREADS=`expr $BATCH_SIZE \/ $STREAMS_PER_PROCESS`
+  BATCH_SIZE=$STREAMS_PER_PROCESS
   for i in $(seq 0 $LAST_PROCESS); do
     numa_node_i=`expr $i / $PROCESSES_PER_SOCKET`
     start_core_i=`expr $i \* $CORES_PER_PROC`
@@ -84,7 +84,7 @@ if [ ${WEIGHT_SHAREING} ]; then
     LOG_i="${OUTPUT_DIR}/throughput_log_${PRECISION}_${i}.log"
 
     ARGS="$ARGS --use_multi_stream_module"
-    ARGS="$ARGS --num_streams $STREAM_PER_PROCESS"
+    ARGS="$ARGS --num_streams $STREAMS_PER_PROCESS"
     ARGS="$ARGS --instance_number $numa_node_i"
 
     numactl -C $start_core_i-$end_core_i --membind=$numa_node_i python ${EVAL_SCRIPT} $ARGS --model_type bert --model_name_or_path ${FINETUNED_MODEL} --tokenizer_name bert-large-uncased-whole-word-masking-finetuned-squad  --do_eval --do_lower_case --predict_file $EVAL_DATA_FILE --per_gpu_eval_batch_size $BATCH_SIZE --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir ./tmp --perf_begin_iter 15 --use_jit --perf_run_iters 40 --int8_config ${INT8_CONFIG} \

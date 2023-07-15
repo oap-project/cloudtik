@@ -93,8 +93,8 @@ if [ "$weight_sharing" = true ]; then
 
     BATCH_PER_STREAM=2
     CORES_PER_STREAM=1
-    STREAM_PER_PROCESS=`expr $CORES / $CORES_PER_STREAM`
-    BATCH_SIZE=`expr $BATCH_PER_STREAM \* $STREAM_PER_PROCESS`
+    STREAMS_PER_PROCESS=`expr $CORES / $CORES_PER_STREAM`
+    BATCH_SIZE=`expr $BATCH_PER_STREAM \* $STREAMS_PER_PROCESS`
 
     export OMP_NUM_THREADS=$CORES_PER_STREAM
 
@@ -115,7 +115,7 @@ if [ "$weight_sharing" = true ]; then
             --no-cuda \
             --iteration 50 \
             --batch-size ${BATCH_SIZE} \
-            --number-instance $STREAM_PER_PROCESS \
+            --number-instance $STREAMS_PER_PROCESS \
             --use-multi-stream-module \
             --instance-number $i \
             $ARGS 2>&1 | tee ${OUTPUT_DIR}/$LOG_i &

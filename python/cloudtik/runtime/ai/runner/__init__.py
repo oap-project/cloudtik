@@ -57,7 +57,7 @@ class _LaunchArgs(object):
         self.omp_runtime = "auto"
 
         # Local CPU Launcher
-        self.process_idx = -1
+        self.process_idx = ""
         self.nodes_list = ""
         self.cores_list = ""
         self.task_manager = "auto"

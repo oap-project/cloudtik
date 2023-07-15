@@ -66,10 +66,10 @@ OUTPUT_DIR=${OUTPUT_DIR:-${PWD}}
 EVAL_SCRIPT=${EVAL_SCRIPT:-"./transformers/examples/legacy/question-answering/run_squad.py"}
 
 cloudtik-run \
-  --ninstance ${SOCKETS} --log-dir=${OUTPUT_DIR} --log-file-prefix="./latency_log_${precision}" ${EVAL_SCRIPT} $ARGS --model_type bert --model_name_or_path ${FINETUNED_MODEL} --tokenizer_name bert-large-uncased-whole-word-masking-finetuned-squad  --do_eval --do_lower_case --predict_file $EVAL_DATA_FILE  --per_gpu_eval_batch_size $BATCH_SIZE --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir ./tmp --perf_begin_iter 20 --perf_run_iters 100 --use_jit --int8_config ${INT8_CONFIG} --use_share_weight --total_cores ${CORES}
-CORES_PER_INSTANCE=4
+  --num-proc ${SOCKETS} --log-dir=${OUTPUT_DIR} --log-file-prefix="./latency_log_${precision}" ${EVAL_SCRIPT} $ARGS --model_type bert --model_name_or_path ${FINETUNED_MODEL} --tokenizer_name bert-large-uncased-whole-word-masking-finetuned-squad  --do_eval --do_lower_case --predict_file $EVAL_DATA_FILE  --per_gpu_eval_batch_size $BATCH_SIZE --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir ./tmp --perf_begin_iter 20 --perf_run_iters 100 --use_jit --int8_config ${INT8_CONFIG} --use_share_weight --total_cores ${CORES}
+CORES_PER_PROC=4
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
+INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
 INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
 
 throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_PER_SOCKET '

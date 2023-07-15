@@ -84,9 +84,9 @@ wait
 
 if [[ ${PLATFORM} == "linux" ]]; then
   CORES=`lscpu | grep Core | awk '{print $4}'`
-  CORES_PER_INSTANCE=4
+  CORES_PER_PROC=4
 
-  INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_INSTANCE`
+  INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_PROC`
 
   throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/transnetv2_latency_log_${PRECISION}* | sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET '
   BEGIN {

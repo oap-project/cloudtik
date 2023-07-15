@@ -73,9 +73,9 @@ BATCH_SIZE=1
 rm -rf ${OUTPUT_DIR}/latency_log*
 
 CORES=`lscpu | grep Core | awk '{print $4}'`
-CORES_PER_INSTANCE=4
+CORES_PER_PROC=4
 
-INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_INSTANCE`
+INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_PROC`
 
 weight_sharing=true
 if [ -z "${WEIGHT_SHAREING}" ]; then
@@ -87,11 +87,11 @@ fi
 
 if [ "$weight_sharing" = true ]; then
     SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-    export OMP_NUM_THREADS=$CORES_PER_INSTANCE
+    export OMP_NUM_THREADS=$CORES_PER_PROC
 
     cloudtik-run \
         --memory-allocator=default \
-        --ninstance ${SOCKETS} \
+        --num-proc ${SOCKETS} \
         ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/inference/cpu/infer_weight_sharing.py \
         --data ${DATASET_DIR}/coco \
         --device 0 \

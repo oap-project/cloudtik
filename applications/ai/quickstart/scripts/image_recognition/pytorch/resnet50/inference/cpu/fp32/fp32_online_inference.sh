@@ -23,9 +23,9 @@ _get_platform_type
 CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-CORES_PER_INSTANCE=4
-INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
-RUN_ARGS="--memory-allocator=tcmalloc --ninstances ${INSTANCES} --ncores-per-instance ${CORES_PER_INSTANCE}"
+CORES_PER_PROC=4
+INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
+RUN_ARGS="--memory-allocator=tcmalloc --num-proc ${INSTANCES} --ncores-per-proc ${CORES_PER_PROC}"
 
 echo "Running '${INSTANCES}' instance"
 

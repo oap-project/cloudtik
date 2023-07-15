@@ -23,26 +23,26 @@ SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
 
 # change this number to adjust number of instances
-CORES_PER_INSTANCE=$CORES
+CORES_PER_PROC=$CORES
 
 KMP_SETTING="KMP_AFFINITY=granularity=fine,compact,1,0"
 
 BATCH_SIZE=12
 
-export OMP_NUM_THREADS=$CORES_PER_INSTANCE
+export OMP_NUM_THREADS=$CORES_PER_PROC
 export $KMP_SETTING
 
-echo -e "### using OMP_NUM_THREADS=$CORES_PER_INSTANCE"
+echo -e "### using OMP_NUM_THREADS=$CORES_PER_PROC"
 echo -e "### using $KMP_SETTING\n\n"
 sleep 3
 
-INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
+INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
 LAST_INSTANCE=`expr $INSTANCES - 1`
 INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
 for i in $(seq 1 $LAST_INSTANCE); do
     numa_node_i=`expr $i / $INSTANCES_PER_SOCKET`
-    start_core_i=`expr $i \* $CORES_PER_INSTANCE`
-    end_core_i=`expr $start_core_i + $CORES_PER_INSTANCE - 1`
+    start_core_i=`expr $i \* $CORES_PER_PROC`
+    end_core_i=`expr $start_core_i + $CORES_PER_PROC - 1`
     LOG_i=inference_thp_bs${BATCH_SIZE}_ins${i}.txt
 
     echo "### running on instance $i, numa node $numa_node_i, core list {$start_core_i, $end_core_i}..."
@@ -51,7 +51,7 @@ done
 
 numa_node_0=0
 start_core_0=0
-end_core_0=`expr $CORES_PER_INSTANCE - 1`
+end_core_0=`expr $CORES_PER_PROC - 1`
 LOG_0=inference_thp_bs${BATCH_SIZE}_ins0.txt
 
 echo "### running on instance 0, numa node $numa_node_0, core list {$start_core_0, $end_core_0}...\n\n"

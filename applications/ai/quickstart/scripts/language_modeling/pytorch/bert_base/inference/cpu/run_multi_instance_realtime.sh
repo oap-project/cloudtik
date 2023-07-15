@@ -60,9 +60,9 @@ cloudtik-run \
   --max_eval_samples 100 \
   --per_device_eval_batch_size $BATCH_SIZE \
 
-CORES_PER_INSTANCE=4
+CORES_PER_PROC=4
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
+INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
 INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
 
 throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_PER_SOCKET '

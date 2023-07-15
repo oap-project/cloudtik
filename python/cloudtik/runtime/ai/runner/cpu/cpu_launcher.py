@@ -14,9 +14,9 @@ OMP_RUNTIMES = ["auto", "default", "intel"]
 def add_cpu_launcher_params(parser):
     group = parser.add_argument_group("Parameters for CPU options")
     group.add_argument(
-        "--ncores-per-instance", "--ncores_per_instance",
+        "--ncores-per-proc", "--ncores_per_proc",
         default=0, type=int,
-        help="Cores per instance")
+        help="Number of cores per process")
     group.add_argument(
         "--use-logical-cores", "--use_logical_cores",
         action='store_true', default=False,

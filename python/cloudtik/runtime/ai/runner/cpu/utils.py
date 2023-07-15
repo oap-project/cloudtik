@@ -53,10 +53,10 @@ KNOWN_CPU_TYPES = [
 ]
 
 
-class PlatformUtil:
+class CPUUtil:
     """
-    This module implements a platform utility that exposes functions that
-    detects platform information.
+    This module implements a utility that exposes functions that
+    detects CPU platform information.
     """
 
     def __init__(self, args):
@@ -346,12 +346,12 @@ class PlatformUtil:
         return int(self.num_numa_nodes)  # type: ignore
 
 
-class CPUInfo:
+class CPUBinding:
     """CPU information class."""
 
     def __init__(self):
         """Initialize CPU information class."""
-        self._binding_data = CPUInfo._sort_membind_info(self._get_core_membind_info())
+        self._binding_data = CPUBinding._sort_membind_info(self._get_core_membind_info())
 
     @staticmethod
     def _get_core_membind_info():

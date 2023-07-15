@@ -76,17 +76,17 @@ fi
 CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 
-CORES_PER_INSTANCE=4
+CORES_PER_PROC=4
 
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
-export OMP_NUM_THREADS=$CORES_PER_INSTANCE
+export OMP_NUM_THREADS=$CORES_PER_PROC
 
-NUMBER_INSTANCE=`expr $CORES / $CORES_PER_INSTANCE`
+NUMBER_INSTANCE=`expr $CORES / $CORES_PER_PROC`
 
 cloudtik-run \
     --memory-allocator=default \
-    --ninstance ${SOCKETS} \
+    --num-proc ${SOCKETS} \
     --log-dir=${OUTPUT_DIR} \
     --log-file-prefix="./resnet50_latency_log_${PRECISION}" \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \
@@ -99,7 +99,7 @@ cloudtik-run \
 wait
 
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
+INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
 INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
 
 throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/resnet50_latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_PER_SOCKET '

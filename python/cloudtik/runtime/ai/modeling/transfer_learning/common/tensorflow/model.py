@@ -32,7 +32,7 @@ from cloudtik.runtime.ai.modeling.transfer_learning.model import PretrainedModel
 from cloudtik.runtime.ai.modeling.transfer_learning.common.utils import \
     verify_directory, validate_model_name
 from cloudtik.runtime.ai.runner import run_command
-from cloudtik.runtime.ai.runner.cpu.platform_utils import PlatformUtil
+from cloudtik.runtime.ai.runner.cpu.utils import CPUUtil
 
 
 class TensorflowModel(PretrainedModel):
@@ -133,7 +133,7 @@ class TensorflowModel(PretrainedModel):
             # Determine whether to enable this based on the CPU type
             try:
                 # Only enable auto mixed precision for SPR
-                enable_auto_mixed_precision = PlatformUtil(args=None).cpu_type == 'SPR'
+                enable_auto_mixed_precision = CPUUtil(args=None).cpu_type == 'SPR'
             except Exception as e:
                 if auto_mixed_precision_supported:
                     print("Unable to determine the CPU type:", str(e))

@@ -86,8 +86,8 @@ if [ "$weight_sharing" = true ]; then
     CORES=`lscpu | grep Core | awk '{print $4}'`
     SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
     TOTAL_CORES=`expr $CORES \* $SOCKETS`
-    CORES_PER_INSTANCE=$CORES
-    INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
+    CORES_PER_PROC=$CORES
+    INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
     LAST_INSTANCE=`expr $INSTANCES - 1`
     INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
 
@@ -100,8 +100,8 @@ if [ "$weight_sharing" = true ]; then
 
     for i in $(seq 0 $LAST_INSTANCE); do
         numa_node_i=`expr $i / $INSTANCES_PER_SOCKET`
-        start_core_i=`expr $i \* $CORES_PER_INSTANCE`
-        end_core_i=`expr $start_core_i + $CORES_PER_INSTANCE - 1`
+        start_core_i=`expr $i \* $CORES_PER_PROC`
+        end_core_i=`expr $start_core_i + $CORES_PER_PROC - 1`
         LOG_i=throughput_log_weight_sharing_${i}.log
 
         echo "### running on instance $i, numa node $numa_node_i, core list {$start_core_i, $end_core_i}..."

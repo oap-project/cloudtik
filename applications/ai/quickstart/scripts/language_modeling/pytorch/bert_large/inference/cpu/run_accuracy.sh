@@ -62,18 +62,18 @@ if [ ${WEIGHT_SHAREING} ]; then
   CORES=`lscpu | grep Core | awk '{print $4}'`
   SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
   TOTAL_CORES=`expr $CORES \* $SOCKETS`
-  CORES_PER_INSTANCE=$CORES
-  INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
+  CORES_PER_PROC=$CORES
+  INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
   LAST_INSTANCE=`expr $INSTANCES - 1`
   INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
 
   numa_node_i=0
   start_core_i=0
-  end_core_i=`expr $start_core_i + $CORES_PER_INSTANCE - 1`
+  end_core_i=`expr $start_core_i + $CORES_PER_PROC - 1`
   LOG_0="${OUTPUT_DIR}/accuracy_log_${PRECISION}.log"
 
   echo "Running Bert_Large inference throughput with runtime extension enabled."
-  STREAM_PER_INSTANCE=$CORES_PER_INSTANCE
+  STREAM_PER_INSTANCE=$CORES_PER_PROC
 
   #export OMP_NUM_THREADS=`expr $BATCH_SIZE \/ $STREAM_PER_INSTANCE`
   BATCH_SIZE=$STREAM_PER_INSTANCE

@@ -61,7 +61,7 @@ CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
 
-CORES_PER_INSTANCE=$CORES
+CORES_PER_PROC=$CORES
 
 export TRAIN=1
 

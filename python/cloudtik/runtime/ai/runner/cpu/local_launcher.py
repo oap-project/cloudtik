@@ -13,27 +13,21 @@ TASK_MANAGERS = ["auto", "none", "numactl", "taskset"]
 
 def add_local_cpu_launcher_params(parser):
     group = parser.add_argument_group("Local CPU Launching Parameters")
-    # instances control
     group.add_argument(
-        "--ninstances",
-        default=-1, type=int,
-        help="The number of instances to run local. "
-             "You should give the cores number you used for per instance.")
-    group.add_argument(
-        "--instance-idx", "--instance_idx",
+        "--process-idx", "--process_idx",
         default="-1", type=int,
-        help="Specify instance index to assign ncores_per_instance for instance_idx; "
-             "otherwise ncores_per_instance will be assigned sequentially to ninstances.")
+        help="Specify process index to assign ncores_per_proc for process_idx; "
+             "otherwise ncores_per_proc will be assigned sequentially to processes.")
     group.add_argument(
         "--nodes-list", "--nodes_list",
         default="", type=str,
-        help='Specify nodes list for multiple instances to run on, in format of list of single node ids '
+        help='Specify nodes list for multiple processes to run on, in format of list of single node ids '
              'node_id,node_id,..." or list of node ranges "node_id-node_id,...". By default all nodes will be used.',
     )
     group.add_argument(
         "--cores-list", "--cores_list",
         default="", type=str,
-        help='Specify cores list for multiple instances to run on, in format of list of single core ids '
+        help='Specify cores list for multiple processes to run on, in format of list of single core ids '
              'core_id,core_id,..." or list of core ranges "core_id-core_id,...". '
              'By default all cores will be used.',
     )
@@ -44,15 +38,15 @@ def add_local_cpu_launcher_params(parser):
     group.add_argument(
         "--skip-cross-node-cores", "--skip_cross_node_cores",
         action='store_true', default=False,
-        help="If specified --ncores_per_instance, skips cross-node cores.")
+        help="If specified --ncores-per-proc, skips cross-node cores.")
     group.add_argument(
         "--latency-mode", "--latency_mode",
         action='store_true', default=False,
-        help="By default 4 core per instance and use all physical cores")
+        help="By default 4 core per procedss and use all physical cores")
     group.add_argument(
         "--throughput-mode", "--throughput_mode",
         action='store_true', default=False,
-        help="By default one instance per node and use all physical cores")
+        help="By default one procedss per node and use all physical cores")
     group.add_argument(
         "--benchmark",
         action='store_true', default=False,
@@ -80,7 +74,7 @@ def add_auto_ipex_params(parser, auto_ipex_default_enabled=False):
 
 class LocalCPULauncher(Launcher, CPULauncher):
     r"""
-     Launcher for one or more instance on local machine
+     Launcher for one or more procedss on local machine
      """
 
     def __init__(self, args, distributor):
@@ -132,13 +126,13 @@ class LocalCPULauncher(Launcher, CPULauncher):
     ):
         assert index > -1 and index <= len(
             cpu_pools
-        ), "Designated instance index for constructing execution commands is out of range."
+        ), "Designated procedss index for constructing execution commands is out of range."
         cmd = []
         environ_local = environ
         pool = cpu_pools[index]
-        pool_txt = pool.get_pool_txt()
-        cores_list_local = pool_txt["cores"]
-        nodes_list_local = pool_txt["nodes"]
+        pool_str = pool.get_pool_str()
+        cores_list_local = pool_str["cores"]
+        nodes_list_local = pool_str["nodes"]
         if task_mgr != TASK_MANAGERS[1]:
             params = ""
             if task_mgr == "numactl":
@@ -192,49 +186,49 @@ class LocalCPULauncher(Launcher, CPULauncher):
             )
         if args.latency_mode:
             if (
-                args.ninstances > 0
-                or args.ncores_per_instance > 0
+                args.num_proc
+                or args.ncores_per_proc > 0
                 or len(args.nodes_list) > 0
                 or args.use_logical_cores
             ):
                 self.verbose(
                     "warning",
-                    "--latency-mode is exclusive to --ninstances, --ncores-per-instance, --nodes-list and \
+                    "--latency-mode is exclusive to --num-proc, --ncores-per-proc, --nodes-list and \
                         --use-logical-cores. They won't take effect even if they are set explicitly.",
                 )
-            args.ncores_per_instance = 4
-            args.ninstances = 0
+            args.ncores_per_proc = 4
+            args.num_proc = 0
             args.use_logical_cores = False
-        if args.throughput_mode:
+        elif args.throughput_mode:
             if (
-                args.ninstances > 0
-                or args.ncores_per_instance > 0
+                args.num_proc
+                or args.ncores_per_proc > 0
                 or len(args.nodes_list) > 0
                 or args.use_logical_cores
             ):
                 self.verbose(
                     "warning",
-                    "--throughput-mode is exclusive to --ninstances, --ncores-per-instance, --nodes-list and \
+                    "--throughput-mode is exclusive to --num-proc, --ncores-per-proc, --nodes-list and \
                         --use-logical-cores. They won't take effect even if they are set explicitly.",
                 )
-            args.ninstances = len(set([c.node for c in self.cpuinfo.pool]))
-            args.ncores_per_instance = 0
+            args.num_proc = len(set([c.node for c in self.cpuinfo.pool]))
+            args.ncores_per_proc = 0
             args.use_logical_cores = False
 
         cores_list = self.parse_list_argument(args.cores_list)
         nodes_list = self.parse_list_argument(args.nodes_list)
 
         cpu_schedule = self.cpuinfo.schedule(
-            ninstances=args.ninstances,
-            ncores_per_instance=args.ncores_per_instance,
+            num_proc=args.num_proc,
+            ncores_per_proc=args.ncores_per_proc,
             use_logical_cores=args.use_logical_cores,
             use_e_cores=args.use_e_cores,
             skip_cross_node_cores=args.skip_cross_node_cores,
             nodes_list=nodes_list,
             cores_list=cores_list,
         )
-        args.ninstances = len(cpu_schedule)
-        args.ncores_per_instance = len(cpu_schedule[0])
+        args.num_proc = len(cpu_schedule)
+        args.ncores_per_proc = len(cpu_schedule[0])
 
         is_iomp_set = False
         for item in self.ld_preload:
@@ -255,7 +249,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
 
         self.set_memory_allocator(args.memory_allocator, args.benchmark)
         omp_runtime = self.set_omp_runtime(args.omp_runtime, set_kmp_affinity)
-        self.add_env("OMP_NUM_THREADS", str(args.ncores_per_instance))
+        self.add_env("OMP_NUM_THREADS", str(args.ncores_per_proc))
 
         skip_list = []
         if is_iomp_set and is_kmp_affinity_set:
@@ -264,7 +258,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
             args.task_manager, skip_list=skip_list
         )
 
-        # Set environment variables for multi-instance execution
+        # Set environment variables for multi-process execution
         self.verbose(
             "info", "env: Untouched preset environment variables are not displayed."
         )
@@ -295,19 +289,19 @@ class LocalCPULauncher(Launcher, CPULauncher):
                 args.disable_ipex_graph_mode,
             )
 
-        instances_available = list(range(args.ninstances))
-        instance_idx = self.parse_list_argument(args.instance_idx)
-        if -1 in instance_idx:
-            instance_idx.clear()
-        if len(instance_idx) == 0:
-            instance_idx.extend(instances_available)
-        instance_idx.sort()
-        instance_idx = list(set(instance_idx))
-        assert set(instance_idx).issubset(
-            set(instances_available)
+        processes_available = list(range(args.num_proc))
+        process_idx = self.parse_list_argument(args.process_idx)
+        if -1 in process_idx:
+            process_idx.clear()
+        if len(process_idx) == 0:
+            process_idx.extend(processes_available)
+        process_idx.sort()
+        process_idx = list(set(process_idx))
+        assert set(process_idx).issubset(
+            set(processes_available)
         ), "Designated nodes list contains invalid nodes."
         processes = []
-        for i in instance_idx:
+        for i in process_idx:
             process = self.run_process(
                 args=args,
                 omp_runtime=omp_runtime,

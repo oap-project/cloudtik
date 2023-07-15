@@ -64,7 +64,7 @@ HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
 
-CORES_PER_INSTANCE=$CORES
+CORES_PER_PROC=$CORES
 
 if [[ "$USE_IPEX" == "true" ]]; then
   export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
@@ -84,7 +84,7 @@ rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_throughput_dist*
 
 cloudtik-run \
     --memory-allocator=default \
-    --ncores-per-instance ${CORES_PER_INSTANCE} \
+    --ncores-per-proc ${CORES_PER_PROC} \
     --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \

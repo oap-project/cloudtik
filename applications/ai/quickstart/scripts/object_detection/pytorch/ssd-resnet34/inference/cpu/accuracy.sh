@@ -89,8 +89,8 @@ if [ "$weight_sharing" = true ]; then
     CORES=`lscpu | grep Core | awk '{print $4}'`
     SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
     TOTAL_CORES=`expr $CORES \* $SOCKETS`
-    CORES_PER_INSTANCE=$CORES
-    INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
+    CORES_PER_PROC=$CORES
+    INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
     LAST_INSTANCE=`expr $INSTANCES - 1`
     INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
 
@@ -103,7 +103,7 @@ if [ "$weight_sharing" = true ]; then
 
     numa_node_i=0
     start_core_i=0
-    end_core_i=`expr 0 + $CORES_PER_INSTANCE - 1`
+    end_core_i=`expr 0 + $CORES_PER_PROC - 1`
 
     echo "### running on instance 0, numa node $numa_node_i, core list {$start_core_i, $end_core_i}..."
     numactl --physcpubind=$start_core_i-$end_core_i --membind=$numa_node_i python -u \

@@ -82,7 +82,7 @@ export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
 export OMP_NUM_THREADS=$CORES_PER_PROC
 
-NUMBER_INSTANCE=`expr $CORES / $CORES_PER_PROC`
+NUMBER_PROCESS=`expr $CORES / $CORES_PER_PROC`
 
 cloudtik-run \
     --memory-allocator=default \
@@ -94,15 +94,15 @@ cloudtik-run \
     -j 0 \
     -b $BATCH_SIZE \
     --weight-sharing \
-    --number-instance $NUMBER_INSTANCE
+    --number-instance $NUMBER_PROCESS
 
 wait
 
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
-INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
+PROCESSES=`expr $TOTAL_CORES / $CORES_PER_PROC`
+PROCESSES_PER_SOCKET=`expr $PROCESSES / $SOCKETS`
 
-throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/resnet50_latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_PER_SOCKET '
+throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/resnet50_latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v PROCESSES_PER_SOCKET=$PROCESSES_PER_SOCKET '
 BEGIN {
         sum = 0;
 i = 0;
@@ -112,11 +112,11 @@ i = 0;
 i++;
       }
 END   {
-sum = sum / i * INSTANCES_PER_SOCKET;
+sum = sum / i * PROCESSES_PER_SOCKET;
         printf("%.2f", sum);
 }')
 
-p99_latency=$(grep 'P99 Latency' ${OUTPUT_DIR}/resnet50_latency_log* |sed -e 's/.*P99 Latency//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_PER_SOCKET '
+p99_latency=$(grep 'P99 Latency' ${OUTPUT_DIR}/resnet50_latency_log* |sed -e 's/.*P99 Latency//;s/[^0-9.]//g' |awk -v PROCESSES_PER_SOCKET=$PROCESSES_PER_SOCKET '
 BEGIN {
     sum = 0;
     i = 0;

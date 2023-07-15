@@ -75,7 +75,7 @@ rm -rf ${OUTPUT_DIR}/latency_log*
 CORES=`lscpu | grep Core | awk '{print $4}'`
 CORES_PER_PROC=4
 
-INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_PROC`
+PROCESSES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_PROC`
 
 weight_sharing=true
 if [ -z "${WEIGHT_SHAREING}" ]; then
@@ -101,7 +101,7 @@ if [ "$weight_sharing" = true ]; then
         --no-cuda \
         --iteration 200 \
         --batch-size ${BATCH_SIZE} \
-        --number-instance $INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET \
+        --number-instance $PROCESSES_THROUGHPUT_BENCHMARK_PER_SOCKET \
         $ARGS 2>&1 | tee ${OUTPUT_DIR}/latency_log_ssdresnet34_${PRECISION}.log
     wait
 else
@@ -123,7 +123,7 @@ else
 fi
 # For the summary of results
 
-throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET '
+throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v PROCESSES_PER_SOCKET=$PROCESSES_THROUGHPUT_BENCHMARK_PER_SOCKET '
 BEGIN {
         sum = 0;
 i = 0;
@@ -133,10 +133,10 @@ i = 0;
 i++;
       }
 END   {
-sum = sum / i * INSTANCES_PER_SOCKET;
+sum = sum / i * PROCESSES_PER_SOCKET;
         printf("%.2f", sum);
 }')
-p99_latency=$(grep 'P99 Latency' ${OUTPUT_DIR}/latency_log* |sed -e 's/.*P99 Latency//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET '
+p99_latency=$(grep 'P99 Latency' ${OUTPUT_DIR}/latency_log* |sed -e 's/.*P99 Latency//;s/[^0-9.]//g' |awk -v PROCESSES_PER_SOCKET=$PROCESSES_THROUGHPUT_BENCHMARK_PER_SOCKET '
 BEGIN {
     sum = 0;
     i = 0;

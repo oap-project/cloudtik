@@ -102,9 +102,9 @@ if [[ ${PLATFORM} == "linux" ]]; then
   CORES=`lscpu | grep Core | awk '{print $4}'`
   CORES_PER_PROC=4
 
-  INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_PROC`
+  PROCESSES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_PROC`
 
-  throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/maskrcnn_${PRECISION}_inference_realtime* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET '
+  throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/maskrcnn_${PRECISION}_inference_realtime* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v PROCESSES_PER_SOCKET=$PROCESSES_THROUGHPUT_BENCHMARK_PER_SOCKET '
   BEGIN {
           sum = 0;
           i = 0;
@@ -114,10 +114,10 @@ if [[ ${PLATFORM} == "linux" ]]; then
           i++;
         }
   END   {
-          sum = sum / i * INSTANCES_PER_SOCKET;
+          sum = sum / i * PROCESSES_PER_SOCKET;
           printf("%.3f", sum);
   }')
-  p99_latency=$(grep 'P99 Latency' ${OUTPUT_DIR}/maskrcnn_${PRECISION}_inference_realtime* |sed -e 's/.*P99 Latency//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET '
+  p99_latency=$(grep 'P99 Latency' ${OUTPUT_DIR}/maskrcnn_${PRECISION}_inference_realtime* |sed -e 's/.*P99 Latency//;s/[^0-9.]//g' |awk -v PROCESSES_PER_SOCKET=$PROCESSES_THROUGHPUT_BENCHMARK_PER_SOCKET '
   BEGIN {
     sum = 0;
     i = 0;

@@ -24,7 +24,7 @@ CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 RUN_ARGS="--memory-allocator=tcmalloc --num-proc ${SOCKETS} --ncores-per-proc ${CORES}"
 
-echo "Running '${SOCKETS}' instance"
+echo "Running '${SOCKETS}' processes"
 
 ARGS=""
 if [[ "$USE_IPEX" == "true" ]]; then

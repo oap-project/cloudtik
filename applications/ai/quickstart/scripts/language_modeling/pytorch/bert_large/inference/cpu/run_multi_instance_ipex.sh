@@ -36,11 +36,11 @@ echo -e "### using OMP_NUM_THREADS=$CORES_PER_PROC"
 echo -e "### using $KMP_SETTING\n\n"
 sleep 3
 
-INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
-LAST_INSTANCE=`expr $INSTANCES - 1`
-INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
-for i in $(seq 1 $LAST_INSTANCE); do
-    numa_node_i=`expr $i / $INSTANCES_PER_SOCKET`
+PROCESSES=`expr $TOTAL_CORES / $CORES_PER_PROC`
+LAST_PROCESS=`expr $PROCESSES - 1`
+PROCESSES_PER_SOCKET=`expr $PROCESSES / $SOCKETS`
+for i in $(seq 1 $LAST_PROCESS); do
+    numa_node_i=`expr $i / $PROCESSES_PER_SOCKET`
     start_core_i=`expr $i \* $CORES_PER_PROC`
     end_core_i=`expr $start_core_i + $CORES_PER_PROC - 1`
     LOG_i=inference_thp_bs${BATCH_SIZE}_ins${i}.txt

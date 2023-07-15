@@ -86,9 +86,9 @@ if [[ ${PLATFORM} == "linux" ]]; then
   CORES=`lscpu | grep Core | awk '{print $4}'`
   CORES_PER_PROC=4
 
-  INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_PROC`
+  PROCESSES_THROUGHPUT_BENCHMARK_PER_SOCKET=`expr $CORES / $CORES_PER_PROC`
 
-  throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/transnetv2_latency_log_${PRECISION}* | sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_THROUGHPUT_BENCHMARK_PER_SOCKET '
+  throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/transnetv2_latency_log_${PRECISION}* | sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v PROCESSES_PER_SOCKET=$PROCESSES_THROUGHPUT_BENCHMARK_PER_SOCKET '
   BEGIN {
           sum = 0;
   i = 0;
@@ -98,7 +98,7 @@ if [[ ${PLATFORM} == "linux" ]]; then
   i++;
         }
   END   {
-  sum = sum / i * INSTANCES_PER_SOCKET;
+  sum = sum / i * PROCESSES_PER_SOCKET;
           printf("%.2f", sum);
   }')
   echo ""TransNetV2";"latency";$1; ${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log

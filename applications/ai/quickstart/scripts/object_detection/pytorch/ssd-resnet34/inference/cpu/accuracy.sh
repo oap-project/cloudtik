@@ -90,14 +90,14 @@ if [ "$weight_sharing" = true ]; then
     SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
     TOTAL_CORES=`expr $CORES \* $SOCKETS`
     CORES_PER_PROC=$CORES
-    INSTANCES=`expr $TOTAL_CORES / $CORES_PER_PROC`
-    LAST_INSTANCE=`expr $INSTANCES - 1`
-    INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
+    PROCESSES=`expr $TOTAL_CORES / $CORES_PER_PROC`
+    LAST_PROCESS=`expr $PROCESSES - 1`
+    PROCESSES_PER_SOCKET=`expr $PROCESSES / $SOCKETS`
 
     BATCH_PER_STREAM=1
     CORES_PER_STREAM=1
-    STREAM_PER_INSTANCE=`expr $CORES / $CORES_PER_STREAM`
-    BATCH_SIZE=`expr $BATCH_PER_STREAM \* $STREAM_PER_INSTANCE`
+    STREAM_PER_PROCESS=`expr $CORES / $CORES_PER_STREAM`
+    BATCH_SIZE=`expr $BATCH_PER_STREAM \* $STREAM_PER_PROCESS`
 
     export OMP_NUM_THREADS=$CORES_PER_STREAM
 
@@ -114,7 +114,7 @@ if [ "$weight_sharing" = true ]; then
         -j 0 \
         --no-cuda \
         --batch-size ${BATCH_SIZE} \
-        --number-instance $STREAM_PER_INSTANCE \
+        --number-instance $STREAM_PER_PROCESS \
         --use-multi-stream-module \
         --instance-number 0 \
         --accuracy-mode \

@@ -1,7 +1,7 @@
 import logging
 import os
 
-from cloudtik.runtime.ai.runner.cpu.cpu_info import CPUPoolList
+from cloudtik.runtime.ai.runner.cpu.cpu_pool import CPUPoolScheduler
 from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher
 from cloudtik.runtime.ai.runner.mpi.mpi_launcher import MPILauncher
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 LD_PRELOAD_MARKER = "LD_PRELOAD_UNSET"
 
 
-def add_cpu_training_launcher_params(parser):
+def add_distributed_cpu_launcher_params(parser):
     group = parser.add_argument_group("Parameters for optimized CPU launcher")
 
     # ccl control
@@ -27,7 +27,7 @@ def add_cpu_training_launcher_params(parser):
     )
 
 
-class CPUTrainingLauncher(MPILauncher, CPULauncher):
+class DistributedCPULauncher(MPILauncher, CPULauncher):
     r"""
      Launcher for distributed training with MPI launcher
      """
@@ -109,7 +109,7 @@ class CPUTrainingLauncher(MPILauncher, CPULauncher):
         else:
             # use any worker address for getting cpu info
             worker_addr = self.get_master_addr(args)
-            cpuinfo = CPUPoolList(host_ip=worker_addr)
+            cpuinfo = CPUPoolScheduler(host_ip=worker_addr)
 
         self.distributor.resolve(cpuinfo.num_sockets())
 
@@ -123,7 +123,7 @@ class CPUTrainingLauncher(MPILauncher, CPULauncher):
         nodes_list = self.parse_list_argument(args.nodes_list)
         if args.nproc_per_node == 0:
             args.nproc_per_node = (
-                len(set([c.node for c in cpuinfo.pool_all]))
+                len(set([c.node for c in cpuinfo.pool]))
                 if len(nodes_list) == 0
                 else len(nodes_list)
             )
@@ -131,14 +131,14 @@ class CPUTrainingLauncher(MPILauncher, CPULauncher):
         if ncores_per_instance > 0:
             if (
                     not args.logical_cores_for_ccl
-                    or len([c for c in cpuinfo.pool_all if not c.is_physical_core])
+                    or len([c for c in cpuinfo.pool if not c.is_physical_core])
                     < args.nproc_per_node * args.ccl_worker_count
             ):
                 ncores_per_instance += args.ccl_worker_count
             ncores_per_instance = len(
-                [c for c in cpuinfo.pool_all if c.core < ncores_per_instance]
+                [c for c in cpuinfo.pool if c.core < ncores_per_instance]
             )
-        cpuinfo.gen_pools_ondemand(
+        cpu_schedule = cpuinfo.schedule(
             ninstances=args.nproc_per_node,
             ncores_per_instance=ncores_per_instance,
             use_logical_cores=True,
@@ -146,18 +146,17 @@ class CPUTrainingLauncher(MPILauncher, CPULauncher):
             nodes_list=nodes_list,
         )
 
-        # TODO: if none of the memory allocator or OpenMP exists
         self.set_memory_allocator(args.memory_allocator, False, ["jemalloc"])
         self.set_omp_runtime(args.omp_runtime, True)
         omp_num_threads = len(
-            [c for c in cpuinfo.pools_ondemand[0] if c.is_physical_core]
+            [c for c in cpu_schedule[0] if c.is_physical_core]
         )
         if not args.logical_cores_for_ccl:
             omp_num_threads -= args.ccl_worker_count
         self.add_env("OMP_NUM_THREADS", str(omp_num_threads))
 
         pin_domain_affinity = self.get_pin_domain_affinity(
-            cpuinfo.pools_ondemand,
+            cpu_schedule,
             args.ccl_worker_count,
             args.logical_cores_for_ccl,
         )

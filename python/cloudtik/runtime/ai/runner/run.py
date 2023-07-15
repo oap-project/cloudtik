@@ -9,7 +9,7 @@ from datetime import datetime
 
 from cloudtik.runtime.ai.runner.cpu.cpu_launcher import add_cpu_launcher_params
 from cloudtik.runtime.ai.runner.cpu.local_launcher import add_local_cpu_launcher_params, add_auto_ipex_params
-from cloudtik.runtime.ai.runner.cpu.training_launcher import add_cpu_training_launcher_params
+from cloudtik.runtime.ai.runner.cpu.distributed_launcher import add_distributed_cpu_launcher_params
 from cloudtik.runtime.ai.runner.distributed_launcher import add_distributed_params
 from cloudtik.runtime.ai.runner.horovod.horovod_launcher import add_horovod_params
 from cloudtik.runtime.ai.runner.mpi.mpi_launcher import add_mpi_params
@@ -167,7 +167,7 @@ def create_parser():
     add_cpu_launcher_params(parser)
     add_local_cpu_launcher_params(parser)
     add_auto_ipex_params(parser)
-    add_cpu_training_launcher_params(parser)
+    add_distributed_cpu_launcher_params(parser)
 
     add_distributed_params(parser)
     add_mpi_params(parser)
@@ -261,9 +261,9 @@ def _run(args):
                 import HorovodLauncher
             launcher = HorovodLauncher(args, distributor)
         else:
-            from cloudtik.runtime.ai.runner.cpu.training_launcher \
-                import CPUTrainingLauncher
-            launcher = CPUTrainingLauncher(args, distributor)
+            from cloudtik.runtime.ai.runner.cpu.distributed_launcher \
+                import DistributedCPULauncher
+            launcher = DistributedCPULauncher(args, distributor)
     else:
         from cloudtik.runtime.ai.runner.cpu.local_launcher \
             import LocalCPULauncher

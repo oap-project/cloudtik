@@ -3,7 +3,7 @@ import logging
 import os
 from os.path import expanduser
 
-from cloudtik.runtime.ai.runner.cpu.cpu_info import CPUPoolList
+from cloudtik.runtime.ai.runner.cpu.cpu_pool import CPUPoolScheduler
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +13,10 @@ OMP_RUNTIMES = ["auto", "default", "intel"]
 
 def add_cpu_launcher_params(parser):
     group = parser.add_argument_group("Parameters for CPU options")
+    group.add_argument(
+        "--ncores-per-instance", "--ncores_per_instance",
+        default=0, type=int,
+        help="Cores per instance")
     group.add_argument(
         "--use-logical-cores", "--use_logical_cores",
         action='store_true', default=False,
@@ -38,8 +42,8 @@ class CPULauncher:
     r"""
      Base class for launcher
     """
-    def __init__(self, lscpu_txt=""):
-        self.cpuinfo = CPUPoolList(logger, lscpu_txt)
+    def __init__(self):
+        self.cpuinfo = CPUPoolScheduler(logger)
         self.library_paths = self._get_library_paths()
         self.ld_preload = (
             os.environ["LD_PRELOAD"].split(":") if "LD_PRELOAD" in os.environ else []
@@ -124,7 +128,7 @@ class CPULauncher:
             file.
             The second string should be a installation command guides users to install this package. When it is empty,
             the installation guide will not be prompted. category: category of this lib/bin. 'memory allocator',
-            'multi-task manager', etc.
+            'task manager', etc.
             supported: predefined support list
             fn: a function how the lib/bin files will be searched. Return True to indicate a successful searching,
             otherwise return False.

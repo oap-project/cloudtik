@@ -20,10 +20,6 @@ def add_local_cpu_launcher_params(parser):
         help="The number of instances to run local. "
              "You should give the cores number you used for per instance.")
     group.add_argument(
-        "--ncores-per-instance", "--ncores_per_instance",
-        default=-1, type=int,
-        help="Cores per instance")
-    group.add_argument(
         "--instance-idx", "--instance_idx",
         default="-1", type=int,
         help="Specify instance index to assign ncores_per_instance for instance_idx; "
@@ -113,7 +109,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
 
     def set_task_manager(self, task_manager="auto", skip_list=None):
         """
-        Set multi-task manager
+        Set task manager
         """
         if skip_list is None:
             skip_list = []
@@ -124,14 +120,14 @@ class LocalCPULauncher(Launcher, CPULauncher):
         tm_local = self.set_lib_bin_from_list(
             task_manager,
             tm_bin_name,
-            "multi-task manager",
+            "task manager",
             TASK_MANAGERS,
             self.is_command_available,
             skip_list,
         )
         return tm_local
 
-    def execution_command_builder(
+    def run_process(
         self, args, omp_runtime, task_mgr, environ, cpu_pools, index
     ):
         assert index > -1 and index <= len(
@@ -221,14 +217,14 @@ class LocalCPULauncher(Launcher, CPULauncher):
                     "--throughput-mode is exclusive to --ninstances, --ncores-per-instance, --nodes-list and \
                         --use-logical-cores. They won't take effect even if they are set explicitly.",
                 )
-            args.ninstances = len(set([c.node for c in self.cpuinfo.pool_all]))
+            args.ninstances = len(set([c.node for c in self.cpuinfo.pool]))
             args.ncores_per_instance = 0
             args.use_logical_cores = False
 
         cores_list = self.parse_list_argument(args.cores_list)
         nodes_list = self.parse_list_argument(args.nodes_list)
 
-        self.cpuinfo.gen_pools_ondemand(
+        cpu_schedule = self.cpuinfo.schedule(
             ninstances=args.ninstances,
             ncores_per_instance=args.ncores_per_instance,
             use_logical_cores=args.use_logical_cores,
@@ -237,8 +233,8 @@ class LocalCPULauncher(Launcher, CPULauncher):
             nodes_list=nodes_list,
             cores_list=cores_list,
         )
-        args.ninstances = len(self.cpuinfo.pools_ondemand)
-        args.ncores_per_instance = len(self.cpuinfo.pools_ondemand[0])
+        args.ninstances = len(cpu_schedule)
+        args.ncores_per_instance = len(cpu_schedule[0])
 
         is_iomp_set = False
         for item in self.ld_preload:
@@ -250,14 +246,13 @@ class LocalCPULauncher(Launcher, CPULauncher):
         # When using all cores on all nodes, including logical cores, setting KMP_AFFINITY disables logical cores. \
         #   Thus, KMP_AFFINITY should not be set.
         if args.use_logical_cores and len(
-            set([c for p in self.cpuinfo.pools_ondemand for c in p])
-        ) == len(self.cpuinfo.pool_all):
+            set([c for p in cpu_schedule for c in p])
+        ) == len(self.cpuinfo.pool):
             assert (
                 not is_kmp_affinity_set
             ), 'Environment variable "KMP_AFFINITY" is detected. Please unset it when using all cores.'
             set_kmp_affinity = False
 
-        # TODO: if none of the memory allocator or OpenMP exists
         self.set_memory_allocator(args.memory_allocator, args.benchmark)
         omp_runtime = self.set_omp_runtime(args.omp_runtime, set_kmp_affinity)
         self.add_env("OMP_NUM_THREADS", str(args.ncores_per_instance))
@@ -313,12 +308,12 @@ class LocalCPULauncher(Launcher, CPULauncher):
         ), "Designated nodes list contains invalid nodes."
         processes = []
         for i in instance_idx:
-            process = self.execution_command_builder(
+            process = self.run_process(
                 args=args,
                 omp_runtime=omp_runtime,
                 task_mgr=task_mgr,
                 environ=environ_local,
-                cpu_pools=self.cpuinfo.pools_ondemand,
+                cpu_pools=cpu_schedule,
                 index=i,
             )
             processes.append(process)

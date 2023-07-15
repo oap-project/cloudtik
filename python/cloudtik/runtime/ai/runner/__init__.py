@@ -48,15 +48,15 @@ class _LaunchArgs(object):
         # MPI
         self.mpi_args = None
 
-        # CPU arguments
+        # CPU Launcher
+        self.ncores_per_instance = 0
         self.use_logical_cores = False
         self.use_e_cores = False
         self.memory_allocator = "auto"
         self.omp_runtime = "auto"
 
-        # CPU local launcher arguments
+        # Local CPU Launcher
         self.ninstances = -1
-        self.ncores_per_instance = -1
         self.instance_idx = -1
         self.nodes_list = ""
         self.cores_list = ""
@@ -66,11 +66,11 @@ class _LaunchArgs(object):
         self.throughput_mode = False
         self.benchmark = False
 
-        # CPU training arguments
+        # Distributed CPU Launcher
         self.ccl_worker_count = 4
         self.logical_cores_for_ccl = False
 
-        # Horovod arguments
+        # Horovod Launcher
         self.use_gloo = None
         self.use_mpi = None
         self.nics = None

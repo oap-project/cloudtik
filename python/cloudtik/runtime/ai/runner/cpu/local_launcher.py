@@ -15,9 +15,9 @@ def add_local_cpu_launcher_params(parser):
     group = parser.add_argument_group("Local CPU Launching Parameters")
     group.add_argument(
         "--process-idx", "--process_idx",
-        default="-1", type=int,
-        help="Specify process index to assign ncores_per_proc for process_idx; "
-             "otherwise ncores_per_proc will be assigned sequentially to processes.")
+        default="", type=str,
+        help="Specify process index or a list of process indices to run. "
+             "If it is set to -1 or empty, will run all the processes.")
     group.add_argument(
         "--nodes-list", "--nodes_list",
         default="", type=str,

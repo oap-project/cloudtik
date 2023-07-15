@@ -94,7 +94,7 @@ HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
 
-CORES_PER_INSTANCE=$CORES
+CORES_PER_PROC=$CORES
 
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
@@ -110,7 +110,7 @@ cloudtik-run \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \
     --nproc_per_node ${SOCKETS} \
-    --ncores-per-instance ${CORES_PER_INSTANCE} \
+    --ncores-per-proc ${CORES_PER_PROC} \
     ${TRAIN_SCRIPT} \
     $ARGS \
     -j 0 \

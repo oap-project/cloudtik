@@ -86,7 +86,7 @@ CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
 
-CORES_PER_INSTANCE=$CORES
+CORES_PER_PROC=$CORES
 
 export KMP_BLOCKTIME=1
 export KMP_AFFINITY=granularity=fine,compact,1,0
@@ -97,8 +97,8 @@ rm -rf ./resnet50_training_log_*
 
 cloudtik-run \
     --memory-allocator=default \
-    --ninstances 1 \
-    --ncores-per-instance ${CORES_PER_INSTANCE} \
+    --num-proc 1 \
+    --ncores-per-proc ${CORES_PER_PROC} \
     --log-dir=${OUTPUT_DIR} \
     --log-file-prefix="./resnet50_training_log_${PRECISION}" \
     ${MODEL_DIR}/models/image_recognition/pytorch/common/main.py \

@@ -69,17 +69,17 @@ class DistributedCPULauncher(MPILauncher, CPULauncher):
             ):
                 self.verbose(
                     "warning",
-                    "Argument --logical-cores-for-ccl is set but no enough logical cores are available. Disable this argument.",
+                    "Argument --logical-cores-for-ccl is set but no enough logical cores are available. "
+                    "Disable this argument.",
                 )
                 logical_cores_for_ccl = False
                 break
         for pool in cpu_pools:
             domain_binary = 0
-            cores = []
             if logical_cores_for_ccl:
                 affinity.extend(
                     [str(c.cpu) for c in pool if not c.is_physical_core][
-                    :ccl_worker_count
+                        :ccl_worker_count
                     ]
                 )
                 cores = [str(c.cpu) for c in pool if c.is_physical_core]
@@ -127,20 +127,20 @@ class DistributedCPULauncher(MPILauncher, CPULauncher):
                 if len(nodes_list) == 0
                 else len(nodes_list)
             )
-        ncores_per_instance = args.ncores_per_instance
-        if ncores_per_instance > 0:
+        ncores_per_proc = args.ncores_per_proc
+        if ncores_per_proc > 0:
             if (
                     not args.logical_cores_for_ccl
                     or len([c for c in cpuinfo.pool if not c.is_physical_core])
                     < args.nproc_per_node * args.ccl_worker_count
             ):
-                ncores_per_instance += args.ccl_worker_count
-            ncores_per_instance = len(
-                [c for c in cpuinfo.pool if c.core < ncores_per_instance]
+                ncores_per_proc += args.ccl_worker_count
+            ncores_per_proc = len(
+                [c for c in cpuinfo.pool if c.core < ncores_per_proc]
             )
         cpu_schedule = cpuinfo.schedule(
-            ninstances=args.nproc_per_node,
-            ncores_per_instance=ncores_per_instance,
+            num_proc=args.nproc_per_node,
+            ncores_per_proc=ncores_per_proc,
             use_logical_cores=True,
             use_e_cores=args.use_e_cores,
             nodes_list=nodes_list,

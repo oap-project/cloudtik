@@ -107,7 +107,7 @@ class CPUPool(list):
             b = list(b)
             yield b[0][1], b[-1][1]
 
-    def get_pool_txt(self, return_mode="auto"):
+    def get_pool_str(self, return_mode="auto"):
         """
         Args:
             return_mode [str]: A string that defines how result values are formed, could be either of 'auto', \
@@ -120,21 +120,21 @@ class CPUPool(list):
         """
         cpu_ids = [c.cpu for c in self]
         cpu_ranges = list(self.get_ranges(cpu_ids))
-        cpu_ids_txt = ",".join([str(c) for c in cpu_ids])
-        cpu_ranges_txt = ",".join([f"{r[0]}-{r[1]}" for r in cpu_ranges])
-        node_ids_txt = ",".join(
+        cpu_ids_str = ",".join([str(c) for c in cpu_ids])
+        cpu_ranges_str = ",".join([f"{r[0]}-{r[1]}" for r in cpu_ranges])
+        node_ids_str = ",".join(
             [str(n) for n in sorted(list(set([c.node for c in self])))]
         )
-        ret = {"cores": "", "nodes": node_ids_txt}
+        ret = {"cores": "", "nodes": node_ids_str}
         if return_mode.lower() == "list":
-            ret["cores"] = cpu_ids_txt
+            ret["cores"] = cpu_ids_str
         elif return_mode.lower() == "range":
-            ret["cores"] = cpu_ranges_txt
+            ret["cores"] = cpu_ranges_str
         else:
             if len(cpu_ids) <= len(cpu_ranges):
-                ret["cores"] = cpu_ids_txt
+                ret["cores"] = cpu_ids_str
             else:
-                ret["cores"] = cpu_ranges_txt
+                ret["cores"] = cpu_ranges_str
         return ret
 
 
@@ -236,23 +236,23 @@ class CPUPoolScheduler:
             print(msg)
 
     """
-    Get CPU pools from all available CPU cores with designated criterias.
-    - ninstances [int]: Number of instances. Should be a non negative integer, 0 by default. \
+    Get CPU pools from all available CPU cores with designated criteria.
+    - num_proc [int]: Number of processes. Should be a non negative integer, 0 by default. \
         When it is 0, it will be set according to usage scenarios automatically in the function.
-    - ncores_per_instance [int]: Number of cores per instance. Should be a non negative integer, 0 by default. \
+    - ncores_per_proc [int]: Number of cores per process. Should be a non negative integer, 0 by default. \
         When it is 0, it will be set according to usage scenarios automatically in the function.
     - use_logical_cores [bool]: Use logical cores on the workloads or not, False by default. When set to False, \
         only physical cores are used.
     - use_e_cores [bool]: Use Efficient-Cores, False by default. When set to False, only Performance-Cores are used.
-    - skip_cross_node_cores [bool]: Allow instances to be executed on cores across NUMA nodes, False by default.
+    - skip_cross_node_cores [bool]: Allow processes to be executed on cores across NUMA nodes, False by default.
     - nodes_list [list]: A list containing all node ids that the execution is expected to be running on.
     - cores_list [list]: A list containing all cpu ids that the execution is expected to be running on.
     """
 
     def schedule(
         self,
-        ninstances=0,
-        ncores_per_instance=0,
+        num_proc=0,
+        ncores_per_proc=0,
         use_logical_cores=False,
         use_e_cores=False,
         skip_cross_node_cores=False,
@@ -316,29 +316,29 @@ class CPUPoolScheduler:
                             You can enable them with argument --use-e-cores.",
                     )
 
-        # Determine ninstances and ncores_per_instance for grouping
+        # Determine num_proc and ncores_per_proc for grouping
         assert (
-            ncores_per_instance >= 0
-        ), "Argument --ncores-per-instance cannot be a negative value."
-        assert ninstances >= 0, "Argument --ninstances cannot be a negative value."
+            ncores_per_proc >= 0
+        ), "Argument --ncores-per-proc cannot be a negative value."
+        assert num_proc >= 0, "Argument --num-proc cannot be a negative value."
         nodes = set([c.node for c in pool])
-        if ncores_per_instance + ninstances == 0:
-            # Both ncores_per_instance and ninstances are 0
-            ninstances = 1
-        if ncores_per_instance * ninstances == 0:
-            # Either ncores_per_instance or ninstances is 0
+        if ncores_per_proc + num_proc == 0:
+            # Both ncores_per_proc and num_proc are 0
+            num_proc = 1
+        if ncores_per_proc * num_proc == 0:
+            # Either ncores_per_proc or num_proc is 0
             if skip_cross_node_cores:
                 ncores_per_node = len(pool) // len(nodes)
                 nresidual = 0
-                if ncores_per_instance == 0:
-                    nins_per_node = ninstances // len(nodes)
-                    if ninstances % len(nodes) > 0:
+                if ncores_per_proc == 0:
+                    nins_per_node = num_proc // len(nodes)
+                    if num_proc % len(nodes) > 0:
                         nins_per_node += 1
-                    ncores_per_instance = ncores_per_node // nins_per_node
+                    ncores_per_proc = ncores_per_node // nins_per_node
                     nresidual = ncores_per_node % nins_per_node
-                if ninstances == 0:
-                    ninstances = ncores_per_node // ncores_per_instance * len(nodes)
-                    nresidual = ncores_per_node % ncores_per_instance
+                if num_proc == 0:
+                    num_proc = ncores_per_node // ncores_per_proc * len(nodes)
+                    nresidual = ncores_per_node % ncores_per_proc
                 if nresidual > 0:
                     cores_remove = []
                     for n in nodes:
@@ -348,31 +348,31 @@ class CPUPoolScheduler:
                     for c in cores_remove:
                         pool.remove(c)
             else:
-                if ninstances == 0:
-                    ninstances = len(pool) // ncores_per_instance
-                if ncores_per_instance == 0:
-                    ncores_per_instance = len(pool) // ninstances
+                if num_proc == 0:
+                    num_proc = len(pool) // ncores_per_proc
+                if ncores_per_proc == 0:
+                    ncores_per_proc = len(pool) // num_proc
         else:
-            # Neither ncores_per_instance nor ninstances is 0
+            # Neither ncores_per_proc nor num_proc is 0
             if skip_cross_node_cores:
                 self.verbose(
                     "warning",
-                    "Argument --skip-cross-node-cores won't take effect when both --ninstances and \
-                        --ncores-per-instance are explicitly set.",
+                    "Argument --skip-cross-node-cores won't take effect when both --num-proc and \
+                        --ncores-per-proc are explicitly set.",
                 )
         assert (
-            ninstances * ncores_per_instance > 0
-            and ninstances * ncores_per_instance <= len(pool)
+            num_proc * ncores_per_proc > 0
+            and num_proc * ncores_per_proc <= len(pool)
         ), "Requested number of cores exceeds what is available."
 
         # Split the aggregated pool into individual pools
         cpu_schedule = []
         pool.sort(key=lambda x: (x.core, 1 - int(x.is_physical_core)))
-        for i in range(ninstances):
+        for i in range(num_proc):
             # Generate individual raw pool
             pool_local = CPUPool()
-            for j in range(ncores_per_instance):
-                pool_local.append(pool[i * ncores_per_instance + j])
+            for j in range(ncores_per_proc):
+                pool_local.append(pool[i * ncores_per_proc + j])
             pool_local.sort(key=lambda x: x.cpu)
             cpu_schedule.append(pool_local)
         return cpu_schedule

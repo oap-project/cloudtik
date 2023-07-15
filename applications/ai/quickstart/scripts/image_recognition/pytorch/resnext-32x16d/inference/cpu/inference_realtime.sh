@@ -73,18 +73,18 @@ _get_platform_type
 
 CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
-CORES_PER_INSTANCE=4
-export OMP_NUM_THREADS=$CORES_PER_INSTANCE
+CORES_PER_PROC=4
+export OMP_NUM_THREADS=$CORES_PER_PROC
 
-NUMBER_INSTANCE=`expr $CORES / $CORES_PER_INSTANCE`
-RUN_ARGS="--memory-allocator=default --ninstance ${SOCKETS} --log-dir=${OUTPUT_DIR} \
+NUMBER_PROCESS=`expr $CORES / $CORES_PER_PROC`
+RUN_ARGS="--memory-allocator=default --num-proc ${SOCKETS} --log-dir=${OUTPUT_DIR} \
 --log-file-prefix="./resnext101_latency_log_${PRECISION}""
 
 if [[ "$USE_IPEX" == "true" ]]; then
     if [[ $PRECISION == "int8" || $PRECISION == "avx-int8" ]]; then
-        ARGS="${ARGS} --ipex --weight-sharing --number-instance $NUMBER_INSTANCE"
+        ARGS="${ARGS} --ipex --weight-sharing --number-instance $NUMBER_PROCESS"
     else
-        ARGS="${ARGS} --ipex --jit --weight-sharing --number-instance $NUMBER_INSTANCE"
+        ARGS="${ARGS} --ipex --jit --weight-sharing --number-instance $NUMBER_PROCESS"
     fi
     export DNNL_PRIMITIVE_CACHE_CAPACITY=1024
 fi
@@ -101,10 +101,10 @@ wait
 
 if [[ ${PLATFORM} == "linux" ]]; then
     TOTAL_CORES=`expr $CORES \* $SOCKETS`
-    INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
-    INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
+    PROCESSES=`expr $TOTAL_CORES / $CORES_PER_PROC`
+    PROCESSES_PER_SOCKET=`expr $PROCESSES / $SOCKETS`
 
-    throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/resnext101_latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_PER_SOCKET '
+    throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/resnext101_latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v PROCESSES_PER_SOCKET=$PROCESSES_PER_SOCKET '
     BEGIN {
             sum = 0;
     i = 0;
@@ -114,7 +114,7 @@ if [[ ${PLATFORM} == "linux" ]]; then
     i++;
         }
     END   {
-    sum = sum / i * INSTANCES_PER_SOCKET;
+    sum = sum / i * PROCESSES_PER_SOCKET;
             printf("%.2f", sum);
     }')
 

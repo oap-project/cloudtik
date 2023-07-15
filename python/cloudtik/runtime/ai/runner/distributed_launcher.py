@@ -9,10 +9,6 @@ logger = logging.getLogger(__name__)
 def add_distributed_params(parser):
     group = parser.add_argument_group("Distributed Training Parameters")
     group.add_argument(
-        '--num-proc', '--num_proc',
-        action='store', type=int, default=0,
-        help="The number of process to run for distributed training")
-    group.add_argument(
         "--nnodes",
         type=int, default=0,
         help="The number of nodes to use for distributed training")

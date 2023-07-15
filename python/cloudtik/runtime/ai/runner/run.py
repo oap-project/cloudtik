@@ -46,34 +46,34 @@ For memory management, it configures NUMA binding and preload optimized memory a
 *** Local multi-process inference ***
 
 1. Multi-process
-   By default, one instance per node. if you want to set the instance numbers and core per instance,
-   --ninstances and --ncores-per-instance should be set.
+   By default, one process per node. if you want to set the process numbers and core per process,
+   --num-proc and --ncores-per-proc should be set.
 
 
    >>> cloudtik-run -- python_script args
 
-   eg: on CLX8280 with 14 instance, 4 cores per instance
+   eg: on CLX8280 with 14 processes, 4 cores per process
 ::
 
-   >>> cloudtik-run --ninstances 14 --ncores-per-instance 4 python_script args
+   >>> cloudtik-run --num-proc 14 --ncores-per-proc 4 python_script args
 
-2. Run single-process inference among multiple instances.
-   By default, runs all ninstances. If you want to independently run a single instance among ninstances, specify instance_idx.
+2. Run single-process inference among multiple processes.
+   By default, runs all processes. If you want to independently run a single processe among multiple processes, specify process_idx.
 
-   eg: run 0th instance among SKX with 2 instance (i.e., numactl -C 0-27)
+   eg: run 0th process among SKX with 2 processes (i.e., numactl -C 0-27)
 ::
 
-   >>> cloudtik-run --ninstances 2 --instance-idx 0 python_script args
+   >>> cloudtik-run --num-proc 2 --process-idx 0 python_script args
 
-   eg: run 1st instance among SKX with 2 instance (i.e., numactl -C 28-55)
+   eg: run 1st process among SKX with 2 processes (i.e., numactl -C 28-55)
 ::
 
-   >>> cloudtik-run --ninstances 2 --instance-idx 1 python_script args
+   >>> cloudtik-run --num-proc 2 --process-idx 1 python_script args
 
-   eg: run 0th instance among SKX with 2 instance, 2 cores per instance, first four cores (i.e., numactl -C 0-1)
+   eg: run 0th process among SKX with 2 processes, 2 cores per process, first four cores (i.e., numactl -C 0-1)
 ::
 
-   >>> cloudtik-run --cores-list "0, 1, 2, 3" --ninstances 2 --ncores-per-instance 2 --instance-idx 0 python_script args
+   >>> cloudtik-run --cores-list "0, 1, 2, 3" --num-proc 2 --ncores-per-proc 2 --process-idx 0 python_script args
 
 *** Distributed Training ***
 
@@ -107,39 +107,49 @@ for well-improved multi-node distributed training performance as well.
 
 
 def add_common_arguments(parser):
-    parser.add_argument('--distributed',
-                        action='store_true', default=False,
-                        help='Enable distributed training.')
-    parser.add_argument("--launcher",
-                        default="", type=str,
-                        help="The launcher to use: default, optimized, horovod")
-    parser.add_argument("-m", "--module",
-                        default=False, action="store_true",
-                        help="Changes each process to interpret the launch script "
-                             "as a python module, executing with the same behavior as"
-                             "'python -m'.")
-
-    parser.add_argument("--no-python", "--no_python",
-                        default=False, action="store_true",
-                        help="Do not prepend the --program script with \"python\" - just exec "
-                             "it directly. Useful when the script is not a Python script.")
-
-    parser.add_argument("--log-dir", "--log_dir",
-                        default="", type=str,
-                        help="The log file directory. Default path is '', which means disable logging to files.")
-    parser.add_argument("--log-file-prefix", "--log_file_prefix",
-                        default="run", type=str,
-                        help="log file prefix")
-
-    parser.add_argument("--verbose",
-                        default=False, action='store_true',
-                        help='If this flag is set, extra messages will be printed.')
-    parser.add_argument("--validate-ld-preload", "--validate_ld_preload",
-                        default=False, action='store_true',
-                        help='If this flag is set, libraries set in LD_PRELOAD will be validated.')
-
-    parser.add_argument('command', nargs=argparse.REMAINDER,
-                        help='Command to be executed.')
+    parser.add_argument(
+        '--num-proc', '--num_proc',
+        action='store', type=int, default=0,
+        help="The number of process to run")
+    parser.add_argument(
+        '--distributed',
+        action='store_true', default=False,
+        help='Enable distributed training.')
+    parser.add_argument(
+        "--launcher",
+        default="", type=str,
+        help="The launcher to use: default, optimized, horovod")
+    parser.add_argument(
+        "-m", "--module",
+        default=False, action="store_true",
+        help="Changes each process to interpret the launch script "
+             "as a python module, executing with the same behavior as"
+             "'python -m'.")
+    parser.add_argument(
+        "--no-python", "--no_python",
+        default=False, action="store_true",
+        help="Do not prepend the --program script with \"python\" - just exec "
+             "it directly. Useful when the script is not a Python script.")
+    parser.add_argument(
+        "--log-dir", "--log_dir",
+        default="", type=str,
+        help="The log file directory. Default path is '', which means disable logging to files.")
+    parser.add_argument(
+        "--log-file-prefix", "--log_file_prefix",
+        default="run", type=str,
+        help="log file prefix")
+    parser.add_argument(
+        "--verbose",
+        default=False, action='store_true',
+        help='If this flag is set, extra messages will be printed.')
+    parser.add_argument(
+        "--validate-ld-preload", "--validate_ld_preload",
+        default=False, action='store_true',
+        help='If this flag is set, libraries set in LD_PRELOAD will be validated.')
+    parser.add_argument(
+        'command',
+        nargs=argparse.REMAINDER,
+        help='Command to be executed.')
 
 
 def create_parser():
@@ -153,7 +163,7 @@ def create_parser():
                     "\n1. Local single-process training or inference\n"
                     "\n   >>> cloudtik-run python_script args \n"
                     "\n2. Local multi-process inference \n"
-                    "\n    >>> cloudtik-run --ninstances 2 --ncores-per-instance 8 python_script args\n"
+                    "\n    >>> cloudtik-run --num-proc 2 --ncores-per-proc 8 python_script args\n"
                     "\n3. Single-Node multi-process distributed training\n"
                     "\n    >>> cloudtik-run --distributed  python_script args\n"
                     "\n4. Multi-Node multi-process distributed training: (e.g. two nodes)\n"
@@ -218,7 +228,7 @@ def _setup_logger(args):
         args.log_dir = path
         args.log_file_prefix = '{}_{}'.format(args.log_file_prefix, datetime.now().strftime("%Y%m%d%H%M%S"))
 
-        fileHandler = logging.FileHandler("{0}/{1}_instances.log".format(args.log_dir, args.log_file_prefix))
+        fileHandler = logging.FileHandler("{0}/{1}_run.log".format(args.log_dir, args.log_file_prefix))
         logFormatter = logging.Formatter(format_str)
         fileHandler.setFormatter(logFormatter)
 

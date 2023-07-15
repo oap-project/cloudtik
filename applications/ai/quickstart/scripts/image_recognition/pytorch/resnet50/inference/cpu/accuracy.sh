@@ -101,21 +101,21 @@ if [ "$weight_sharing" = true ]; then
     CORES=`lscpu | grep Core | awk '{print $4}'`
     SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
     TOTAL_CORES=`expr $CORES \* $SOCKETS`
-    CORES_PER_INSTANCE=$CORES
-    INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
-    LAST_INSTANCE=`expr $INSTANCES - 1`
-    INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
+    CORES_PER_PROC=$CORES
+    PROCESSES=`expr $TOTAL_CORES / $CORES_PER_PROC`
+    LAST_PROCESS=`expr $PROCESSES - 1`
+    PROCESSES_PER_SOCKET=`expr $PROCESSES / $SOCKETS`
 
     BATCH_PER_STREAM=2
     CORES_PER_STREAM=1
-    STREAM_PER_INSTANCE=`expr $CORES / $CORES_PER_STREAM`
-    BATCH_SIZE=`expr $BATCH_PER_STREAM \* $STREAM_PER_INSTANCE`
+    STREAMS_PER_PROCESS=`expr $CORES / $CORES_PER_STREAM`
+    BATCH_SIZE=`expr $BATCH_PER_STREAM \* $STREAMS_PER_PROCESS`
 
     export OMP_NUM_THREADS=$CORES_PER_STREAM
 
     numa_node_i=0
     start_core_i=0
-    end_core_i=`expr $start_core_i + $CORES_PER_INSTANCE - 1`
+    end_core_i=`expr $start_core_i + $CORES_PER_PROC - 1`
     LOG_i=resnet50_accuracy_log_${PRECISION}_0.log
     echo "### running on instance $i, numa node $numa_node_i, core list {$start_core_i, $end_core_i}..."
     numactl --physcpubind=$start_core_i-$end_core_i --membind=$numa_node_i python -u \
@@ -124,7 +124,7 @@ if [ "$weight_sharing" = true ]; then
         --pretrained \
         -j 0 \
         -b $BATCH_SIZE \
-        --number-instance $STREAM_PER_INSTANCE \
+        --number-instance $STREAMS_PER_PROCESS \
         --use-multi-stream-module \
         --instance-number 0
 

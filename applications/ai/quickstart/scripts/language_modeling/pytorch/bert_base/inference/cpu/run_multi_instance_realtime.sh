@@ -60,12 +60,12 @@ cloudtik-run \
   --max_eval_samples 100 \
   --per_device_eval_batch_size $BATCH_SIZE \
 
-CORES_PER_INSTANCE=4
+CORES_PER_PROC=4
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
-INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
+PROCESSES=`expr $TOTAL_CORES / $CORES_PER_PROC`
+PROCESSES_PER_SOCKET=`expr $PROCESSES / $SOCKETS`
 
-throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v INSTANCES_PER_SOCKET=$INSTANCES_PER_SOCKET '
+throughput=$(grep 'Throughput:' ${OUTPUT_DIR}/latency_log* |sed -e 's/.*Throughput//;s/[^0-9.]//g' |awk -v PROCESSES_PER_SOCKET=$PROCESSES_PER_SOCKET '
 BEGIN {
         sum = 0;
 i = 0;
@@ -75,9 +75,9 @@ i = 0;
 i++;
       }
 END   {
-sum = sum / i * INSTANCES_PER_SOCKET;
+sum = sum / i * PROCESSES_PER_SOCKET;
         printf("%.2f", sum);
 }')
 
-echo $INSTANCES_PER_SOCKET
+echo $PROCESSES_PER_SOCKET
 echo ""BERT-base";"latency";${precision};${BATCH_SIZE};${throughput}" | tee -a ${OUTPUT_DIR}/summary.log

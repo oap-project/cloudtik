@@ -47,8 +47,8 @@ if [ -z "${MAX_PREDICT_SAMPLES}" ]; then
   exit 1
 fi
 
-if [ -z "${CORES_PER_INSTANCE}" ]; then
-  echo "The required environment variable CORES_PER_INSTANCE has not been set"
+if [ -z "${CORES_PER_PROC}" ]; then
+  echo "The required environment variable CORES_PER_PROC has not been set"
   exit 1
 fi
 
@@ -103,8 +103,8 @@ fi
 
 cloudtik-run \
     --memory-allocator=default \
-	--ninstances 1 \
-    --ncores-per-instance ${CORES_PER_INSTANCE} \
+	--num-proc 1 \
+    --ncores-per-proc ${CORES_PER_PROC} \
     --log-dir=${OUTPUT_DIR} \
     --log-file-prefix="./${MODEL_NAME}_log_${PRECISION}_${OPTIMIZATION}" \
     ${MODEL_DIR}/models/language_modeling/pytorch/t5/inference/cpu/run_translation.py \

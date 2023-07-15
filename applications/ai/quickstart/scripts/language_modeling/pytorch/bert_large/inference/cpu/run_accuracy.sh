@@ -62,23 +62,23 @@ if [ ${WEIGHT_SHAREING} ]; then
   CORES=`lscpu | grep Core | awk '{print $4}'`
   SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
   TOTAL_CORES=`expr $CORES \* $SOCKETS`
-  CORES_PER_INSTANCE=$CORES
-  INSTANCES=`expr $TOTAL_CORES / $CORES_PER_INSTANCE`
-  LAST_INSTANCE=`expr $INSTANCES - 1`
-  INSTANCES_PER_SOCKET=`expr $INSTANCES / $SOCKETS`
+  CORES_PER_PROC=$CORES
+  PROCESSES=`expr $TOTAL_CORES / $CORES_PER_PROC`
+  LAST_PROCESS=`expr $PROCESSES - 1`
+  PROCESSES_PER_SOCKET=`expr $PROCESSES / $SOCKETS`
 
   numa_node_i=0
   start_core_i=0
-  end_core_i=`expr $start_core_i + $CORES_PER_INSTANCE - 1`
+  end_core_i=`expr $start_core_i + $CORES_PER_PROC - 1`
   LOG_0="${OUTPUT_DIR}/accuracy_log_${PRECISION}.log"
 
   echo "Running Bert_Large inference throughput with runtime extension enabled."
-  STREAM_PER_INSTANCE=$CORES_PER_INSTANCE
+  STREAMS_PER_PROCESS=$CORES_PER_PROC
 
-  #export OMP_NUM_THREADS=`expr $BATCH_SIZE \/ $STREAM_PER_INSTANCE`
-  BATCH_SIZE=$STREAM_PER_INSTANCE
+  #export OMP_NUM_THREADS=`expr $BATCH_SIZE \/ $STREAMS_PER_PROCESS`
+  BATCH_SIZE=$STREAMS_PER_PROCESS
   ARGS="$ARGS --use_multi_stream_module"
-  ARGS="$ARGS --num_streams $STREAM_PER_INSTANCE"
+  ARGS="$ARGS --num_streams $STREAMS_PER_PROCESS"
   ARGS="$ARGS --instance_number $numa_node_i"
 
   numactl -C $start_core_i-$end_core_i --membind=$numa_node_i python $EVAL_SCRIPT $ARGS --model_type bert --model_name_or_path ${FINETUNED_MODEL}  --do_eval --do_lower_case --predict_file $EVAL_DATA_FILE  --per_gpu_eval_batch_size $BATCH_SIZE --learning_rate 3e-5 --num_train_epochs 2.0 --max_seq_length 384 --doc_stride 128 --output_dir ./tmp --tokenizer_name bert-large-uncased-whole-word-masking-finetuned-squad --use_jit --int8_config ${INT8_CONFIG} \

@@ -42,7 +42,7 @@ CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
 
-CORES_PER_INSTANCE=$CORES
+CORES_PER_PROC=$CORES
 
 if [[ "$1" == *"avx"* ]]; then
     unset DNNL_MAX_CPU_ISA
@@ -77,8 +77,8 @@ rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_accuracy*
 
 cloudtik-run \
     --memory-allocator=default \
-    --ninstances 1 \
-    --ncores-per-instance ${CORES_PER_INSTANCE} \
+    --num-proc 1 \
+    --ncores-per-proc ${CORES_PER_PROC} \
     ${MODEL_DIR}/models/object_detection/pytorch/ssd-resnet34/training/cpu/train.py \
     --epochs 5 \
     --warmup-factor 0 \

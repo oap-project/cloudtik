@@ -45,7 +45,7 @@ HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
 NUM_RANKS=$(( NNODES * SOCKETS ))
 
-CORES_PER_INSTANCE=$CORES
+CORES_PER_PROC=$CORES
 
 if [[ "$1" == *"avx"* ]]; then
     unset DNNL_MAX_CPU_ISA
@@ -87,7 +87,7 @@ rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_accuracy_dist*
 
 cloudtik-run \
     --memory-allocator=default \
-    --ncores-per-instance ${CORES_PER_INSTANCE} \
+    --ncores-per-proc ${CORES_PER_PROC} \
     --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \

@@ -70,9 +70,9 @@ RUN_ARGS=""
 CORES=`lscpu | grep Core | awk '{print $4}'`
 SOCKETS=`lscpu | grep Socket | awk '{print $2}'`
 TOTAL_CORES=`expr $CORES \* $SOCKETS`
-CORES_PER_INSTANCE=$CORES
-RUN_ARGS="--memory-allocator=default --ninstance ${SOCKETS} \
---ncores-per-instance ${CORES_PER_INSTANCE} --log-dir=${OUTPUT_DIR} \
+CORES_PER_PROC=$CORES
+RUN_ARGS="--memory-allocator=default --num-proc ${SOCKETS} \
+--ncores-per-proc ${CORES_PER_PROC} --log-dir=${OUTPUT_DIR} \
 --log-file-prefix="./resnext101_throughput_log_${PRECISION}""
 
 if [[ "$USE_IPEX" == "true" ]]; then

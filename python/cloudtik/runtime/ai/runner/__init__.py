@@ -20,18 +20,19 @@ class _LaunchArgs(object):
         self.run_func = None
         self.executable = None
 
-        # distributed arguments
+        self.num_proc = 0
+
+        # Distributed Launcher
         # If nnodes and nproc_per_node is specified
         # hosts/hostfile can be host address without slots
         # Or you can specify hosts with slots and specify the num_proc
         # all these are handled by Distributor
-        self.num_proc = None
-        self.nnodes = None
-        self.nproc_per_node = None
+        self.nnodes = 0
+        self.nproc_per_node = 0
         self.hosts = None
         self.hostfile = None
 
-        # common arguments
+        # Common arguments
         self.distributed = False
         self.launcher = None
 
@@ -49,15 +50,14 @@ class _LaunchArgs(object):
         self.mpi_args = None
 
         # CPU Launcher
-        self.ncores_per_instance = 0
+        self.ncores_per_proc = 0
         self.use_logical_cores = False
         self.use_e_cores = False
         self.memory_allocator = "auto"
         self.omp_runtime = "auto"
 
         # Local CPU Launcher
-        self.ninstances = -1
-        self.instance_idx = -1
+        self.process_idx = -1
         self.nodes_list = ""
         self.cores_list = ""
         self.task_manager = "auto"

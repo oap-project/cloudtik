@@ -69,9 +69,9 @@ def add_horovod_params(parser):
 
 
 class HorovodLauncher(DistributedLauncher):
-    r"""
-     Launcher for distributed training with Horovod
-     """
+    """
+    Launcher for distributed training with Horovod
+    """
 
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
@@ -84,31 +84,51 @@ class HorovodLauncher(DistributedLauncher):
         return cmd
 
     def run(self):
-        args = self.args
-
         # Run with Horovod
         from horovod.runner import _HorovodArgs
         from horovod.runner.launch import _run
 
-        hargs = _HorovodArgs()
+        args = self.args
 
+        hargs = _HorovodArgs()
         hargs.num_proc = self.distributor.num_proc
         hargs.hosts = self.distributor.hosts_slots_str
 
-        hargs.verbose = args.verbose
-        hargs.mpi_args = args.mpi_args
-        hargs.use_mpi = args.use_mpi
-        hargs.use_gloo = args.use_gloo
-        nics = set(args.nics) if isinstance(args.nics, list) else args.nics
-        hargs.nics = nics
-        hargs.output_filename = args.output_filename
+        if args.func:
+            func = args.func
+            func_args = args.func_args
+            if func_args is None:
+                func_args = ()
+            func_kwargs = args.func_kwargs
+            if func_kwargs is None:
+                func_kwargs = {}
 
-        if args.run_func:
-            hargs.run_func = args.run_func
+            def wrapped_func():
+                return func(*func_args, **func_kwargs)
+
+            hargs.run_func = wrapped_func
             hargs.executable = args.executable
         else:
             command = self.get_command_to_run()
             hargs.command = command
+
+        # set the launcher arguments (run CLI or run API)
+        hargs.verbose = args.verbose
+        hargs.mpi_args = args.mpi_args
+        hargs.use_mpi = args.use_mpi
+        hargs.use_gloo = args.use_gloo
+        hargs.nics = args.nics
+        hargs.output_filename = args.output_filename
+
+        # set extra arguments passing from run API
+        for key, value in args.launcher_kwargs.items():
+            if hasattr(hargs, key):
+                setattr(hargs, key, value)
+
+        # convert nics to set if it is a list
+        nics = hargs.nics
+        if nics and not isinstance(nics, set):
+            hargs.nics = set(nics)
 
         if self.environ_set:
             # Horovod use os.environ

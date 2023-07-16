@@ -37,6 +37,10 @@ def create_launcher(launcher_name, args, distributor):
         from cloudtik.runtime.ai.runner.horovod.horovod_launcher \
             import HorovodLauncher
         launcher = HorovodLauncher(args, distributor)
+    elif launcher_name == "spark":
+        from cloudtik.runtime.ai.runner.horovod.horovod_spark_launcher \
+            import HorovodSparkLauncher
+        launcher = HorovodSparkLauncher(args, distributor)
     else:
         raise ValueError("Launcher type with name {} is not supported.".format(launcher_name))
     return launcher

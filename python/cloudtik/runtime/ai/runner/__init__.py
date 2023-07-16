@@ -17,7 +17,9 @@ def get_cloudtik_rsh():
 class _LaunchArgs(object):
     def __init__(self):
         self.command = None
-        self.run_func = None
+        self.func = None
+        self.func_args = ()
+        self.func_kwargs = {}
         self.executable = None
 
         self.num_proc = 0
@@ -81,7 +83,7 @@ class _LaunchArgs(object):
 def run(
         func,
         args=(),
-        kwargs=None,
+        kwargs={},
         num_proc=None,
         nnodes=None,
         nproc_per_node=None,
@@ -110,7 +112,7 @@ def run(
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
     :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
-    :param launcher: The launcher to use.
+    :param launcher: The launcher to use: local, distributed, mpi, horovod, spark.
     :param launcher_kwargs: The additional keyword arguments for launcher.
     :return: Return a list which contains values return by all processes.
              The index of the list corresponds to the rank of each process.
@@ -118,22 +120,18 @@ def run(
     """
     from cloudtik.runtime.ai.runner.run import _run
 
-    if kwargs is None:
-        kwargs = {}
-
-    def wrapped_func():
-        return func(*args, **kwargs)
-
     if hosts is not None and hostfile is not None:
         raise ValueError('Argument hosts and hostfile only allow one provided.')
 
     if not launcher:
-        # Current,only horovod support running a function
+        # default Horovod for running a function
         launcher = "horovod"
 
     largs = _LaunchArgs()
 
-    largs.run_func = wrapped_func
+    largs.func = func
+    largs.func_args = args
+    largs.func_kwargs = kwargs
     largs.executable = executable
     largs.num_proc = num_proc
     largs.nnodes = nnodes
@@ -174,7 +172,7 @@ def run_command(
     :param hostfile: Path to a host file containing the list of host names and the number of
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
-    :param launcher: The launcher to use.
+    :param launcher: The launcher to use: local, distributed, mpi, horovod.
     :param launcher_kwargs: The additional keyword arguments for launcher.
     :return: None
     """

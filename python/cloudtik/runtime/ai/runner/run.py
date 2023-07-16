@@ -109,7 +109,7 @@ def add_common_arguments(parser):
     parser.add_argument(
         "--launcher",
         default="", type=str,
-        help="The launcher to use: local, distributed, mpi, horovod")
+        help="The launcher to use: local, distributed, mpi, horovod, spark")
     parser.add_argument(
         "-m", "--module",
         default=False, action="store_true",
@@ -174,7 +174,9 @@ def parse_args(parser):
     @retval arguments
     """
     args = parser.parse_args()
-    args.run_func = None
+    args.func = None
+    args.func_args = ()
+    args.func_kwargs = {}
     args.executable = None
     args.launcher_kwargs = {}
     return args

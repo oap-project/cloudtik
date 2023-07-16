@@ -112,7 +112,7 @@ def run(
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
     :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
-    :param launcher: The launcher to use: local, distributed, mpi, horovod, spark.
+    :param launcher: The launcher to use: local, distributed, mpi, horovod, spark, ray.
     :param launcher_kwargs: The additional keyword arguments for launcher.
     :return: Return a list which contains values return by all processes.
              The index of the list corresponds to the rank of each process.

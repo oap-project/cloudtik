@@ -1,4 +1,3 @@
-import copy
 import logging
 
 from cloudtik.runtime.ai.runner.horovod.horovod_launcher import HorovodLauncher
@@ -19,24 +18,24 @@ class _HorovodSparkArgs(object):
         self.env = None
         self.stdout = None
         self.stderr = None
-        self.prefix_output_with_timestamp = False
+        self.prefix_output_with_timestamp = None
 
 
 class HorovodSparkLauncher(HorovodLauncher):
     """
-    Launcher for distributed training with Horovod Spark
+    Launcher for distributed training with Horovod on Spark
     """
 
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
 
     def run(self):
-        # Run with Horovod Spark
+        # Run with Horovod on Spark
         from horovod.spark import run
 
         args = self.args
         if not args.func:
-            raise ValueError("Horovod Spark launcher support running function only.")
+            raise ValueError("Horovod on Spark launcher support running function only.")
 
         hargs = _HorovodSparkArgs()
 
@@ -57,26 +56,16 @@ class HorovodSparkLauncher(HorovodLauncher):
         hargs.nics = args.nics
 
         # set extra arguments passing from run API
-        for key, value in args.launcher_kwargs.items():
-            if hasattr(hargs, key):
-                setattr(hargs, key, value)
+        self._set_args(hargs, args.launcher_kwargs)
 
-        env = None
-        if args.env:
-            # make a copy
-            env = copy.copy(args.env)
-        if self.environ_set:
-            if env is None:
-                env = copy.copy(self.environ_set)
-            else:
-                # update
-                env.update(self.environ_set)
+        env = self._get_env(hargs)
 
+        run_kwargs = self._get_kwargs(
+            hargs, ["verbose", "use_mpi", "use_gloo", "nics",
+                    "start_timeout", "stdout", "stderr",
+                    "prefix_output_with_timestamp"])
         return run(
             func, args=func_args, kwargs=func_kwargs,
             num_proc=num_proc, executable=args.executable,
-            use_mpi=hargs.use_mpi, use_gloo=hargs.use_gloo,
-            extra_mpi_args=hargs.mpi_args, verbose=hargs.verbose,
-            nics=hargs.nics, start_timeout=hargs.start_timeout,
-            env=env, stdout=hargs.stdout, stderr=hargs.stderr,
-            prefix_output_with_timestamp=hargs.prefix_output_with_timestamp)
+            extra_mpi_args=hargs.mpi_args, env=env,
+            **run_kwargs)

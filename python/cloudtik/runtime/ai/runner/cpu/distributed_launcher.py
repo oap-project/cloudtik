@@ -12,7 +12,7 @@ LD_PRELOAD_MARKER = "LD_PRELOAD_UNSET"
 
 
 def add_distributed_cpu_launcher_params(parser):
-    group = parser.add_argument_group("Parameters for optimized CPU launcher")
+    group = parser.add_argument_group("Parameters for distributed CPU launcher")
 
     # ccl control
     group.add_argument(

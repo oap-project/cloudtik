@@ -7,12 +7,7 @@ from argparse import ArgumentParser
 from argparse import RawTextHelpFormatter
 from datetime import datetime
 
-from cloudtik.runtime.ai.runner.cpu.cpu_launcher import add_cpu_launcher_params
-from cloudtik.runtime.ai.runner.cpu.local_launcher import add_local_cpu_launcher_params, add_auto_ipex_params
-from cloudtik.runtime.ai.runner.cpu.distributed_launcher import add_distributed_cpu_launcher_params
-from cloudtik.runtime.ai.runner.distributed_launcher import add_distributed_params
-from cloudtik.runtime.ai.runner.horovod.horovod_launcher import add_horovod_params
-from cloudtik.runtime.ai.runner.mpi.mpi_launcher import add_mpi_params
+from cloudtik.runtime.ai.runner.launcher_factory import add_launcher_params, create_launcher
 from cloudtik.runtime.ai.runner.util.distributor import Distributor
 
 logger = logging.getLogger(__name__)
@@ -93,7 +88,7 @@ for well-improved multi-node distributed training performance as well.
 
 ::
 
-    >>> cloudtik-run --distributed  python_script  --arg1 --arg2 --arg3 and all other
+    >>> cloudtik-run --launcher=distributed python_script  --arg1 --arg2 --arg3 and all other
                 arguments of your training script
 
 2. Multi-Node multi-process distributed training: (e.g. two nodes)
@@ -112,13 +107,9 @@ def add_common_arguments(parser):
         action='store', type=int, default=0,
         help="The number of process to run")
     parser.add_argument(
-        '--distributed',
-        action='store_true', default=False,
-        help='Enable distributed training.')
-    parser.add_argument(
         "--launcher",
         default="", type=str,
-        help="The launcher to use: default, optimized, horovod")
+        help="The launcher to use: local, distributed, mpi, horovod")
     parser.add_argument(
         "-m", "--module",
         default=False, action="store_true",
@@ -165,7 +156,7 @@ def create_parser():
                     "\n2. Local multi-process inference \n"
                     "\n    >>> cloudtik-run --num-proc 2 --ncores-per-proc 8 python_script args\n"
                     "\n3. Single-Node multi-process distributed training\n"
-                    "\n    >>> cloudtik-run --distributed  python_script args\n"
+                    "\n    >>> cloudtik-run --launcher=distributed python_script args\n"
                     "\n4. Multi-Node multi-process distributed training: (e.g. two nodes)\n"
                     "\n   >>> cloudtik-run --nproc-per-node=2\n"
                     "\n       --nnodes=2 --hosts ip1,ip2 python_script args\n"
@@ -173,16 +164,7 @@ def create_parser():
                     formatter_class=RawTextHelpFormatter)
 
     add_common_arguments(parser)
-
-    add_cpu_launcher_params(parser)
-    add_local_cpu_launcher_params(parser)
-    add_auto_ipex_params(parser)
-    add_distributed_cpu_launcher_params(parser)
-
-    add_distributed_params(parser)
-    add_mpi_params(parser)
-    add_horovod_params(parser)
-
+    add_launcher_params(parser)
     return parser
 
 
@@ -194,6 +176,7 @@ def parse_args(parser):
     args = parser.parse_args()
     args.run_func = None
     args.executable = None
+    args.launcher_kwargs = {}
     return args
 
 
@@ -249,36 +232,18 @@ def _run(args):
         args.hostfile,
     )
 
-    if distributor.distributed:
-        args.distributed = True
-
-    if not args.distributed:
-        if args.latency_mode and args.throughput_mode:
-            raise RuntimeError("Either args.latency_mode or args.throughput_mode should be set")
-
     env_before = set(os.environ.keys())
 
     if args.validate_ld_preload:
         _validate_ld_preload()
 
-    if args.distributed:
-        if args.launcher == "mpi":
-            from cloudtik.runtime.ai.runner.mpi.mpi_launcher \
-                import MPILauncher
-            launcher = MPILauncher(args, distributor)
-        elif args.launcher == "horovod":
-            from cloudtik.runtime.ai.runner.horovod.horovod_launcher \
-                import HorovodLauncher
-            launcher = HorovodLauncher(args, distributor)
+    if not args.launcher:
+        if distributor.distributed:
+            args.launcher = "distributed"
         else:
-            from cloudtik.runtime.ai.runner.cpu.distributed_launcher \
-                import DistributedCPULauncher
-            launcher = DistributedCPULauncher(args, distributor)
-    else:
-        from cloudtik.runtime.ai.runner.cpu.local_launcher \
-            import LocalCPULauncher
-        launcher = LocalCPULauncher(args, distributor)
+            args.launcher = "local"
 
+    launcher = create_launcher(args.launcher, args, distributor)
     launcher.launch()
 
     for x in sorted(set(os.environ.keys()) - env_before):

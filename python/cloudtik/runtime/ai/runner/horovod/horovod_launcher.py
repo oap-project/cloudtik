@@ -99,7 +99,8 @@ class HorovodLauncher(DistributedLauncher):
         hargs.mpi_args = args.mpi_args
         hargs.use_mpi = args.use_mpi
         hargs.use_gloo = args.use_gloo
-        hargs.nics = args.nics
+        nics = set(args.nics) if isinstance(args.nics, list) else args.nics
+        hargs.nics = nics
         hargs.output_filename = args.output_filename
 
         if args.run_func:

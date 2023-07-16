@@ -78,14 +78,20 @@ if [[ "$BACKEND" == "ccl" ]]; then
 fi
 
 CORES=${CORES:-`lscpu | grep Core | awk '{print $4}'`}
+SOCKETS=${SOCKETS:-`lscpu | grep Socket | awk '{print $2}'`}
 HOSTS=${HOSTS:-'127.0.0.1'}
 NNODES=$(echo $HOSTS | tr ',' '\n' | wc -l)
+CORES_PER_PROC=$CORES
 BATCHSIZE=$((256*CORES))
 export OMP_NUM_THREADS=$CORES
 
 LOG_0="${LOG}/socket.log"
 cloudtik-run \
-  --memory-allocator=jemalloc --distributed \
+  --memory-allocator=jemalloc \
+  --nnodes ${NNODES} \
+  --hosts ${HOSTS} \
+  --nproc_per_node ${SOCKETS} \
+  --ncores-per-proc ${CORES_PER_PROC} \
   $MODEL_SCRIPT \
   --raw-data-file=${DATASET_DIR}/day --processed-data-file=${DATASET_DIR}/terabyte_processed.npz \
   --data-set=terabyte \

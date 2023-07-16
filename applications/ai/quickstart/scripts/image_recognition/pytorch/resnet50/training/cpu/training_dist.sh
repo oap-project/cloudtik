@@ -106,7 +106,6 @@ TRAIN_SCRIPT=${TRAIN_SCRIPT:-${MODEL_DIR}/models/image_recognition/pytorch/commo
 
 cloudtik-run \
     --memory-allocator=default \
-    --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \
     --nproc_per_node ${SOCKETS} \

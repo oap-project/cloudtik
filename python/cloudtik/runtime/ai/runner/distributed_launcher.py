@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def add_distributed_params(parser):
-    group = parser.add_argument_group("Distributed Training Parameters")
+    group = parser.add_argument_group("Distributed Parameters")
     group.add_argument(
         "--nnodes",
         type=int, default=0,

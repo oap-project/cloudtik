@@ -134,7 +134,6 @@ fi
 rm -rf ${OUTPUT_DIR}/distributed_throughput_log*
 
 cloudtik-run \
-    --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \
     --nproc_per_node $SOCKETS \

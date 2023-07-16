@@ -307,13 +307,13 @@ class Distributor:
         return ",".join(_hosts)
 
     @property
-    def num_proc_of_user(self):
+    def origin_num_proc(self):
         return self._num_proc
 
     @property
-    def nnodes_of_user(self):
+    def origin_nnodes(self):
         return self._nnodes
 
     @property
-    def nproc_per_node_of_user(self):
+    def origin_nproc_per_node(self):
         return self._nproc_per_node

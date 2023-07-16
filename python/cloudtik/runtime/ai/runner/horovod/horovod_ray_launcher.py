@@ -70,7 +70,7 @@ class HorovodRayLauncher(HorovodLauncher):
         num_proc = self.distributor.num_proc
         nnodes = self.distributor.nnodes
         nproc_per_node = self.distributor.nproc_per_node
-        if self.distributor.num_proc_of_user:
+        if self.distributor.origin_num_proc:
             # User specify num_proc, consider to be case #1
             nnodes = None
         else:

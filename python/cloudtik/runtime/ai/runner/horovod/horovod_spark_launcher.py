@@ -1,6 +1,5 @@
 import copy
 import logging
-import os
 
 from cloudtik.runtime.ai.runner.horovod.horovod_launcher import HorovodLauncher
 

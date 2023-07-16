@@ -305,3 +305,15 @@ class Distributor:
             raise ValueError("No hosts/hostfile parameter passed.")
         _hosts = [host["ip"] for host in self.hosts]
         return ",".join(_hosts)
+
+    @property
+    def num_proc_of_user(self):
+        return self._num_proc
+
+    @property
+    def nnodes_of_user(self):
+        return self._nnodes
+
+    @property
+    def nproc_per_node_of_user(self):
+        return self._nproc_per_node

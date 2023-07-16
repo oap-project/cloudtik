@@ -33,9 +33,10 @@ class _LaunchArgs(object):
         self.hostfile = None
 
         # Common arguments
-        self.distributed = False
         self.launcher = None
+        self.launcher_kwargs = {}
 
+        # Shared arguments for some launchers
         self.module = False
         self.no_python = False
         self.log_dir = None
@@ -76,11 +77,6 @@ class _LaunchArgs(object):
         self.nics = None
         self.output_filename = None
 
-        self.tcp_flag = None
-        self.binding_args = None
-        self.num_nccl_streams = None
-        self.thread_affinity = None
-
 
 def run(
         func,
@@ -92,12 +88,8 @@ def run(
         hosts=None,
         hostfile=None,
         executable=None,
-        verbose=None,
-        mpi_args=None,
-        use_gloo=None,
-        use_mpi=None,
-        network_interfaces=None,
-        output_filename=None,
+        launcher=None,
+        **launcher_kwargs,
        ):
     """
     Launch a job to run the specified process function and get the return value.
@@ -118,17 +110,8 @@ def run(
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
     :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
-    :param verbose: If this flag is set, extra messages will be printed.
-    :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
-    :param use_gloo: Run using the Gloo
-    :param use_mpi: Run using the MPI
-    :param network_interfaces: List of network interfaces to use for communication. If not specified,
-                               Horovod will find the common NICs among all the workers.
-                               Example: ["eth0", "eth1"].
-    :param output_filename: For Gloo, writes stdout / stderr of all processes to a filename of the form
-                            <output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0
-                            characters to ensure lexicographical order.
-                            For MPI, delegates its behavior to mpirun.
+    :param launcher: The launcher to use.
+    :param launcher_kwargs: The additional keyword arguments for launcher.
     :return: Return a list which contains values return by all processes.
              The index of the list corresponds to the rank of each process.
              Returns only the first min_num_proc results, if set.
@@ -144,8 +127,9 @@ def run(
     if hosts is not None and hostfile is not None:
         raise ValueError('Argument hosts and hostfile only allow one provided.')
 
-    if use_gloo and use_mpi:
-        raise ValueError('Argument use_gloo and use_mpi only allow one set True.')
+    if not launcher:
+        # Current,only horovod support running a function
+        launcher = "horovod"
 
     largs = _LaunchArgs()
 
@@ -156,13 +140,12 @@ def run(
     largs.nproc_per_node = nproc_per_node
     largs.hosts = hosts
     largs.hostfile = hostfile
-    largs.launcher = "horovod"
-    largs.verbose = verbose
-    largs.mpi_args = mpi_args
-    largs.use_gloo = use_gloo
-    largs.use_mpi = use_mpi
-    largs.nics = set(network_interfaces) if network_interfaces else None
-    largs.output_filename = output_filename
+    largs.launcher = launcher
+    largs.launcher_kwargs = launcher_kwargs
+
+    # set for launcher args
+    for key, value in launcher_kwargs.items():
+        setattr(largs, key, value)
 
     return _run(largs)
 
@@ -175,12 +158,7 @@ def run_command(
         hosts=None,
         hostfile=None,
         launcher=None,
-        verbose=None,
-        mpi_args=None,
-        use_gloo=None,
-        use_mpi=None,
-        network_interfaces=None,
-        output_filename=None,
+        **launcher_kwargs,
        ):
     """
     Launch command to run the specified process function and get the return value.
@@ -196,27 +174,14 @@ def run_command(
     :param hostfile: Path to a host file containing the list of host names and the number of
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
-    :param launcher: The launcher to use. Valid launchers are "default", "optimized", "horovod"
-    :param verbose: If this flag is set, extra messages will be printed.
-    :param mpi_args: Extra arguments for the MPI controller. This is only used when use_mpi is True.
-    :param use_gloo: Run using the Gloo
-    :param use_mpi: Run using the MPI
-    :param network_interfaces: List of network interfaces to use for communication. If not specified,
-                               Horovod will find the common NICs among all the workers.
-                               Example: ["eth0", "eth1"].
-    :param output_filename: For Gloo, writes stdout / stderr of all processes to a filename of the form
-                        <output_filename>/rank.<rank>/<stdout | stderr>. The <rank> will be padded with 0
-                        characters to ensure lexicographical order.
-                        For MPI, delegates its behavior to mpirun.
+    :param launcher: The launcher to use.
+    :param launcher_kwargs: The additional keyword arguments for launcher.
     :return: None
     """
     from cloudtik.runtime.ai.runner.run import _run
 
     if hosts is not None and hostfile is not None:
         raise ValueError('Argument hosts and hostfile only allow one provided.')
-
-    if use_gloo and use_mpi:
-        raise ValueError('Argument use_gloo and use_mpi only allow one set True.')
 
     largs = _LaunchArgs()
 
@@ -227,11 +192,10 @@ def run_command(
     largs.hosts = hosts
     largs.hostfile = hostfile
     largs.launcher = launcher
-    largs.verbose = verbose
-    largs.mpi_args = mpi_args
-    largs.use_gloo = use_gloo
-    largs.use_mpi = use_mpi
-    largs.nics = set(network_interfaces) if network_interfaces else None
-    largs.output_filename = output_filename
+    largs.launcher_kwargs = launcher_kwargs
+
+    # set for launcher args
+    for key, value in launcher_kwargs.items():
+        setattr(largs, key, value)
 
     return _run(largs)

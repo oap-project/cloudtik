@@ -83,7 +83,6 @@ BATCH_SIZE=${BATCH_SIZE-112}
 rm -rf ${OUTPUT_DIR}/distributed_throughput_log_${PRECISION}*
 
 cloudtik-run \
-    --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \
     --nproc_per_node $SOCKETS \

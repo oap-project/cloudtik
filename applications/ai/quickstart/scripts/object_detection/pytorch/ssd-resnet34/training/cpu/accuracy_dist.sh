@@ -88,7 +88,6 @@ rm -rf ${OUTPUT_DIR}/train_ssdresnet34_${PRECISION}_accuracy_dist*
 cloudtik-run \
     --memory-allocator=default \
     --ncores-per-proc ${CORES_PER_PROC} \
-    --distributed \
     --nnodes ${NNODES} \
     --hosts ${HOSTS} \
     --nproc_per_node ${SOCKETS} \

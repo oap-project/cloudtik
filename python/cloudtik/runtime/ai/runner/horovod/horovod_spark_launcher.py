@@ -44,6 +44,9 @@ class HorovodSparkLauncher(HorovodLauncher):
         hargs = _HorovodSparkArgs()
 
         num_proc = self.distributor.num_proc
+        if num_proc == 0:
+            # Spark use None for checking num_proc unspecified
+            num_proc = None
         func = args.run_func
         func_args = args.func_args
         if func_args is None:

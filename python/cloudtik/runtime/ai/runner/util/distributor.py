@@ -124,7 +124,7 @@ def _normalize_host_slots(normalized_hosts, nproc_per_node, force=False):
 
 def _normalize_nproc_per_node(num_proc, nnodes):
     if not num_proc or not nnodes:
-        return None
+        return 0
     nproc_per_node = num_proc // nnodes
     if (num_proc % nnodes) > 0:
         nproc_per_node += 1

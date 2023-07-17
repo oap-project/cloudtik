@@ -47,7 +47,7 @@ class HorovodSparkLauncher(HorovodLauncher):
         if num_proc == 0:
             # Spark use None for checking num_proc unspecified
             num_proc = None
-        func = args.run_func
+        func = args.func
         func_args = args.func_args
         if func_args is None:
             func_args = ()

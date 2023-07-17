@@ -243,8 +243,8 @@ if __name__ == '__main__':
 
     master_addr = worker_ips[0]
 
-    #  Hyperopt training function
-    import horovod
+    # Run training function
+    import cloudtik.runtime.ai.runner as runner
 
     # Set the parameters
     num_proc = args.num_proc
@@ -261,8 +261,8 @@ if __name__ == '__main__':
     learning_rate = args.base_lr
     print("Train learning rate: {}".format(learning_rate))
 
-    horovod.run(
+    runner.run(
         train_distributed, args=(learning_rate,),
-        num_proc=num_proc, hosts=hosts,
+        num_proc=num_proc, hosts=hosts, launcher="horovod",
         use_gloo=args.use_gloo, use_mpi=args.use_mpi,
         verbose=2)

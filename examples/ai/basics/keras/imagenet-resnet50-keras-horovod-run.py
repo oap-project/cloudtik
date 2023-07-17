@@ -245,8 +245,8 @@ if __name__ == '__main__':
 
     worker_ips = cluster.get_worker_node_ips(node_status="up-to-date")
 
-    #  Hyperopt training function
-    import horovod
+    # Run training function
+    import cloudtik.runtime.ai.runner as runner
 
     # Set the parameters
     num_proc = args.num_proc
@@ -263,9 +263,9 @@ if __name__ == '__main__':
     learning_rate = args.base_lr
     print("Train learning rate: {}".format(learning_rate))
 
-    model_bytes = horovod.run(
+    model_bytes = runner.run(
         train_horovod, args=(learning_rate,),
-        num_proc=num_proc, hosts=hosts,
+        num_proc=num_proc, hosts=hosts, launcher="horovod",
         use_gloo=args.use_gloo, use_mpi=args.use_mpi,
         verbose=2)[0]
     model = deserialize_keras_model(model_bytes, custom_objects={})

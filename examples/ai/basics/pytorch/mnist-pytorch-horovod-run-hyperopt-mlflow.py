@@ -203,7 +203,7 @@ if __name__ == '__main__':
                     100. * batch_idx / len(data_loader), loss.item(), scaler.get_scale()))
 
 
-    # Horovod train function passed to horovod.run
+    # Horovod train function
     import torch.optim as optim
     from torchvision import datasets, transforms
 
@@ -344,7 +344,7 @@ if __name__ == '__main__':
 
     #  Hyperopt training function
     import mlflow
-    import horovod
+    import cloudtik.runtime.ai.runner as runner
 
     checkpoint_dir = create_log_dir('pytorch-mnist')
     print("Log directory:", checkpoint_dir)
@@ -363,9 +363,9 @@ if __name__ == '__main__':
 
     def hyper_objective(learning_rate):
         with mlflow.start_run():
-            model_bytes = horovod.run(
+            model_bytes = runner.run(
                 train_horovod, args=(learning_rate,),
-                num_proc=num_proc, hosts=hosts,
+                num_proc=num_proc, hosts=hosts, launcher="horovod",
                 use_gloo=args.use_gloo, use_mpi=args.use_mpi,
                 verbose=2)[0]
 

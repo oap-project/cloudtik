@@ -112,7 +112,6 @@ if __name__ == '__main__':
     # HDFS driver to use with Petastorm.
     PETASTORM_HDFS_DRIVER = 'libhdfs'
 
-
     print('================')
     print('Data preparation')
     print('================')
@@ -458,7 +457,6 @@ if __name__ == '__main__':
 
 
     # Horovod: compile keras model with Horovod
-    import horovod.spark
     import horovod.tensorflow.keras as hvd
 
 
@@ -601,14 +599,18 @@ if __name__ == '__main__':
     checkpoint_dir = create_log_dir('rossmann-keras')
     print("Log directory:", checkpoint_dir)
 
-    # Horovod: run training.
+    # Run training function
+    import cloudtik.runtime.ai.runner as runner
+
     def train(learning_rate):
         model_bytes = compile_horovod_model(learning_rate)
         history, trained_model_bytes = \
-            horovod.spark.run(train_horovod, args=(model_bytes,), num_proc=num_proc,
-                              stdout=sys.stdout, stderr=sys.stderr, verbose=2,
-                              use_gloo=args.use_gloo, use_mpi=args.use_mpi,
-                              prefix_output_with_timestamp=True)[0]
+            runner.run(
+                train_horovod, args=(model_bytes,),
+                num_proc=num_proc, launcher="horovod.spark",
+                stdout=sys.stdout, stderr=sys.stderr, verbose=2,
+                use_gloo=args.use_gloo, use_mpi=args.use_mpi,
+                prefix_output_with_timestamp=True)[0]
 
         best_val_rmspe = min(history['val_exp_rmspe'])
         print('Best RMSPE: %f' % best_val_rmspe)
@@ -643,7 +645,7 @@ if __name__ == '__main__':
 
 
     # Do a super parameter tuning with hyperopt
-    from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+    from hyperopt import fmin, tpe, hp, STATUS_OK
 
     trials = args.trials
     print("Hyper parameter tuning trials: {}".format(trials))

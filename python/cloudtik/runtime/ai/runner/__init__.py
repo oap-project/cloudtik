@@ -44,6 +44,7 @@ class _LaunchArgs(object):
         self.log_dir = None
         self.log_file_prefix = None
         self.verbose = None
+        self.validate_ld_preload = True
 
         # Pytorch DDP
         self.master_addr = "127.0.0.1"
@@ -112,7 +113,7 @@ def run(
                      available slots. Each line of the file must be of the form:
                      <hostname> slots=<slots>
     :param executable: Optional executable to run when launching the workers. Defaults to `sys.executable`.
-    :param launcher: The launcher to use: local, distributed, mpi, horovod, spark, ray.
+    :param launcher: The launcher to use: local, distributed, mpi, horovod, horovod.spark, horovod.ray.
     :param launcher_kwargs: The additional keyword arguments for launcher.
     :return: Return a list which contains values return by all processes.
              The index of the list corresponds to the rank of each process.
@@ -124,7 +125,7 @@ def run(
         raise ValueError('Argument hosts and hostfile only allow one provided.')
 
     if not launcher:
-        # default Horovod for running a function
+        # default Horovod for running a function if not specified
         launcher = "horovod"
 
     largs = _LaunchArgs()

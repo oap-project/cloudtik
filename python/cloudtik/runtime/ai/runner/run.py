@@ -109,7 +109,7 @@ def add_common_arguments(parser):
     parser.add_argument(
         "--launcher",
         default="", type=str,
-        help="The launcher to use: local, distributed, mpi, horovod, spark")
+        help="The launcher to use: local, distributed, mpi, horovod")
     parser.add_argument(
         "-m", "--module",
         default=False, action="store_true",
@@ -223,7 +223,7 @@ def _setup_logger(args):
 
 def _run(args):
     # check either command or func be specified
-    if not args.command and not args.run_func:
+    if not args.command and not args.func:
         raise ValueError("Must specify either command or function to launch.")
 
     distributor = Distributor(
@@ -246,10 +246,12 @@ def _run(args):
             args.launcher = "local"
 
     launcher = create_launcher(args.launcher, args, distributor)
-    launcher.launch()
+    result = launcher.launch()
 
     for x in sorted(set(os.environ.keys()) - env_before):
         logger.debug('{0}={1}'.format(x, os.environ[x]))
+
+    return result
 
 
 def main():

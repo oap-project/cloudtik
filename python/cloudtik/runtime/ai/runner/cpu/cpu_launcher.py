@@ -3,8 +3,6 @@ import logging
 import os
 from os.path import expanduser
 
-from cloudtik.runtime.ai.runner.cpu.cpu_pool import CPUPoolScheduler
-
 logger = logging.getLogger(__name__)
 
 MEMORY_ALLOCATORS = ["auto", "default", "tcmalloc", "jemalloc"]
@@ -43,7 +41,6 @@ class CPULauncher:
      Base class for launcher
     """
     def __init__(self):
-        self.cpuinfo = CPUPoolScheduler(logger)
         self.library_paths = self._get_library_paths()
         self.ld_preload = (
             os.environ["LD_PRELOAD"].split(":") if "LD_PRELOAD" in os.environ else []

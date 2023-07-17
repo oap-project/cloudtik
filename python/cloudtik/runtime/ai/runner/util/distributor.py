@@ -118,15 +118,24 @@ def _normalize_host_slots(normalized_hosts, nproc_per_node, force=False):
             if slots is None:
                 normalized_host["slots"] = nproc_per_node
             elif slots < nproc_per_node:
-                raise ValueError("Not enough host slots.{} {} defined, {} needed.".format(
+                raise ValueError("Not enough host slots: {} {} defined, {} needed.".format(
                     normalized_host["ip"], slots, nproc_per_node))
 
 
 def _normalize_nproc_per_node(num_proc, nnodes):
+    if not num_proc or not nnodes:
+        return None
     nproc_per_node = num_proc // nnodes
     if (num_proc % nnodes) > 0:
         nproc_per_node += 1
     return nproc_per_node
+
+
+def _normalize_nnodes(num_proc, nproc_per_node):
+    nnodes = num_proc // nproc_per_node
+    if (num_proc % nproc_per_node) > 0:
+        nnodes += 1
+    return nnodes
 
 
 class Distributor:
@@ -138,10 +147,16 @@ class Distributor:
             hosts=None,
             hostfile=None,
     ):
-        # nodes and processes
-        # If nnodes and nproc_per_node is specified
-        # hosts/hostfile can be host address only without slots
-        # Or you can specify hosts with slots and specify the num_proc
+        """
+        The distributor class handles the process numbers and distribution.
+
+        If nnodes and nproc_per_node is specified,
+        hosts/hostfile can be host address only without slots.
+        Or you can specify hosts with slots and specify the num_proc.
+
+        For the cases that there is resource scheduler such as Spark or Ray,
+        hosts/hostfile is not needed for a distributed run.
+        """
         self._num_proc = num_proc
         self._nnodes = nnodes
         self._nproc_per_node = nproc_per_node
@@ -166,24 +181,29 @@ class Distributor:
         elif self._hosts:
             self.normalized_hosts = parse_hosts(self._hosts)
 
-        if self._nnodes and self._nnodes > 1 and not self.normalized_hosts:
-            raise ValueError("Must specify hosts and hostfile for distributed.")
-
         if not self.normalized_hosts:
-            # local single node
-            if self._num_proc and self._nproc_per_node and self._num_proc != self._nproc_per_node:
-                raise ValueError(
-                    "Inconsistent parameter value. num_proc: {}, nproc_per_node: {}".format(
-                        self._num_proc, self._nproc_per_node))
-            if self._nproc_per_node:
-                self.normalized_num_proc = self._nproc_per_node
-            elif self._num_proc:
-                self.normalized_num_proc = self._num_proc
-            else:
-                # This is the case to resolve later with nproc_per_node
-                self.normalized_num_proc = 0
+            # local or resource scheduler case: nothing is a compulsory
+            # just do best effort resolving
 
-            self.normalized_nnodes = 1
+            # for the cases there is a resource scheduler,
+            # num_proc or nnodes + nproc_per_node is enough
+            if self._num_proc:
+                if self._nnodes and self._nproc_per_node and (
+                        self._num_proc != self._nnodes * self._nproc_per_node):
+                    raise ValueError(
+                        "Inconsistent values. num_proc: {}, nnodes: {}, nproc_per_node: {}".format(
+                            self._num_proc, self._nnodes, self._nproc_per_node))
+                self.normalized_num_proc = self._num_proc  # this line already done in init
+                if self._nnodes:
+                    self.normalized_nnodes = self._nnodes
+                elif self._nproc_per_node:
+                    self.normalized_nnodes = _normalize_nnodes(
+                        self._num_proc, self._nproc_per_node)
+                # normalized_nnodes is still possible to be None or 0
+            elif self._nnodes and self._nproc_per_node:
+                self.normalized_num_proc = self._nnodes * self._nproc_per_node
+                self.normalized_nnodes = self._nnodes
+            # cases remaining such as self._nnodes or self._nproc_per_node or nothing
         else:
             # normalize nnodes
             nnodes_defined = len(self.normalized_hosts)
@@ -234,22 +254,40 @@ class Distributor:
 
     @property
     def resolved(self):
-        return True if self.normalized_num_proc else False
+        return True if (self.normalized_num_proc and self.normalized_nnodes) else False
 
-    def resolve(self, nproc_per_node=1, force=False):
-        if force or not self.normalized_num_proc:
-            self.normalized_num_proc = self.normalized_nnodes * nproc_per_node
+    def resolve(self, nproc_per_node=1, nnodes=None, force=False, check=False):
+        if force or not self.resolved:
+            if self.normalized_nnodes:
+                self.normalized_num_proc = self.normalized_nnodes * nproc_per_node
+            elif self.normalized_num_proc:
+                self.normalized_nnodes = _normalize_nnodes(
+                    self.normalized_num_proc, nproc_per_node)
+            else:
+                # for the case that both num_proc and nnodes are not specified
+                if nnodes:
+                    self.normalized_nnodes = nnodes
+                    self.normalized_num_proc = self.normalized_nnodes * nproc_per_node
+                elif check:
+                    self.check_resolved()
+                # may still leave not resolved
             self.normalized_nproc_per_node = nproc_per_node
             _normalize_host_slots(
                 self.normalized_hosts, nproc_per_node, force=force)
 
-    def _check_resolved(self):
+    def check_resolved(self):
         if not self.resolved:
             raise ValueError(
                 "There are unresolved parameters. "
-                "Pass proper parameters or call resolve with nproc_per_node.")
+                "Pass proper parameters or call resolve with nproc_per_node and/or nnodes.")
 
-    def validate_same_slots(self):
+    def check_distributed_with_hosts(self):
+        # This checks the hosts based distributed
+        if not self.distributed_with_hosts and self.normalized_nnodes and self.normalized_nnodes > 1:
+            raise ValueError(
+                "No hosts/hostfile specified for running with multiple nodes.")
+
+    def check_same_slots(self):
         if not self.hosts:
             return
         slots = self.hosts[0]["slots"]
@@ -268,12 +306,11 @@ class Distributor:
                 f.write(addr + '\n')
 
     @property
-    def distributed(self):
-        return self.normalized_nnodes > 1 or self.normalized_hosts
+    def distributed_with_hosts(self):
+        return True if self.normalized_hosts else False
 
     @property
     def num_proc(self):
-        self._check_resolved()
         return self.normalized_num_proc
 
     @property
@@ -282,12 +319,10 @@ class Distributor:
 
     @property
     def nproc_per_node(self):
-        self._check_resolved()
         return self.normalized_nproc_per_node
 
     @property
     def hosts(self):
-        self._check_resolved()
         return self.normalized_hosts
 
     @property

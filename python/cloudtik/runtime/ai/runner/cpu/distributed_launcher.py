@@ -35,6 +35,7 @@ class DistributedCPULauncher(MPILauncher, CPULauncher):
         MPILauncher.__init__(self, args, distributor)
         CPULauncher.__init__(self)
 
+        self.scheduler = None
         self.ld_preload_backup = None
 
     def add_env(self, env_name, env_value):
@@ -98,48 +99,55 @@ class DistributedCPULauncher(MPILauncher, CPULauncher):
             "affinity": ",".join(affinity),
         }
 
-    def set_environment(self):
-        """
-        Set ENVs for launching MPI process for distributed training.
-        """
+    def resolve(self):
         args = self.args
-        if not self.distributor.distributed:
+        if not self.distributor.distributed_with_hosts:
             # for local single node
-            cpuinfo = self.cpuinfo
+            self.scheduler = CPUPoolScheduler(logger=logger)
         else:
             # use any worker address for getting cpu info
             worker_addr = self.get_master_addr(args)
-            cpuinfo = CPUPoolScheduler(host_ip=worker_addr)
+            self.scheduler = CPUPoolScheduler(logger=logger, host_ip=worker_addr)
 
-        self.distributor.resolve(cpuinfo.num_sockets())
+        nproc_per_node = args.nproc_per_node
+        if not nproc_per_node:
+            nodes_list = self.parse_list_argument(args.nodes_list)
+            nproc_per_node = (
+                self.scheduler.num_sockets() if len(nodes_list) == 0 else len(nodes_list)
+            )
+        self.distributor.resolve(nproc_per_node, nnodes=1)
 
         # call super set_environment to make sure other things are set
         # since the distributor already resolved, it will not resolve twice
-        super().set_environment()
-        self.set_mpi_environment(cpuinfo)
+        super().resolve()
 
-    def set_mpi_environment(self, cpuinfo):
+    def setup(self):
+        """
+        Set ENVs for launching MPI process for distributed training.
+        """
+        super().setup()
+
+        nproc_per_node = self.distributor.nproc_per_node
+        nodes_list = self.parse_list_argument(self.args.nodes_list)
+        self.setup_mpi(
+            self.scheduler, nodes_list, nproc_per_node)
+
+    def setup_mpi(
+            self, scheduler, nodes_list, nproc_per_node):
         args = self.args
-        nodes_list = self.parse_list_argument(args.nodes_list)
-        if args.nproc_per_node == 0:
-            args.nproc_per_node = (
-                len(set([c.node for c in cpuinfo.pool]))
-                if len(nodes_list) == 0
-                else len(nodes_list)
-            )
         ncores_per_proc = args.ncores_per_proc
         if ncores_per_proc > 0:
             if (
                     not args.logical_cores_for_ccl
-                    or len([c for c in cpuinfo.pool if not c.is_physical_core])
-                    < args.nproc_per_node * args.ccl_worker_count
+                    or len([c for c in scheduler.pool if not c.is_physical_core])
+                    < nproc_per_node * args.ccl_worker_count
             ):
                 ncores_per_proc += args.ccl_worker_count
             ncores_per_proc = len(
-                [c for c in cpuinfo.pool if c.core < ncores_per_proc]
+                [c for c in scheduler.pool if c.core < ncores_per_proc]
             )
-        cpu_schedule = cpuinfo.schedule(
-            num_proc=args.nproc_per_node,
+        cpu_schedule = scheduler.schedule(
+            num_proc=nproc_per_node,
             ncores_per_proc=ncores_per_proc,
             use_logical_cores=True,
             use_e_cores=args.use_e_cores,

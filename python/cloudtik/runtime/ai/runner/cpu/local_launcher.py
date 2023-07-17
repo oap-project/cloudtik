@@ -2,6 +2,7 @@ import logging
 import os
 import subprocess
 
+from cloudtik.runtime.ai.runner.cpu.cpu_pool import CPUPoolScheduler
 from cloudtik.runtime.ai.runner.launcher import Launcher
 from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher
 from cloudtik.runtime.ai.runner.util.utils import is_python_program
@@ -80,6 +81,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
     def __init__(self, args, distributor):
         Launcher.__init__(self, args, distributor)
         CPULauncher.__init__(self)
+        self.scheduler = CPUPoolScheduler(logger)
         self.program = None
 
     def add_env(self, env_name, env_value):
@@ -177,7 +179,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
         process = subprocess.Popen(cmd_s, env=environ_local, shell=True)
         return {"process": process, "cmd": cmd_s}
 
-    def launch(self):
+    def run(self):
         args = self.args
 
         if args.latency_mode and args.throughput_mode:
@@ -211,14 +213,14 @@ class LocalCPULauncher(Launcher, CPULauncher):
                     "--throughput-mode is exclusive to --num-proc, --ncores-per-proc, --nodes-list and \
                         --use-logical-cores. They won't take effect even if they are set explicitly.",
                 )
-            args.num_proc = len(set([c.node for c in self.cpuinfo.pool]))
+            args.num_proc = self.scheduler.num_sockets()
             args.ncores_per_proc = 0
             args.use_logical_cores = False
 
         cores_list = self.parse_list_argument(args.cores_list)
         nodes_list = self.parse_list_argument(args.nodes_list)
 
-        cpu_schedule = self.cpuinfo.schedule(
+        cpu_schedule = self.scheduler.schedule(
             num_proc=args.num_proc,
             ncores_per_proc=args.ncores_per_proc,
             use_logical_cores=args.use_logical_cores,
@@ -241,7 +243,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
         #   Thus, KMP_AFFINITY should not be set.
         if args.use_logical_cores and len(
             set([c for p in cpu_schedule for c in p])
-        ) == len(self.cpuinfo.pool):
+        ) == len(self.scheduler.pool):
             assert (
                 not is_kmp_affinity_set
             ), 'Environment variable "KMP_AFFINITY" is detected. Please unset it when using all cores.'

@@ -240,7 +240,7 @@ def _run(args):
         _validate_ld_preload()
 
     if not args.launcher:
-        if distributor.distributed:
+        if distributor.distributed_with_hosts:
             args.launcher = "distributed"
         else:
             args.launcher = "local"

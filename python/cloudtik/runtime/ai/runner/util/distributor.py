@@ -141,9 +141,9 @@ def _normalize_nnodes(num_proc, nproc_per_node):
 class Distributor:
     def __init__(
             self,
-            num_proc=None,
-            nnodes=None,
-            nproc_per_node=None,
+            num_proc=0,
+            nnodes=0,
+            nproc_per_node=0,
             hosts=None,
             hostfile=None,
     ):

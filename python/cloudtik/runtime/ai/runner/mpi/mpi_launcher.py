@@ -2,10 +2,14 @@ import copy
 import logging
 import os
 import subprocess
+import sys
 
 from cloudtik.runtime.ai.runner import get_cloudtik_rsh
-from cloudtik.runtime.ai.runner.util import utils
+from cloudtik.runtime.ai.runner.mpi import mpi_utils
 from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
+from cloudtik.runtime.ai.runner.util import env as env_utils, network
+from cloudtik.runtime.ai.runner.util.http.http_client import read_data_from_kvstore, put_data_into_kvstore
+from cloudtik.runtime.ai.runner.util.http.http_server import KVStoreServer
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +36,40 @@ class MPILauncher(DistributedLauncher):
         super().__init__(args, distributor)
 
     def run(self):
-        command = self.get_command_to_run()
-        if utils.is_impi_or_mpich():
+        args = self.args
+        if args.func:
+            run_func = self.wrap_func()
+            # get the driver IPv4 address
+            driver_ip = network.get_default_ip_address()
+            run_func_server = KVStoreServer(verbose=args.verbose)
+            run_func_server_port = run_func_server.start_server()
+            put_data_into_kvstore(driver_ip, run_func_server_port,
+                                  'runfunc', 'func', run_func)
+
+            executable = args.executable or sys.executable
+            command = [executable, '-m', 'cloudtik.runtime.ai.runner.util.run_func',
+                       str(driver_ip), str(run_func_server_port)]
+
+            num_proc = self.distributor.num_proc
+            try:
+                self._run_command(command)
+                results = [None] * num_proc
+                # TODO: make it parallel to improve performance
+                for i in range(args.num_proc):
+                    results[i] = read_data_from_kvstore(
+                        driver_ip, run_func_server_port,
+                        'runfunc_result', str(i))
+                return results
+            finally:
+                run_func_server.shutdown_server()
+        else:
+            command = self.get_command_to_run()
+            # TODO: handle NICs included for MPI
+            self._run_command(command)
+            return None
+
+    def _run_command(self, command):
+        if mpi_utils.is_impi_or_mpich():
             self._run_command_impi(command)
         else:
             self._run_command_openmpi(command)
@@ -69,7 +105,7 @@ class MPILauncher(DistributedLauncher):
             # Shall we pass on all the local environment?
             # env = os.environ.copy()
             env_list = ' '.join(
-                '-x %s' % key for key in sorted(env.keys()) if utils.is_exportable(key))
+                '-x %s' % key for key in sorted(env.keys()) if env_utils.is_exportable(key))
 
         extra_mpi_args = args.mpi_args
         if self.distributor.distributed_with_hosts and (

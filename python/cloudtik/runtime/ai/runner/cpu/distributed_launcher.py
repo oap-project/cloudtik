@@ -17,7 +17,7 @@ def add_distributed_cpu_launcher_params(parser):
     # ccl control
     group.add_argument(
         "--ccl-worker-count", "--ccl_worker_count",
-        action='store', dest='ccl_worker_count', default=4, type=int,
+        action='store', dest='ccl_worker_count', default=-1, type=int,
         help="Core numbers per rank used for ccl communication")
 
     group.add_argument(
@@ -40,6 +40,17 @@ class DistributedCPULauncher(MPILauncher, CPULauncher):
 
     def add_env(self, env_name, env_value):
         self.set_env(env_name, env_value)
+
+    @staticmethod
+    def get_default_ccl_worker_count(scheduler):
+        # default to 4 but not exceeding quarter of the physical cores
+        ccl_worker_count = 4
+        quarter_cores = scheduler.physical_cores() // 4
+        if not quarter_cores:
+            quarter_cores = 1
+        if ccl_worker_count > quarter_cores:
+            ccl_worker_count = quarter_cores
+        return ccl_worker_count
 
     def get_pin_domain_affinity(
             self, cpu_pools, ccl_worker_count, logical_cores_for_ccl=False
@@ -135,14 +146,18 @@ class DistributedCPULauncher(MPILauncher, CPULauncher):
     def setup_mpi(
             self, scheduler, nodes_list, nproc_per_node):
         args = self.args
+        ccl_worker_count = args.ccl_worker_count
+        if ccl_worker_count == -1:
+            ccl_worker_count = self.get_default_ccl_worker_count(scheduler)
+
         ncores_per_proc = args.ncores_per_proc
         if ncores_per_proc > 0:
             if (
                     not args.logical_cores_for_ccl
                     or len([c for c in scheduler.pool if not c.is_physical_core])
-                    < nproc_per_node * args.ccl_worker_count
+                    < nproc_per_node * ccl_worker_count
             ):
-                ncores_per_proc += args.ccl_worker_count
+                ncores_per_proc += ccl_worker_count
             ncores_per_proc = len(
                 [c for c in scheduler.pool if c.core < ncores_per_proc]
             )
@@ -160,17 +175,18 @@ class DistributedCPULauncher(MPILauncher, CPULauncher):
             [c for c in cpu_schedule[0] if c.is_physical_core]
         )
         if not args.logical_cores_for_ccl:
-            omp_num_threads -= args.ccl_worker_count
+            omp_num_threads -= ccl_worker_count
         self.add_env("OMP_NUM_THREADS", str(omp_num_threads))
 
         pin_domain_affinity = self.get_pin_domain_affinity(
             cpu_schedule,
-            args.ccl_worker_count,
+            ccl_worker_count,
             args.logical_cores_for_ccl,
         )
         self.add_env("I_MPI_PIN_DOMAIN", pin_domain_affinity["pin_domain"])
-        self.add_env("CCL_WORKER_COUNT", str(args.ccl_worker_count))
-        self.add_env("CCL_WORKER_AFFINITY", pin_domain_affinity["affinity"])
+        if ccl_worker_count:
+            self.add_env("CCL_WORKER_COUNT", str(ccl_worker_count))
+            self.add_env("CCL_WORKER_AFFINITY", pin_domain_affinity["affinity"])
 
         self.ld_preload_backup = (
             os.environ["LD_PRELOAD"]

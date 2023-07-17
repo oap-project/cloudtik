@@ -1,13 +1,12 @@
 import copy
 import logging
 import os
-import subprocess
 import sys
 
 from cloudtik.runtime.ai.runner import get_cloudtik_rsh
 from cloudtik.runtime.ai.runner.mpi import mpi_utils
 from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
-from cloudtik.runtime.ai.runner.util import env as env_utils, network
+from cloudtik.runtime.ai.runner.util import env as env_utils, network, safe_shell_exec
 from cloudtik.runtime.ai.runner.util.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 from cloudtik.runtime.ai.runner.util.http.http_server import KVStoreServer
 
@@ -25,6 +24,17 @@ def add_mpi_params(parser):
         "--mpi-args", "--mpi_args",
         action='store', dest='mpi_args', default="", type=str,
         help="User can pass more parameters for mpirun")
+
+
+class _MPIArgs(object):
+    def __init__(self):
+        self.verbose = None
+        self.mpi_args = None
+        self.nics = None
+
+        self.env = None
+        self.stdout = None
+        self.stderr = None
 
 
 class MPILauncher(DistributedLauncher):
@@ -47,9 +57,9 @@ class MPILauncher(DistributedLauncher):
                                   'runfunc', 'func', run_func)
 
             executable = args.executable or sys.executable
-            command = [executable, '-m', 'cloudtik.runtime.ai.runner.util.run_func',
-                       str(driver_ip), str(run_func_server_port)]
-
+            cmd = [executable, '-m', 'cloudtik.runtime.ai.runner.util.run_func',
+                   str(driver_ip), str(run_func_server_port)]
+            command = self.get_command_str(cmd)
             num_proc = self.distributor.num_proc
             try:
                 self._run_command(command)
@@ -69,13 +79,31 @@ class MPILauncher(DistributedLauncher):
             return None
 
     def _run_command(self, command):
-        if mpi_utils.is_impi_or_mpich():
-            self._run_command_impi(command)
-        else:
-            self._run_command_openmpi(command)
-
-    def _run_command_openmpi(self, command):
         args = self.args
+
+        margs = _MPIArgs()
+
+        margs.verbose = args.verbose
+        margs.mpi_args = args.mpi_args
+        margs.nics = args.nics
+
+        # set extra arguments passing from run API
+        self._set_args(margs, args.launcher_kwargs)
+
+        env = self._get_env(margs)
+
+        run_kwargs = self._get_kwargs(
+            margs, ["stdout", "stderr"])
+        if mpi_utils.is_impi_or_mpich():
+            self._run_command_impi(
+                margs, command, env, **run_kwargs)
+        else:
+            self._run_command_openmpi(
+                margs, command, env, **run_kwargs)
+
+    def _run_command_openmpi(
+            self, margs, command, env,
+            stdout=None, stderr=None):
         # default to use OpenMPI to launch
         _OMPI_FLAGS = ['-mca pml ob1', '-mca btl ^openib']
         _NO_BINDING_ARGS = ['-bind-to none', '-map-by slot']
@@ -100,14 +128,13 @@ class MPILauncher(DistributedLauncher):
         binding_args = ' '.join(_NO_BINDING_ARGS)
         basic_args = '--allow-run-as-root --tag-output'
         env_list = ""
-        env = self.environ_set
         if env:
             # Shall we pass on all the local environment?
             # env = os.environ.copy()
             env_list = ' '.join(
                 '-x %s' % key for key in sorted(env.keys()) if env_utils.is_exportable(key))
 
-        extra_mpi_args = args.mpi_args
+        extra_mpi_args = margs.mpi_args
         if self.distributor.distributed_with_hosts and (
                 not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
             extra_mpi_args = (
@@ -133,23 +160,13 @@ class MPILauncher(DistributedLauncher):
                     command=command)
         )
 
-        # we need the driver's PATH and PYTHONPATH in env to run mpirun,
-        # env for mpirun is different to env encoded in mpirun_command
-        for var in ['PATH', 'PYTHONPATH']:
-            if var not in env and var in os.environ:
-                # copy env so we do not leak env modifications
-                env = copy.copy(env)
-                # copy var over from os.environ
-                env[var] = os.environ[var]
+        self.run_mpi_command(
+            mpirun_command, env,
+            stdout=stdout, stderr=stderr)
 
-        logger.info("Final command run: {}".format(mpirun_command))
-
-        # Execute the mpirun command.
-        os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
-
-    def _run_command_impi(self, command):
-        args = self.args
-
+    def _run_command_impi(
+            self, margs, command, env,
+            stdout=None, stderr=None):
         # make sure that for IMPI cases, all the nodes have the same slots
         self.distributor.check_same_slots()
 
@@ -159,11 +176,11 @@ class MPILauncher(DistributedLauncher):
         cmd = ['mpirun']
         mpi_config = "-l -np {} -ppn {}".format(
             num_proc, nproc_per_node)
-        if self.environ_set:
-            genvs = [f"-genv {k}={v}" for k, v in self.environ_set.items()]
+        if env:
+            genvs = [f"-genv {k}={v}" for k, v in env.items()]
             mpi_config += " {}".format(' '.join(genvs))
-        if args.mpi_args:
-            mpi_config += " {}".format(args.mpi_args)
+        if margs.mpi_args:
+            mpi_config += " {}".format(margs.mpi_args)
 
         if self.distributor.distributed_with_hosts:
             mpi_config += " -hosts {}".format(self.distributor.hosts_str)
@@ -180,11 +197,44 @@ class MPILauncher(DistributedLauncher):
         cmd.extend(mpi_config.split())
         mpi_command = " ".join(cmd)
 
-        # TODO: handle log to file
-        final_command = "{mpi_command} {command}".format(
+        mpirun_command = "{mpi_command} {command}".format(
             mpi_command=mpi_command,
             command=command
         )
-        logger.info("Final command run: {}".format(final_command))
-        process = subprocess.Popen(final_command, env=os.environ, shell=True)
-        process.wait()
+
+        self.run_mpi_command(
+            mpirun_command, env,
+            stdout=stdout, stderr=stderr)
+
+    def run_mpi_command(
+            self, mpirun_command, env,
+            stdout=None, stderr=None):
+        # TODO: Do we need to add the os.environ when run?
+        # os_env = os.environ.copy()
+
+        # we need the driver's PATH and PYTHONPATH in env to run mpirun,
+        # env for mpirun is different to env encoded in mpirun_command
+        for var in ['PATH', 'PYTHONPATH']:
+            if var not in env and var in os.environ:
+                # copy env so we do not leak env modifications
+                env = copy.copy(env)
+                # copy var over from os.environ
+                env[var] = os.environ[var]
+
+        logger.info("Final command run: {}".format(mpirun_command))
+
+        # Execute the mpirun command.
+        if self.args.func:
+            # function mode
+            exit_code = safe_shell_exec.execute(
+                mpirun_command, env=env, stdout=stdout, stderr=stderr)
+            if exit_code != 0:
+                raise RuntimeError(
+                    "mpirun failed with exit code {exit_code}".format(exit_code=exit_code))
+        else:
+            # os.execve execute a new program, replacing the current process; they do not return.
+            os.execve('/bin/sh', ['/bin/sh', '-c', mpirun_command], env)
+
+            # do we really need execve or use Popen
+            # process = subprocess.Popen(mpirun_command, env=os.environ, shell=True)
+            # process.wait()

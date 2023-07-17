@@ -1,5 +1,4 @@
 import argparse
-import copy
 import logging
 import os
 
@@ -83,36 +82,6 @@ class HorovodLauncher(DistributedLauncher):
         self.with_python_command(cmd)
         cmd.extend(args.command)
         return cmd
-
-    def _get_env(self, args):
-        env = None
-        if args.env:
-            # make a copy
-            env = copy.copy(args.env)
-        if self.environ_set:
-            if env is None:
-                env = copy.copy(self.environ_set)
-            else:
-                # update
-                env.update(self.environ_set)
-        return env
-
-    @staticmethod
-    def _set_args(args, kwargs):
-        if not kwargs:
-            return
-        for key, value in kwargs.items():
-            if hasattr(args, key):
-                setattr(args, key, value)
-
-    @staticmethod
-    def _get_kwargs(args, attrs):
-        kwargs = {}
-        for attr in attrs:
-            attr_value = getattr(args, attr)
-            if attr_value is not None:
-                kwargs[attr] = attr_value
-        return kwargs
 
     def run(self):
         # Run with Horovod

@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import sys
@@ -74,3 +75,33 @@ class Launcher:
             return func(*func_args, **func_kwargs)
 
         return wrapped_func
+
+    def _get_env(self, args):
+        env = None
+        if hasattr(args, "env") and args.env:
+            # make a copy
+            env = copy.copy(args.env)
+        if self.environ_set:
+            if env is None:
+                env = copy.copy(self.environ_set)
+            else:
+                # update
+                env.update(self.environ_set)
+        return env
+
+    @staticmethod
+    def _set_args(args, kwargs):
+        if not kwargs:
+            return
+        for key, value in kwargs.items():
+            if hasattr(args, key):
+                setattr(args, key, value)
+
+    @staticmethod
+    def _get_kwargs(args, attrs):
+        kwargs = {}
+        for attr in attrs:
+            attr_value = getattr(args, attr)
+            if attr_value is not None:
+                kwargs[attr] = attr_value
+        return kwargs

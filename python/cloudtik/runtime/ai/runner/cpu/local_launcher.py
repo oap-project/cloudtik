@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 import os
 import subprocess
@@ -124,19 +125,19 @@ class LocalCPULauncher(Launcher, CPULauncher):
         return tm_local
 
     @staticmethod
-    def _prepare_log_file(args, index):
+    def _prepare_log_file(args, run_id, index):
         if not os.path.exists(args.log_dir):
             os.makedirs(args.log_dir, exist_ok=True)
         log_file_suffix = f'process_{index}.log'
         if args.log_file_prefix:
             log_name = f'{args.log_file_prefix}_{log_file_suffix}'
         else:
-            log_name = log_file_suffix
+            log_name = f'run_{run_id}_{log_file_suffix}'
         log_file = os.path.join(args.log_dir, log_name)
         return log_file
 
     def run_process(
-        self, args, omp_runtime, task_mgr, environ, cpu_pools, index
+        self, args, omp_runtime, task_mgr, environ, cpu_pools, index, run_id
     ):
         assert index > -1 and index <= len(
             cpu_pools
@@ -179,7 +180,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
 
         cmd_s = " ".join(cmd)
         if args.log_dir:
-            log_file = self._prepare_log_file(args, index)
+            log_file = self._prepare_log_file(args, run_id, index)
             cmd_s = f"{cmd_s} 2>&1 | tee {log_file}"
         self.verbose("info", f"cmd: {cmd_s}")
         if len(set([c.node for c in pool])) > 1:
@@ -314,6 +315,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
             set(processes_available)
         ), "Designated nodes list contains invalid nodes."
         processes = []
+        run_id = datetime.now().strftime("%Y%m%d%H%M%S")
         for i in process_idx:
             process = self.run_process(
                 args=args,
@@ -322,6 +324,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
                 environ=environ_local,
                 cpu_pools=cpu_schedule,
                 index=i,
+                run_id=run_id
             )
             processes.append(process)
         try:

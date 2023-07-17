@@ -94,7 +94,8 @@ class DistributedLauncher(Launcher):
         if args.log_file_prefix:
             log_name = args.log_file_prefix + ".log"
         else:
-            log_name = datetime.now().strftime("%Y%m%d%H%M%S") + ".log"
+            run_id = datetime.now().strftime("%Y%m%d%H%M%S")
+            log_name = f"run_{run_id}.log"
         log_file = os.path.join(args.log_dir, log_name)
         return log_file
 

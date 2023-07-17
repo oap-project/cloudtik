@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 import logging
 import os
@@ -6,6 +7,9 @@ import subprocess
 from cloudtik.runtime.ai.runner.cpu.cpu_pool import CPUPoolScheduler
 from cloudtik.runtime.ai.runner.launcher import Launcher
 from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher
+from cloudtik.runtime.ai.runner.util import network
+from cloudtik.runtime.ai.runner.util.http.http_client import read_data_from_kvstore, put_data_into_kvstore
+from cloudtik.runtime.ai.runner.util.http.http_server import KVStoreServer
 from cloudtik.runtime.ai.runner.util.utils import is_python_program
 
 logger = logging.getLogger(__name__)
@@ -137,7 +141,10 @@ class LocalCPULauncher(Launcher, CPULauncher):
         return log_file
 
     def run_process(
-        self, args, omp_runtime, task_mgr, environ, cpu_pools, index, run_id
+            self, command, args,
+            omp_runtime, task_mgr,
+            environ, cpu_pools,
+            index, run_id
     ):
         assert index > -1 and index <= len(
             cpu_pools
@@ -171,12 +178,8 @@ class LocalCPULauncher(Launcher, CPULauncher):
                 self.verbose("info", f"env: {k}={v}")
                 environ_local[k] = v
 
-        self.with_python_command(cmd)
-        if self.program:
-            cmd.append(self.program)
-            cmd.extend(args.command[1:])
-        else:
-            cmd.extend(args.command)
+        # Extend the command to execute
+        cmd.extend(command)
 
         cmd_s = " ".join(cmd)
         if args.log_dir:
@@ -228,6 +231,8 @@ class LocalCPULauncher(Launcher, CPULauncher):
             args.num_proc = self.scheduler.num_sockets()
             args.ncores_per_proc = 0
             args.use_logical_cores = False
+        else:
+            args.num_proc = self.distributor.num_proc
 
         cores_list = self.parse_list_argument(args.cores_list)
         nodes_list = self.parse_list_argument(args.nodes_list)
@@ -303,7 +308,75 @@ class LocalCPULauncher(Launcher, CPULauncher):
                 args.disable_ipex_graph_mode,
             )
 
-        processes_available = list(range(args.num_proc))
+        try:
+            result = self.run_local(
+                args.num_proc,
+                omp_runtime=omp_runtime,
+                task_mgr=task_mgr,
+                environ_local=environ_local,
+                cpu_schedule=cpu_schedule
+            )
+            return result
+        finally:
+            if args.auto_ipex:
+                # Clean the temp file
+                if self.program and os.path.exists(
+                        self.program) and self.program.endswith("_auto_ipex"):
+                    os.remove(self.program)
+
+    def run_local(
+            self, num_proc,
+            omp_runtime, task_mgr,
+            environ_local, cpu_schedule):
+        args = self.args
+        if args.func:
+            run_func = self.wrap_func()
+            # get the driver IPv4 address
+            driver_ip = network.get_default_ip_address()
+            run_func_server = KVStoreServer(verbose=args.verbose)
+            run_func_server_port = run_func_server.start_server()
+            put_data_into_kvstore(driver_ip, run_func_server_port,
+                                  'runfunc', 'func', run_func)
+
+            executable = args.executable or sys.executable
+            command = [executable, '-m', 'cloudtik.runtime.ai.runner.util.run_func',
+                       str(driver_ip), str(run_func_server_port)]
+            try:
+                self._launch_job(
+                    command,
+                    num_proc,
+                    omp_runtime=omp_runtime,
+                    task_mgr=task_mgr,
+                    environ_local=environ_local,
+                    cpu_schedule=cpu_schedule
+                )
+                results = [None] * num_proc
+                # TODO: make it parallel to improve performance
+                for i in range(num_proc):
+                    results[i] = read_data_from_kvstore(
+                        driver_ip, run_func_server_port,
+                        'runfunc_result', str(i))
+                return results
+            finally:
+                run_func_server.shutdown_server()
+        else:
+            command = self.get_command_to_run()
+            self._launch_job(
+                command,
+                num_proc,
+                omp_runtime=omp_runtime,
+                task_mgr=task_mgr,
+                environ_local=environ_local,
+                cpu_schedule=cpu_schedule
+            )
+            return None
+
+    def _launch_job(
+            self, command, num_proc,
+            omp_runtime, task_mgr,
+            environ_local, cpu_schedule):
+        args = self.args
+        processes_available = list(range(num_proc))
         process_idx = self.parse_list_argument(args.process_idx)
         if -1 in process_idx:
             process_idx.clear()
@@ -318,6 +391,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
         run_id = datetime.now().strftime("%Y%m%d%H%M%S")
         for i in process_idx:
             process = self.run_process(
+                command,
                 args=args,
                 omp_runtime=omp_runtime,
                 task_mgr=task_mgr,
@@ -327,17 +401,22 @@ class LocalCPULauncher(Launcher, CPULauncher):
                 run_id=run_id
             )
             processes.append(process)
-        try:
-            for process in processes:
-                p = process["process"]
-                p.wait()
-                if p.returncode != 0:
-                    raise subprocess.CalledProcessError(
-                        returncode=p.returncode, cmd=process["cmd"]
-                    )
-        finally:
-            if args.auto_ipex:
-                # Clean the temp file
-                if self.program and os.path.exists(
-                        self.program) and self.program.endswith("_auto_ipex"):
-                    os.remove(self.program)
+
+        for process in processes:
+            p = process["process"]
+            p.wait()
+            if p.returncode != 0:
+                raise subprocess.CalledProcessError(
+                    returncode=p.returncode, cmd=process["cmd"]
+                )
+
+    def get_command_to_run(self):
+        args = self.args
+        cmd = []
+        self.with_python_command(cmd)
+        if self.program:
+            cmd.append(self.program)
+            cmd.extend(args.command[1:])
+        else:
+            cmd.extend(args.command)
+        return cmd

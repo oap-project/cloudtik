@@ -209,9 +209,13 @@ def _setup_logger(args):
     if args.log_dir:
         path = os.path.dirname(args.log_dir if args.log_dir.endswith('/') else args.log_dir + '/')
         if not os.path.exists(path):
-            os.makedirs(path)
+            os.makedirs(path, exist_ok=True)
         args.log_dir = path
-        args.log_file_prefix = '{}_{}'.format(args.log_file_prefix, datetime.now().strftime("%Y%m%d%H%M%S"))
+        time_str = datetime.now().strftime("%Y%m%d%H%M%S")
+        if args.log_file_prefix:
+            args.log_file_prefix = '{}_{}'.format(args.log_file_prefix, time_str)
+        else:
+            args.log_file_prefix = time_str
 
         fileHandler = logging.FileHandler("{0}/{1}_run.log".format(args.log_dir, args.log_file_prefix))
         logFormatter = logging.Formatter(format_str)

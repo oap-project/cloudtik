@@ -123,6 +123,18 @@ class LocalCPULauncher(Launcher, CPULauncher):
         )
         return tm_local
 
+    @staticmethod
+    def _prepare_log_file(args, index):
+        if not os.path.exists(args.log_dir):
+            os.makedirs(args.log_dir, exist_ok=True)
+        log_file_suffix = f'process_{index}.log'
+        if args.log_file_prefix:
+            log_name = f'{args.log_file_prefix}_{log_file_suffix}'
+        else:
+            log_name = log_file_suffix
+        log_file = os.path.join(args.log_dir, log_name)
+        return log_file
+
     def run_process(
         self, args, omp_runtime, task_mgr, environ, cpu_pools, index
     ):
@@ -167,8 +179,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
 
         cmd_s = " ".join(cmd)
         if args.log_dir:
-            log_name = f'{args.log_file_prefix}_instance_{index}_cores_{cores_list_local.replace(",", "_")}.log'
-            log_file = os.path.join(args.log_dir, log_name)
+            log_file = self._prepare_log_file(args, index)
             cmd_s = f"{cmd_s} 2>&1 | tee {log_file}"
         self.verbose("info", f"cmd: {cmd_s}")
         if len(set([c.node for c in pool])) > 1:

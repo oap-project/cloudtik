@@ -1,6 +1,7 @@
 import logging
 import os
 from shlex import quote
+from datetime import datetime
 
 from cloudtik.runtime.ai.runner.launcher import Launcher
 
@@ -86,12 +87,22 @@ class DistributedLauncher(Launcher):
         cmd.extend(args.command)
         return self.get_command_str(cmd)
 
+    @staticmethod
+    def _prepare_log_file(args):
+        if not os.path.exists(args.log_dir):
+            os.makedirs(args.log_dir, exist_ok=True)
+        if args.log_file_prefix:
+            log_name = args.log_file_prefix + ".log"
+        else:
+            log_name = datetime.now().strftime("%Y%m%d%H%M%S") + ".log"
+        log_file = os.path.join(args.log_dir, log_name)
+        return log_file
+
     def get_command_str(self, cmd):
         args = self.args
         cmd_s = ' '.join(quote(par) for par in cmd)
         if args.log_dir:
-            log_name = args.log_file_prefix + ".log"
-            log_file = os.path.join(args.log_dir, log_name)
+            log_file = self._prepare_log_file(args)
             cmd_s = "{} 2>&1 | tee {}".format(cmd_s, log_file)
         logger.info(cmd_s)
         return cmd_s

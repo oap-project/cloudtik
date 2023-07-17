@@ -251,7 +251,7 @@ if __name__ == '__main__':
 
     #  Hyperopt training function
     import mlflow
-    import horovod.spark
+    import cloudtik.runtime.ai.runner as runner
 
     checkpoint_dir = create_log_dir('horovod-keras-mnist')
     print("Log directory:", checkpoint_dir)
@@ -259,8 +259,9 @@ if __name__ == '__main__':
 
     def hyper_objective(learning_rate):
         with mlflow.start_run():
-            model_bytes = horovod.spark.run(
-                train_horovod, args=(learning_rate,), num_proc=num_proc,
+            model_bytes = runner.run(
+                train_horovod, args=(learning_rate,),
+                num_proc=num_proc, launcher="horovod.spark",
                 stdout=sys.stdout, stderr=sys.stderr, verbose=2,
                 use_gloo=args.use_gloo, use_mpi=args.use_mpi,
                 prefix_output_with_timestamp=True)[0]

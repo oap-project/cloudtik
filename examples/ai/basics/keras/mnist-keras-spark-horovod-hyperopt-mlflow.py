@@ -308,7 +308,7 @@ if __name__ == '__main__':
 
     # Do a super parameter tuning with hyperopt
 
-    from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+    from hyperopt import fmin, tpe, hp, STATUS_OK
 
     trials = args.trials
     print("Hyper parameter tuning trials: {}".format(trials))

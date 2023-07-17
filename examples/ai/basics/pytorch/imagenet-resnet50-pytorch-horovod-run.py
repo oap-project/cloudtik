@@ -55,11 +55,9 @@ parser.add_argument('--mpi', action='store_true', dest='use_mpi',
                     help='Run Horovod using the MPI controller. This will '
                          'be the default if Horovod was built with MPI support.')
 
-import torch
 import torch.multiprocessing as mp
 import torch.nn.functional as F
 import torch.optim as optim
-import torch.utils.data.distributed
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import datasets, transforms, models
 import horovod.torch as hvd
@@ -324,8 +322,8 @@ if __name__ == '__main__':
 
     worker_ips = cluster.get_worker_node_ips(node_status="up-to-date")
 
-    #  Hyperopt training function
-    import horovod
+    # Run training function
+    import cloudtik.runtime.ai.runner as runner
 
     # Set the parameters
     num_proc = args.num_proc
@@ -342,8 +340,8 @@ if __name__ == '__main__':
     learning_rate = args.base_lr
     print("Train learning rate: {}".format(learning_rate))
 
-    horovod.run(
+    runner.run(
         train_horovod, args=(learning_rate,),
-        num_proc=num_proc, hosts=hosts,
+        num_proc=num_proc, hosts=hosts, launcher="horovod",
         use_gloo=args.use_gloo, use_mpi=args.use_mpi,
         verbose=2)

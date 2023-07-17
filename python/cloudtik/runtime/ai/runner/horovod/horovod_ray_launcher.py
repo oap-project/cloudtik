@@ -43,7 +43,7 @@ class HorovodRayLauncher(HorovodLauncher):
 
         hargs = _HorovodRayArgs()
 
-        func = args.run_func
+        func = args.func
         func_args = args.func_args
         if func_args is None:
             func_args = ()

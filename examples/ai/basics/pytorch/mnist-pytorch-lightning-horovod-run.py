@@ -337,8 +337,7 @@ if __name__ == '__main__':
         print('\nTest set: Average loss: {:.4f}, Accuracy: {:.2f}%\n'.format(
             test_loss, 100. * test_accuracy))
 
-
-    import horovod
+    import cloudtik.runtime.ai.runner as runner
 
     num_proc = args.num_proc
     print("Train processes: {}".format(num_proc))
@@ -354,9 +353,9 @@ if __name__ == '__main__':
     learning_rate = args.lr
     print("Train learning rate: {}".format(learning_rate))
 
-    model_bytes = horovod.run(
+    model_bytes = runner.run(
         train_horovod, args=(learning_rate,),
-        num_proc=num_proc, hosts=hosts,
+        num_proc=num_proc, hosts=hosts, launcher="horovod",
         use_gloo=args.use_gloo, use_mpi=args.use_mpi,
         verbose=2)[0]
 

@@ -19,8 +19,9 @@ class Launcher:
     def launch(self):
         self.resolve()
         self.setup()
-        self.run()
+        result = self.run()
         self.finalize()
+        return result
 
     def resolve(self):
         # By default to run single proc per node if not specified

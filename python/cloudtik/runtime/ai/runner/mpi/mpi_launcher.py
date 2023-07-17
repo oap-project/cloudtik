@@ -52,7 +52,7 @@ class MPILauncher(DistributedLauncher):
 
             num_proc = self.distributor.num_proc
             try:
-                self._launch_job(command)
+                self._run_command(command)
                 results = [None] * num_proc
                 # TODO: make it parallel to improve performance
                 for i in range(args.num_proc):
@@ -65,10 +65,10 @@ class MPILauncher(DistributedLauncher):
         else:
             command = self.get_command_to_run()
             # TODO: handle NICs included for MPI
-            self._launch_job(command)
+            self._run_command(command)
             return None
 
-    def _launch_job(self, command):
+    def _run_command(self, command):
         if mpi_utils.is_impi_or_mpich():
             self._run_command_impi(command)
         else:

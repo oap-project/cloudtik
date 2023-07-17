@@ -71,7 +71,7 @@ class _LaunchArgs(object):
         self.benchmark = False
 
         # Distributed CPU Launcher
-        self.ccl_worker_count = 4
+        self.ccl_worker_count = -1
         self.logical_cores_for_ccl = False
 
         # Horovod Launcher

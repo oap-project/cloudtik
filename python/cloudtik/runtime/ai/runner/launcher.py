@@ -59,3 +59,18 @@ class Launcher:
             cmd.append("-u")
             if args.module:
                 cmd.append("-m")
+
+    def wrap_func(self):
+        args = self.args
+        func = args.func
+        func_args = args.func_args
+        if func_args is None:
+            func_args = ()
+        func_kwargs = args.func_kwargs
+        if func_kwargs is None:
+            func_kwargs = {}
+
+        def wrapped_func():
+            return func(*func_args, **func_kwargs)
+
+        return wrapped_func

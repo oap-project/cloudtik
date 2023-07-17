@@ -379,3 +379,6 @@ class CPUPoolScheduler:
 
     def num_sockets(self):
         return len(set([c.node for c in self.pool]))
+
+    def physical_cores(self):
+        return len([c for c in self.pool if c.is_physical_core])

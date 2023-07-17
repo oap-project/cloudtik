@@ -151,6 +151,7 @@ setup_spec.install_requires = [
     "colorful",
     "gpustat",
     "gputil",
+    "cloudpickle",
 ]
 
 

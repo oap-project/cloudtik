@@ -126,18 +126,8 @@ class HorovodLauncher(DistributedLauncher):
         hargs.hosts = self.distributor.hosts_slots_str
 
         if args.func:
-            func = args.func
-            func_args = args.func_args
-            if func_args is None:
-                func_args = ()
-            func_kwargs = args.func_kwargs
-            if func_kwargs is None:
-                func_kwargs = {}
-
-            def wrapped_func():
-                return func(*func_args, **func_kwargs)
-
-            hargs.run_func = wrapped_func
+            run_func = self.wrap_func()
+            hargs.run_func = run_func
             hargs.executable = args.executable
         else:
             command = self.get_command_to_run()

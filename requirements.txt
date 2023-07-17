@@ -24,6 +24,7 @@ pyopenssl
 sshtunnel
 gpustat
 gputil
+cloudpickle
 
 # setup.py extras
 ## for aws

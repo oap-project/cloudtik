@@ -138,9 +138,9 @@ class TestAIUtils(unittest.TestCase):
 
         # local node case
         distributor = Distributor()
-        assert distributor.num_proc is None
-        assert distributor.nnodes is None
-        assert distributor.nproc_per_node is None
+        assert distributor.num_proc == 0
+        assert distributor.nnodes == 0
+        assert distributor.nproc_per_node == 0
         assert distributor.hosts is None
 
         distributor.resolve(nproc_per_node=2, nnodes=1, check=True)
@@ -151,8 +151,8 @@ class TestAIUtils(unittest.TestCase):
         # resource scheduler case: nothing
         distributor = Distributor()
         distributor.resolve(nproc_per_node=1)
-        assert distributor.num_proc is None
-        assert distributor.nnodes is None
+        assert distributor.num_proc == 0
+        assert distributor.nnodes == 0
         assert distributor.nproc_per_node == 1
 
         # resource scheduler case: num_proc
@@ -160,8 +160,8 @@ class TestAIUtils(unittest.TestCase):
             num_proc=6
         )
         assert distributor.num_proc == 6
-        assert distributor.nnodes is None
-        assert distributor.nproc_per_node is None
+        assert distributor.nnodes == 0
+        assert distributor.nproc_per_node == 0
 
         distributor.resolve(nproc_per_node=2)
         assert distributor.num_proc == 6
@@ -173,9 +173,9 @@ class TestAIUtils(unittest.TestCase):
         distributor = Distributor(
             nnodes=3
         )
-        assert distributor.num_proc is None
+        assert distributor.num_proc == 0
         assert distributor.nnodes == 3
-        assert distributor.nproc_per_node is None
+        assert distributor.nproc_per_node == 0
 
         distributor.resolve(nproc_per_node=2)
         assert distributor.num_proc == 6

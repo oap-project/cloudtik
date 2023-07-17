@@ -124,10 +124,6 @@ def run(
     if hosts is not None and hostfile is not None:
         raise ValueError('Argument hosts and hostfile only allow one provided.')
 
-    if not launcher:
-        # default Horovod for running a function if not specified
-        launcher = "horovod"
-
     largs = _LaunchArgs()
 
     largs.func = func

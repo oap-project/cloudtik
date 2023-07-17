@@ -65,7 +65,7 @@ class MPILauncher(DistributedLauncher):
                 self._run_command(command)
                 results = [None] * num_proc
                 # TODO: make it parallel to improve performance
-                for i in range(args.num_proc):
+                for i in range(num_proc):
                     results[i] = read_data_from_kvstore(
                         driver_ip, run_func_server_port,
                         'runfunc_result', str(i))

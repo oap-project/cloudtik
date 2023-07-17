@@ -110,7 +110,7 @@ class TestAIUtils(unittest.TestCase):
         assert distributor.hosts[1]["ip"] == "10.0.0.2"
         assert distributor.hosts[1]["slots"] == 3
 
-        distributor.validate_same_slots()
+        distributor.check_same_slots()
 
         distributor.resolve(4)
         assert distributor.num_proc == 6
@@ -133,6 +133,96 @@ class TestAIUtils(unittest.TestCase):
                 hosts="10.0.0.1, 10.0.0.2"
             )
             self.fail("Should raise error: not enough slots.")
+        except ValueError as e:
+            pass
+
+        # local node case
+        distributor = Distributor()
+        assert distributor.num_proc is None
+        assert distributor.nnodes is None
+        assert distributor.nproc_per_node is None
+        assert distributor.hosts is None
+
+        distributor.resolve(nproc_per_node=2, nnodes=1, check=True)
+        assert distributor.num_proc == 2
+        assert distributor.nnodes == 1
+        assert distributor.nproc_per_node == 2
+
+        # resource scheduler case: nothing
+        distributor = Distributor()
+        distributor.resolve(nproc_per_node=1)
+        assert distributor.num_proc is None
+        assert distributor.nnodes is None
+        assert distributor.nproc_per_node == 1
+
+        # resource scheduler case: num_proc
+        distributor = Distributor(
+            num_proc=6
+        )
+        assert distributor.num_proc == 6
+        assert distributor.nnodes is None
+        assert distributor.nproc_per_node is None
+
+        distributor.resolve(nproc_per_node=2)
+        assert distributor.num_proc == 6
+        assert distributor.nnodes == 3
+        assert distributor.nproc_per_node == 2
+        distributor.check_resolved()
+
+        # resource scheduler case: nnodes
+        distributor = Distributor(
+            nnodes=3
+        )
+        assert distributor.num_proc is None
+        assert distributor.nnodes == 3
+        assert distributor.nproc_per_node is None
+
+        distributor.resolve(nproc_per_node=2)
+        assert distributor.num_proc == 6
+        assert distributor.nnodes == 3
+        assert distributor.nproc_per_node == 2
+        distributor.check_resolved()
+
+        # resource scheduler case: everything case 1
+        distributor = Distributor(
+            num_proc=6,
+            nnodes=3
+        )
+        assert distributor.num_proc == 6
+        assert distributor.nnodes == 3
+        assert distributor.nproc_per_node == 2
+        distributor.check_resolved()
+
+        distributor.resolve(nproc_per_node=3)
+        assert distributor.num_proc == 6
+        assert distributor.nnodes == 3
+        assert distributor.nproc_per_node == 2
+        distributor.check_resolved()
+
+        # resource scheduler case: everything case 2
+        distributor = Distributor(
+            nnodes=3,
+            nproc_per_node=2
+        )
+        assert distributor.num_proc == 6
+        assert distributor.nnodes == 3
+        assert distributor.nproc_per_node == 2
+        distributor.check_resolved()
+
+        distributor.resolve(nproc_per_node=3)
+        assert distributor.num_proc == 6
+        assert distributor.nnodes == 3
+        assert distributor.nproc_per_node == 2
+        distributor.check_resolved()
+
+        # conflict parameters for hosts based distributed
+        distributor = Distributor(
+            nnodes=3,
+            nproc_per_node=2
+        )
+        try:
+            distributor.check_distributed_with_hosts()
+            self.fail("Should raise error: distributed without hosts.")
         except ValueError as e:
             pass
 

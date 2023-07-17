@@ -54,21 +54,12 @@ class DistributedLauncher(Launcher):
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
 
-    def launch(self):
-        """
-        Set ENVs and launch process for distributed training by calling run with command
-        """
-        self.set_environment()
-        self.run()
-        self.finalize()
-
-    def set_environment(self):
-        # we default to run single proc per node if not specified
-        self.distributor.resolve()
+    def setup(self):
+        self.distributor.check_distributed_with_hosts()
         self.set_master()
 
     def get_master_addr(self, args):
-        if self.distributor.distributed:
+        if self.distributor.distributed_with_hosts:
             if args.master_addr and args.master_addr != "127.0.0.1":
                 return args.master_addr
             return self.distributor.hosts[0]["ip"]

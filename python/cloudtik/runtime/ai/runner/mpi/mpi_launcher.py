@@ -47,14 +47,15 @@ class MPILauncher(DistributedLauncher):
         num_proc = self.distributor.num_proc
 
         mpi_impl_flags = _OMPI_FLAGS
-        if self.distributor.distributed and len(self.distributor.hosts) >= _LARGE_CLUSTER_THRESHOLD:
+        if self.distributor.distributed_with_hosts and len(
+                self.distributor.hosts) >= _LARGE_CLUSTER_THRESHOLD:
             mpi_impl_flags.append('-mca plm_rsh_no_tree_spawn true')
             mpi_impl_flags.append(
                 '-mca plm_rsh_num_concurrent {}'.format(len(self.distributor.hosts)))
 
         # if user does not specify any hosts, mpirun by default uses local host.
         # There is no need to specify localhost.
-        if self.distributor.distributed:
+        if self.distributor.distributed_with_hosts:
             host_slots_str = self.distributor.hosts_slots_str
             hosts_arg = '-{opt} {hosts}'.format(opt='H',
                                                 hosts=host_slots_str)
@@ -71,7 +72,8 @@ class MPILauncher(DistributedLauncher):
                 '-x %s' % key for key in sorted(env.keys()) if utils.is_exportable(key))
 
         extra_mpi_args = args.mpi_args
-        if self.distributor.distributed and (not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
+        if self.distributor.distributed_with_hosts and (
+                not extra_mpi_args or "-mca plm_rsh_agent" not in extra_mpi_args):
             extra_mpi_args = (
                 '{extra_mpi_args} -mca plm_rsh_agent "{rsh_agent}"'
                 .format(extra_mpi_args=extra_mpi_args if extra_mpi_args else '',
@@ -113,7 +115,7 @@ class MPILauncher(DistributedLauncher):
         args = self.args
 
         # make sure that for IMPI cases, all the nodes have the same slots
-        self.distributor.validate_same_slots()
+        self.distributor.check_same_slots()
 
         num_proc = self.distributor.num_proc
         nproc_per_node = self.distributor.nproc_per_node
@@ -127,13 +129,13 @@ class MPILauncher(DistributedLauncher):
         if args.mpi_args:
             mpi_config += " {}".format(args.mpi_args)
 
-        if self.distributor.distributed:
+        if self.distributor.distributed_with_hosts:
             mpi_config += " -hosts {}".format(self.distributor.hosts_str)
             # Unified to pass by hosts instead of hostfile
             # mpi_config += " -hostfile {}".format(hostfile)
 
         # only add this for remote training
-        if self.distributor.distributed:
+        if self.distributor.distributed_with_hosts:
             if "-launcher-exec" not in mpi_config:
                 mpi_config += (
                     ' -launcher rsh -launcher-exec "{launcher_exec}"'.format(

@@ -17,7 +17,27 @@ class Launcher:
         self.environ_set = {}
 
     def launch(self):
+        self.resolve()
+        self.setup()
+        self.run()
+        self.finalize()
+
+    def resolve(self):
+        # By default to run single proc per node if not specified
+        nproc_per_node = self.get_nproc_per_node()
+        self.distributor.resolve(nproc_per_node=nproc_per_node)
+
+    def setup(self):
         pass
+
+    def run(self):
+        pass
+
+    def finalize(self):
+        pass
+
+    def get_nproc_per_node(self):
+        return self.args.nproc_per_node if self.args.nproc_per_node else 1
 
     def set_env(self, env_name, env_value):
         value = os.getenv(env_name, "")

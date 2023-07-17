@@ -29,6 +29,10 @@ class HorovodRayLauncher(HorovodLauncher):
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
 
+    def setup(self):
+        self.distributor.check_resolved()
+        # TODO: how about the master addr and port for such cases
+
     def run(self):
         # Run with Horovod on Ray
         from horovod.ray import RayExecutor

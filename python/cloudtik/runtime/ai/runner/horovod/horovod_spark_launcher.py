@@ -29,6 +29,10 @@ class HorovodSparkLauncher(HorovodLauncher):
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
 
+    def setup(self):
+        # TODO: how about the master addr and port for such cases
+        pass
+
     def run(self):
         # Run with Horovod on Spark
         from horovod.spark import run

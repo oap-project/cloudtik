@@ -1,17 +1,5 @@
-import os
-from shlex import quote
-
-CLOUDTIK_COMMAND_PREFIX = 'cloudtik head exec'
-
-
-def get_cloudtik_exec(local_command, host):
-    final_command = quote(local_command)
-    return f'{CLOUDTIK_COMMAND_PREFIX} {final_command} --node-ip={host}'
-
-
-def get_cloudtik_rsh():
-    runtime_home = os.path.dirname(os.path.dirname(__file__))
-    return os.path.join(runtime_home, "scripts", "cloudtik-rsh.sh")
+from util.env import get_world_size, get_rank, get_local_rank, get_local_size
+from util.utils import get_cloudtik_exec, get_cloudtik_rsh
 
 
 class _LaunchArgs(object):

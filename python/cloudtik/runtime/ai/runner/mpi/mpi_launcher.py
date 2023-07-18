@@ -6,7 +6,7 @@ from cloudtik.runtime.ai.runner import get_cloudtik_rsh
 from cloudtik.runtime.ai.runner.mpi import mpi_utils
 from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
 from cloudtik.runtime.ai.runner.util import env as env_utils, safe_shell_exec
-from cloudtik.runtime.ai.runner.util.utils import _run_func
+from cloudtik.runtime.ai.runner.util.func_call import _run_func
 
 logger = logging.getLogger(__name__)
 

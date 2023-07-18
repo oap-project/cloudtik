@@ -7,7 +7,8 @@ import subprocess
 from cloudtik.runtime.ai.runner.cpu.cpu_pool import CPUPoolScheduler
 from cloudtik.runtime.ai.runner.launcher import Launcher
 from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher, CPULauncherArgs
-from cloudtik.runtime.ai.runner.util.utils import is_python_program, _run_func
+from cloudtik.runtime.ai.runner.util.utils import is_python_program
+from cloudtik.runtime.ai.runner.util.func_call import _run_func
 
 logger = logging.getLogger(__name__)
 

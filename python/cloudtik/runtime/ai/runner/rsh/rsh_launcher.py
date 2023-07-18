@@ -2,7 +2,7 @@ import logging
 
 from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
 from cloudtik.runtime.ai.runner.rsh.rsh_exec import _exec_command_fn, _launch_job, _check_connectivity
-from cloudtik.runtime.ai.runner.util.utils import _run_func
+from cloudtik.runtime.ai.runner.util.func_call import _run_func
 
 logger = logging.getLogger(__name__)
 

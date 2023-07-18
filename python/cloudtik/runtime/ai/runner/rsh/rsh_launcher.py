@@ -1,11 +1,8 @@
 import logging
-import sys
 
 from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
 from cloudtik.runtime.ai.runner.rsh.rsh_exec import _exec_command_fn, _launch_job, _check_connectivity
-from cloudtik.runtime.ai.runner.util import network
-from cloudtik.runtime.ai.runner.util.http.http_client import read_data_from_kvstore, put_data_into_kvstore
-from cloudtik.runtime.ai.runner.util.http.http_server import KVStoreServer
+from cloudtik.runtime.ai.runner.util.func_call import _run_func
 
 logger = logging.getLogger(__name__)
 
@@ -47,33 +44,20 @@ class RSHLauncher(DistributedLauncher):
 
     def run(self):
         args = self.args
-        if args.func:
-            run_func = self.wrap_func()
-            # get the driver IPv4 address
-            driver_ip = network.get_default_ip_address()
-            run_func_server = KVStoreServer(verbose=args.verbose)
-            run_func_server_port = run_func_server.start_server()
-            put_data_into_kvstore(driver_ip, run_func_server_port,
-                                  'runfunc', 'func', run_func)
 
-            executable = args.executable or sys.executable
-            command = [executable, '-m', 'cloudtik.runtime.ai.runner.util.run_func',
-                       str(driver_ip), str(run_func_server_port)]
+        def run_command(command):
+            self._run_command(command)
+
+        if args.func:
+            func = self.wrap_func()
             num_proc = self.distributor.num_proc
-            try:
-                self._run_command(command)
-                results = [None] * num_proc
-                # TODO: make it parallel to improve performance
-                for i in range(num_proc):
-                    results[i] = read_data_from_kvstore(
-                        driver_ip, run_func_server_port,
-                        'runfunc_result', str(i))
-                return results
-            finally:
-                run_func_server.shutdown_server()
+            return _run_func(
+                func, num_proc, run_command,
+                executable=args.executable,
+                verbose=args.verbose)
         else:
             command = self.get_command_to_run()
-            self._run_command(command)
+            run_command(command)
             return None
 
     def _run_command(self, command):

@@ -1,14 +1,12 @@
 import copy
 import logging
 import os
-import sys
 
 from cloudtik.runtime.ai.runner import get_cloudtik_rsh
 from cloudtik.runtime.ai.runner.mpi import mpi_utils
 from cloudtik.runtime.ai.runner.distributed_launcher import DistributedLauncher
-from cloudtik.runtime.ai.runner.util import env as env_utils, network, safe_shell_exec
-from cloudtik.runtime.ai.runner.util.http.http_client import read_data_from_kvstore, put_data_into_kvstore
-from cloudtik.runtime.ai.runner.util.http.http_server import KVStoreServer
+from cloudtik.runtime.ai.runner.util import env as env_utils, safe_shell_exec
+from cloudtik.runtime.ai.runner.util.func_call import _run_func
 
 logger = logging.getLogger(__name__)
 
@@ -47,55 +45,38 @@ class MPILauncher(DistributedLauncher):
         self.margs = MPILauncherArgs()
         self._init_launcher_args(self.margs)
 
-    def get_command_to_run(self):
-        cmd = super().get_command_to_run()
-        return self.get_command_str(cmd)
-
     def run(self):
         args = self.args
-        if args.func:
-            run_func = self.wrap_func()
-            # get the driver IPv4 address
-            driver_ip = network.get_default_ip_address()
-            run_func_server = KVStoreServer(verbose=args.verbose)
-            run_func_server_port = run_func_server.start_server()
-            put_data_into_kvstore(driver_ip, run_func_server_port,
-                                  'runfunc', 'func', run_func)
 
-            executable = args.executable or sys.executable
-            cmd = [executable, '-m', 'cloudtik.runtime.ai.runner.util.run_func',
-                   str(driver_ip), str(run_func_server_port)]
-            command = self.get_command_str(cmd)
+        def run_command(command):
+            self._run_command(command)
+
+        if args.func:
+            func = self.wrap_func()
             num_proc = self.distributor.num_proc
-            try:
-                self._run_command(command)
-                results = [None] * num_proc
-                # TODO: make it parallel to improve performance
-                for i in range(num_proc):
-                    results[i] = read_data_from_kvstore(
-                        driver_ip, run_func_server_port,
-                        'runfunc_result', str(i))
-                return results
-            finally:
-                run_func_server.shutdown_server()
+            return _run_func(
+                func, num_proc, run_command,
+                executable=args.executable,
+                verbose=args.verbose)
         else:
             command = self.get_command_to_run()
             # TODO: handle NICs included for MPI
-            self._run_command(command)
+            run_command(command)
             return None
 
     def _run_command(self, command):
         margs = self.margs
 
+        command_str = self.get_command_str(command)
         env = self._get_env(margs)
         run_kwargs = self._get_kwargs(
             margs, ["stdout", "stderr"])
         if mpi_utils.is_impi_or_mpich():
             self._run_command_impi(
-                margs, command, env, **run_kwargs)
+                margs, command_str, env, **run_kwargs)
         else:
             self._run_command_openmpi(
-                margs, command, env, **run_kwargs)
+                margs, command_str, env, **run_kwargs)
 
     def _run_command_openmpi(
             self, margs, command, env,

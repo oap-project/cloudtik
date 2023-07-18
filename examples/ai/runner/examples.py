@@ -10,11 +10,11 @@ def train(name):
 
     world_size = runner.get_world_size()
     rank = runner.get_rank()
-    local_size = runner.get_local_size()
+    local_world_size = runner.get_local_world_size()
     local_rank = runner.get_local_rank()
 
-    print("Running with {} launcher: world_size={}, rank={}, local_size={}, local_rank={}".format(
-        name, world_size, rank, local_size, local_rank))
+    print("Running with {} launcher: world_size={}, rank={}, local_world_size={}, local_rank={}".format(
+        name, world_size, rank, local_world_size, local_rank))
     time.sleep(5)
     return rank
 

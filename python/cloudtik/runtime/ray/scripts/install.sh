@@ -16,7 +16,7 @@ mkdir -p $RUNTIME_PATH
 
 function install_ray() {
     # install Ray
-    pip --no-cache-dir -qq install ray[default,air,rllib]==2.3.0
+    pip --no-cache-dir -qq install ray[default,air,rllib]==2.3.0 "pydantic<2"
 }
 
 set_head_option "$@"

@@ -17,7 +17,7 @@ def add_distributed_cpu_launcher_params(parser):
     # ccl control
     group.add_argument(
         "--ccl-worker-count", "--ccl_worker_count",
-        action='store', dest='ccl_worker_count', default=-1, type=int,
+        action='store', dest='ccl_worker_count', default=0, type=int,
         help="Core numbers per rank used for ccl communication")
 
     group.add_argument(

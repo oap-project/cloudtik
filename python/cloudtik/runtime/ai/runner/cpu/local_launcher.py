@@ -203,6 +203,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
         # Set the environment for ranking
         environ_local["WORLD_SIZE"] = str(size)
         environ_local["RANK"] = str(index)
+        environ_local["LOCAL_SIZE"] = str(size)
         environ_local["LOCAL_RANK"] = str(index)
 
         # Extend the command to execute

@@ -33,6 +33,10 @@ def create_launcher(launcher_name, args, distributor):
         from cloudtik.runtime.ai.runner.mpi.mpi_launcher \
             import MPILauncher
         launcher = MPILauncher(args, distributor)
+    elif launcher_name == "rsh":
+        from cloudtik.runtime.ai.runner.rsh.rsh_launcher \
+            import RSHLauncher
+        launcher = RSHLauncher(args, distributor)
     elif launcher_name == "horovod":
         from cloudtik.runtime.ai.runner.horovod.horovod_launcher \
             import HorovodLauncher

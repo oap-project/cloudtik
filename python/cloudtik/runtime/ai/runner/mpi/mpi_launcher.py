@@ -26,7 +26,7 @@ def add_mpi_params(parser):
         help="User can pass more parameters for mpirun")
 
 
-class _MPIArgs(object):
+class MPILauncherArgs(object):
     def __init__(self):
         self.verbose = None
         self.mpi_args = None
@@ -44,6 +44,8 @@ class MPILauncher(DistributedLauncher):
 
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
+        self.margs = MPILauncherArgs()
+        self._init_launcher_args(self.margs)
 
     def run(self):
         args = self.args
@@ -79,19 +81,9 @@ class MPILauncher(DistributedLauncher):
             return None
 
     def _run_command(self, command):
-        args = self.args
-
-        margs = _MPIArgs()
-
-        margs.verbose = args.verbose
-        margs.mpi_args = args.mpi_args
-        margs.nics = args.nics
-
-        # set extra arguments passing from run API
-        self._set_args(margs, args.launcher_kwargs)
+        margs = self.margs
 
         env = self._get_env(margs)
-
         run_kwargs = self._get_kwargs(
             margs, ["stdout", "stderr"])
         if mpi_utils.is_impi_or_mpich():

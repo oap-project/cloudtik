@@ -5,7 +5,7 @@ from cloudtik.runtime.ai.runner.horovod.horovod_launcher import HorovodLauncher
 logger = logging.getLogger(__name__)
 
 
-class _HorovodSparkArgs(object):
+class HorovodSparkArgs(object):
     def __init__(self):
         self.verbose = None
         self.mpi_args = None
@@ -28,6 +28,8 @@ class HorovodSparkLauncher(HorovodLauncher):
 
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
+        self.hargs = HorovodSparkArgs()
+        self._init_launcher_args(self.hargs)
 
     def setup(self):
         # TODO: how about the master addr and port for such cases
@@ -38,10 +40,9 @@ class HorovodSparkLauncher(HorovodLauncher):
         from horovod.spark import run
 
         args = self.args
+        hargs = self.hargs
         if not args.func:
             raise ValueError("Horovod on Spark launcher support running function only.")
-
-        hargs = _HorovodSparkArgs()
 
         num_proc = self.distributor.num_proc
         if num_proc == 0:
@@ -54,16 +55,6 @@ class HorovodSparkLauncher(HorovodLauncher):
         func_kwargs = args.func_kwargs
         if func_kwargs is None:
             func_kwargs = {}
-
-        # set the launcher arguments (run CLI or run API)
-        hargs.verbose = args.verbose
-        hargs.mpi_args = args.mpi_args
-        hargs.use_mpi = args.use_mpi
-        hargs.use_gloo = args.use_gloo
-        hargs.nics = args.nics
-
-        # set extra arguments passing from run API
-        self._set_args(hargs, args.launcher_kwargs)
 
         env = self._get_env(hargs)
 

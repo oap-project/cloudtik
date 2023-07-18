@@ -36,6 +36,15 @@ def add_cpu_launcher_params(parser):
     )
 
 
+class CPULauncherArgs(object):
+    def __init__(self):
+        self.ncores_per_proc = 0
+        self.use_logical_cores = False
+        self.use_e_cores = False
+        self.memory_allocator = "auto"
+        self.omp_runtime = "auto"
+
+
 class CPULauncher:
     r"""
      Base class for launcher

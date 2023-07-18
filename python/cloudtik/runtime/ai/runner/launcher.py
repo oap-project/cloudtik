@@ -89,12 +89,23 @@ class Launcher:
                 env.update(self.environ_set)
         return env
 
+    def _init_launcher_args(self, launcher_args, excludes=None):
+        args = self.args
+        attrs = vars(launcher_args)
+        for attr_name in attrs.keys():
+            if hasattr(args, attr_name) and (not excludes or attr_name in excludes):
+                attr_value = getattr(args, attr_name)
+                setattr(args, attr_name, attr_value)
+
+        # set extra arguments passing from run API
+        self._set_args(launcher_args, args.launcher_kwargs)
+
     @staticmethod
-    def _set_args(args, kwargs):
+    def _set_args(args, kwargs, excludes=None):
         if not kwargs:
             return
         for key, value in kwargs.items():
-            if hasattr(args, key):
+            if hasattr(args, key) and (not excludes or key in excludes):
                 setattr(args, key, value)
 
     @staticmethod

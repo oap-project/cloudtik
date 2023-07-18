@@ -1,5 +1,4 @@
 import copy
-import sys
 from datetime import datetime
 import logging
 import os
@@ -8,10 +7,7 @@ import subprocess
 from cloudtik.runtime.ai.runner.cpu.cpu_pool import CPUPoolScheduler
 from cloudtik.runtime.ai.runner.launcher import Launcher
 from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher, CPULauncherArgs
-from cloudtik.runtime.ai.runner.util import network
-from cloudtik.runtime.ai.runner.util.http.http_client import read_data_from_kvstore, put_data_into_kvstore
-from cloudtik.runtime.ai.runner.util.http.http_server import KVStoreServer
-from cloudtik.runtime.ai.runner.util.utils import is_python_program
+from cloudtik.runtime.ai.runner.util.utils import is_python_program, _run_func
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +199,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
         # Set the environment for ranking
         environ_local["WORLD_SIZE"] = str(size)
         environ_local["RANK"] = str(index)
-        environ_local["LOCAL_SIZE"] = str(size)
+        environ_local["LOCAL_WORLD_SIZE"] = str(size)
         environ_local["LOCAL_RANK"] = str(index)
 
         # Extend the command to execute
@@ -358,38 +354,8 @@ class LocalCPULauncher(Launcher, CPULauncher):
             omp_runtime, task_mgr,
             environ_local, cpu_schedule):
         args = self.args
-        if args.func:
-            run_func = self.wrap_func()
-            # get the driver IPv4 address
-            driver_ip = network.get_default_ip_address()
-            run_func_server = KVStoreServer(verbose=args.verbose)
-            run_func_server_port = run_func_server.start_server()
-            put_data_into_kvstore(driver_ip, run_func_server_port,
-                                  'runfunc', 'func', run_func)
 
-            executable = args.executable or sys.executable
-            command = [executable, '-m', 'cloudtik.runtime.ai.runner.util.run_func',
-                       str(driver_ip), str(run_func_server_port)]
-            try:
-                self._launch_job(
-                    command,
-                    num_proc,
-                    omp_runtime=omp_runtime,
-                    task_mgr=task_mgr,
-                    environ_local=environ_local,
-                    cpu_schedule=cpu_schedule
-                )
-                results = [None] * num_proc
-                # TODO: make it parallel to improve performance
-                for i in range(num_proc):
-                    results[i] = read_data_from_kvstore(
-                        driver_ip, run_func_server_port,
-                        'runfunc_result', str(i))
-                return results
-            finally:
-                run_func_server.shutdown_server()
-        else:
-            command = self.get_command_to_run()
+        def run_command(command):
             self._launch_job(
                 command,
                 num_proc,
@@ -398,6 +364,16 @@ class LocalCPULauncher(Launcher, CPULauncher):
                 environ_local=environ_local,
                 cpu_schedule=cpu_schedule
             )
+
+        if args.func:
+            func = self.wrap_func()
+            return _run_func(
+                func, num_proc, run_command,
+                executable=args.executable,
+                verbose=args.verbose)
+        else:
+            command = self.get_command_to_run()
+            run_command(command)
             return None
 
     def _launch_job(

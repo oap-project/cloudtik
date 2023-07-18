@@ -1,4 +1,4 @@
-from cloudtik.runtime.ai.runner.util.env import get_world_size, get_rank, get_local_rank, get_local_size
+from cloudtik.runtime.ai.runner.util.env import get_world_size, get_rank, get_local_rank, get_local_world_size
 from cloudtik.runtime.ai.runner.util.utils import get_cloudtik_exec, get_cloudtik_rsh
 
 

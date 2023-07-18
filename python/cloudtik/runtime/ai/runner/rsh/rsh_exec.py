@@ -157,7 +157,7 @@ def create_slot_env_vars(slot_info):
         "RANK": str(slot_info.rank),
         "WORLD_SIZE": str(slot_info.size),
         "LOCAL_RANK": str(slot_info.local_rank),
-        "LOCAL_SIZE": str(slot_info.local_size),
+        "LOCAL_WORLD_SIZE": str(slot_info.local_size),
     }
     return slot_env
 

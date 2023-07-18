@@ -50,7 +50,10 @@ class _LaunchArgs(object):
         self.master_addr = "127.0.0.1"
         self.master_port = 29500
 
-        # MPI
+        # The following launcher specific arguments can be removed
+        # in this class in proper handling of launcher_kwargs at Launcher side
+
+        # MPI Launcher
         self.mpi_args = None
 
         # CPU Launcher
@@ -71,7 +74,7 @@ class _LaunchArgs(object):
         self.benchmark = False
 
         # Distributed CPU Launcher
-        self.ccl_worker_count = -1
+        self.ccl_worker_count = 0
         self.logical_cores_for_ccl = False
 
         # Horovod Launcher

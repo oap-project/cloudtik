@@ -1,3 +1,4 @@
+import copy
 import sys
 from datetime import datetime
 import logging
@@ -6,7 +7,7 @@ import subprocess
 
 from cloudtik.runtime.ai.runner.cpu.cpu_pool import CPUPoolScheduler
 from cloudtik.runtime.ai.runner.launcher import Launcher
-from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher
+from cloudtik.runtime.ai.runner.cpu.cpu_launcher import CPULauncher, CPULauncherArgs
 from cloudtik.runtime.ai.runner.util import network
 from cloudtik.runtime.ai.runner.util.http.http_client import read_data_from_kvstore, put_data_into_kvstore
 from cloudtik.runtime.ai.runner.util.http.http_server import KVStoreServer
@@ -78,6 +79,25 @@ def add_auto_ipex_params(parser, auto_ipex_default_enabled=False):
                        help="Enable the Graph Mode for ipex.optimize")
 
 
+class LocalLauncherArgs(CPULauncherArgs):
+    def __init__(self):
+        super().__init__()
+        # Local CPU Launcher
+        self.process_idx = ""
+        self.nodes_list = ""
+        self.cores_list = ""
+        self.task_manager = "auto"
+        self.skip_cross_node_cores = False
+        self.latency_mode = False
+        self.throughput_mode = False
+        self.benchmark = False
+
+        self.auto_ipex = False
+        self.dtype = "float32"
+        self.auto_ipex_verbose = False
+        self.disable_ipex_graph_mode = False
+
+
 class LocalCPULauncher(Launcher, CPULauncher):
     r"""
      Launcher for one or more procedss on local machine
@@ -86,6 +106,8 @@ class LocalCPULauncher(Launcher, CPULauncher):
     def __init__(self, args, distributor):
         Launcher.__init__(self, args, distributor)
         CPULauncher.__init__(self)
+        self.largs = LocalLauncherArgs()
+        self._init_launcher_args(self.largs)
         self.scheduler = CPUPoolScheduler(logger)
         self.program = None
 
@@ -144,13 +166,13 @@ class LocalCPULauncher(Launcher, CPULauncher):
             self, command, args,
             omp_runtime, task_mgr,
             environ, cpu_pools,
-            index, run_id
+            run_id, index, size
     ):
         assert index > -1 and index <= len(
             cpu_pools
         ), "Designated procedss index for constructing execution commands is out of range."
         cmd = []
-        environ_local = environ
+        environ_local = copy.copy(environ)
         pool = cpu_pools[index]
         pool_str = pool.get_pool_str()
         cores_list_local = pool_str["cores"]
@@ -178,6 +200,11 @@ class LocalCPULauncher(Launcher, CPULauncher):
                 self.verbose("info", f"env: {k}={v}")
                 environ_local[k] = v
 
+        # Set the environment for ranking
+        environ_local["WORLD_SIZE"] = str(size)
+        environ_local["RANK"] = str(index)
+        environ_local["LOCAL_RANK"] = str(index)
+
         # Extend the command to execute
         cmd.extend(command)
 
@@ -196,6 +223,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
 
     def run(self):
         args = self.args
+        largs = self.largs
 
         if args.latency_mode and args.throughput_mode:
             raise RuntimeError(
@@ -298,14 +326,14 @@ class LocalCPULauncher(Launcher, CPULauncher):
             self.verbose("info", f"env: {k}={v}")
             environ_local[k] = v
 
-        if args.auto_ipex and is_python_program(args.command):
+        if largs.auto_ipex and is_python_program(args.command):
             import intel_extension_for_pytorch.cpu.auto_ipex as auto_ipex
             program = args.command[0]
             self.program = auto_ipex.apply_monkey_patch(
                 program,
-                args.dtype,
-                args.auto_ipex_verbose,
-                args.disable_ipex_graph_mode,
+                largs.dtype,
+                largs.auto_ipex_verbose,
+                largs.disable_ipex_graph_mode,
             )
 
         try:
@@ -318,7 +346,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
             )
             return result
         finally:
-            if args.auto_ipex:
+            if largs.auto_ipex:
                 # Clean the temp file
                 if self.program and os.path.exists(
                         self.program) and self.program.endswith("_auto_ipex"):
@@ -377,6 +405,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
             environ_local, cpu_schedule):
         args = self.args
         processes_available = list(range(num_proc))
+        # If run with function, passing partial of process_idx may cause issues
         process_idx = self.parse_list_argument(args.process_idx)
         if -1 in process_idx:
             process_idx.clear()
@@ -389,6 +418,7 @@ class LocalCPULauncher(Launcher, CPULauncher):
         ), "Designated nodes list contains invalid nodes."
         processes = []
         run_id = datetime.now().strftime("%Y%m%d%H%M%S")
+        process_size = len(process_idx)
         for i in process_idx:
             process = self.run_process(
                 command,
@@ -397,8 +427,9 @@ class LocalCPULauncher(Launcher, CPULauncher):
                 task_mgr=task_mgr,
                 environ=environ_local,
                 cpu_pools=cpu_schedule,
+                run_id=run_id,
                 index=i,
-                run_id=run_id
+                size=process_size,
             )
             processes.append(process)
 

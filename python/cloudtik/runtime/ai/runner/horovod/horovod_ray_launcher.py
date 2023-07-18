@@ -5,7 +5,7 @@ from cloudtik.runtime.ai.runner.horovod.horovod_launcher import HorovodLauncher
 logger = logging.getLogger(__name__)
 
 
-class _HorovodRayArgs(object):
+class HorovodRayArgs(object):
     def __init__(self):
         self.verbose = None
         self.nics = None
@@ -28,6 +28,8 @@ class HorovodRayLauncher(HorovodLauncher):
 
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
+        self.hargs = HorovodRayArgs()
+        self._init_launcher_args(self.hargs)
 
     def setup(self):
         self.distributor.check_resolved()
@@ -38,10 +40,9 @@ class HorovodRayLauncher(HorovodLauncher):
         from horovod.ray import RayExecutor
 
         args = self.args
+        hargs = self.hargs
         if not args.func:
             raise ValueError("Horovod on Ray launcher support running function only.")
-
-        hargs = _HorovodRayArgs()
 
         func = args.func
         func_args = args.func_args
@@ -50,13 +51,6 @@ class HorovodRayLauncher(HorovodLauncher):
         func_kwargs = args.func_kwargs
         if func_kwargs is None:
             func_kwargs = {}
-
-        # set the launcher arguments (run CLI or run API)
-        hargs.verbose = args.verbose
-        hargs.nics = args.nics
-
-        # set extra arguments passing from run API
-        self._set_args(hargs, args.launcher_kwargs)
 
         env = self._get_env(hargs)
 

@@ -1,7 +1,6 @@
 import os
 from shlex import quote
 
-
 CLOUDTIK_COMMAND_PREFIX = 'cloudtik head exec'
 
 

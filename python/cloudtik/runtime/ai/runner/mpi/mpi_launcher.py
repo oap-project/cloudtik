@@ -47,6 +47,10 @@ class MPILauncher(DistributedLauncher):
         self.margs = MPILauncherArgs()
         self._init_launcher_args(self.margs)
 
+    def get_command_to_run(self):
+        cmd = super().get_command_to_run()
+        return self.get_command_str(cmd)
+
     def run(self):
         args = self.args
         if args.func:

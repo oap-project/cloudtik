@@ -85,7 +85,7 @@ class DistributedLauncher(Launcher):
         cmd = []
         self.with_python_command(cmd)
         cmd.extend(args.command)
-        return self.get_command_str(cmd)
+        return cmd
 
     @staticmethod
     def _prepare_log_file(args):

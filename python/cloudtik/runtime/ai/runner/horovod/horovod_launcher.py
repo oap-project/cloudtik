@@ -76,13 +76,6 @@ class HorovodLauncher(DistributedLauncher):
     def __init__(self, args, distributor):
         super().__init__(args, distributor)
 
-    def get_command_to_run(self):
-        args = self.args
-        cmd = []
-        self.with_python_command(cmd)
-        cmd.extend(args.command)
-        return cmd
-
     def run(self):
         # Run with Horovod
         from horovod.runner import _HorovodArgs

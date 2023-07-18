@@ -110,7 +110,7 @@ def run(
              The index of the list corresponds to the rank of each process.
              Returns only the first min_num_proc results, if set.
     """
-    from cloudtik.runtime.ai.runner.run import _run
+    from cloudtik.runtime.ai.runner.launch import _run
 
     if hosts is not None and hostfile is not None:
         raise ValueError('Argument hosts and hostfile only allow one provided.')
@@ -164,7 +164,7 @@ def run_command(
     :param launcher_kwargs: The additional keyword arguments for launcher.
     :return: None
     """
-    from cloudtik.runtime.ai.runner.run import _run
+    from cloudtik.runtime.ai.runner.launch import _run
 
     if hosts is not None and hostfile is not None:
         raise ValueError('Argument hosts and hostfile only allow one provided.')

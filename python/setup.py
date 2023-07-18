@@ -256,7 +256,7 @@ setuptools.setup(
             "cloudtik=cloudtik.scripts.scripts:main",
             "cloudtik-simulator=cloudtik.providers.onpremise.service.cloudtik_cloud_simulator:main",
             "cloudtik-operator=cloudtik.providers.kubernetes.cloudtik_operator.operator:main",
-            "cloudtik-run=cloudtik.runtime.ai.runner.run:main",
+            "cloudtik-run=cloudtik.runtime.ai.runner.launch:main",
             "cloudtik-spark=cloudtik.runtime.spark.scripts:main",
             "cloudtik-flink=cloudtik.runtime.flink.scripts:main",
         ]

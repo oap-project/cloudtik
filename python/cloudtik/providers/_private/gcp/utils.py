@@ -10,7 +10,8 @@ from google.oauth2.credentials import Credentials as OAuthCredentials
 
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
-from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update
+from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
+    get_database_engine, get_database_port
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                                   POLL_INTERVAL)
 from cloudtik.providers._private.gcp.node import GCPNode
@@ -424,6 +425,14 @@ def get_gcp_database_config(provider_config: Dict[str, Any], default=None):
     return default
 
 
+def get_gcp_database_engine(database_config):
+    return get_database_engine(database_config)
+
+
+def get_gcp_database_port(database_config):
+    return get_database_port(database_config)
+
+
 def get_gcp_database_config_for_update(provider_config: Dict[str, Any]):
     database_config = get_database_config_for_update(provider_config)
     if "gcp.database" not in database_config:
@@ -438,9 +447,12 @@ def export_gcp_cloud_database_config(provider_config, config_dict: Dict[str, Any
 
     database_hostname = database_config.get(GCP_DATABASE_ENDPOINT)
     if database_hostname:
+        engine = get_gcp_database_engine(database_config)
+        port = get_gcp_database_port(database_config)
         config_dict["CLOUD_DATABASE"] = True
+        config_dict["CLOUD_DATABASE_ENGINE"] = engine
         config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
-        config_dict["CLOUD_DATABASE_PORT"] = database_config.get("port", 3306)
+        config_dict["CLOUD_DATABASE_PORT"] = port
         config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "root")
         config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
 

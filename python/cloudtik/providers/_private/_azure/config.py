@@ -26,7 +26,14 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
 from azure.mgmt.network.models import Subnet, Delegation
-from azure.mgmt.rdbms.mysql_flexibleservers.models import Server, Sku, Storage, ServerVersion, Network
+from azure.mgmt.rdbms.mysql_flexibleservers.models import \
+    Server as MySQLServer, Sku as MySQLSku, Storage as MySQLStorage, \
+    ServerVersion as MySQLServerVersion, Network as MySQLNetwork, \
+    HighAvailability as MySQLHighAvailability
+from azure.mgmt.rdbms.postgresql_flexibleservers.models import \
+    Server as PostgreSQLServer, Sku as PostgreSQLSku, Storage as PostgreSQLStorage, \
+    ServerVersion as PostgreSQLServerVersion, Network as PostgreSQLNetwork, \
+    HighAvailability as PostgreSQLHighAvailability
 from azure.mgmt.privatedns.models import PrivateZone, VirtualNetworkLink
 
 from cloudtik.providers._private._azure.utils import _get_node_info, get_credential, \
@@ -36,7 +43,8 @@ from cloudtik.providers._private._azure.utils import _get_node_info, get_credent
     get_azure_cloud_storage_config, get_azure_cloud_storage_config_for_update, get_azure_cloud_storage_uri, \
     _construct_manage_server_identity_client, _construct_authorization_client, AZURE_DATABASE_ENDPOINT, \
     get_azure_database_config_for_update, _construct_rdbms_client, get_azure_database_config, \
-    export_azure_cloud_database_config, _construct_network_client, _construct_private_dns_client
+    export_azure_cloud_database_config, _construct_network_client, _construct_private_dns_client, \
+    get_azure_database_engine
 from cloudtik.providers._private.utils import StorageTestingError
 
 AZURE_RESOURCE_NAME_PREFIX = "cloudtik"
@@ -765,7 +773,9 @@ def _delete_managed_database_instance(
         cli_logger.print("Managed database instance for the workspace doesn't exist. Skip deletion.")
         return
 
-    rdbms_client = _construct_rdbms_client(provider_config)
+    database_config = get_azure_database_config(provider_config, {})
+    engine = get_azure_database_engine(database_config)
+    rdbms_client = _construct_rdbms_client(provider_config, engine=engine)
     server_name = AZURE_WORKSPACE_DATABASE_NAME.format(workspace_name)
 
     cli_logger.print("Deleting the database instance: {}...".format(db_instance.name))
@@ -1891,7 +1901,13 @@ def _create_managed_database_delegated_subnet(
     cidr_block = _configure_azure_subnet_cidr(
         network_client, resource_group_name, virtual_network_name)
 
-    delegations = [Delegation(name=str(1), service_name="Microsoft.DBforMySQL/flexibleServers")]
+    database_config = get_azure_database_config(cloud_provider, {})
+    engine = get_azure_database_engine(database_config)
+    if engine == "mysql":
+        service_name = "Microsoft.DBforMySQL/flexibleServers"
+    else:
+        service_name = "Microsoft.DBforPostgreSQL/flexibleServers"
+    delegations = [Delegation(name=str(1), service_name=service_name)]
     subnet_parameters = Subnet(
         name=subnet_name, address_prefix=cidr_block,
         delegations=delegations
@@ -2012,7 +2028,6 @@ def _create_managed_database_instance(
         cli_logger.print("Managed database instance for the workspace already exists. Skip creation.")
         return
 
-    rdbms_client = _construct_rdbms_client(cloud_provider)
     subscription_id = cloud_provider.get("subscription_id")
     location = cloud_provider["location"]
     server_name = AZURE_WORKSPACE_DATABASE_NAME.format(workspace_name)
@@ -2020,6 +2035,7 @@ def _create_managed_database_instance(
     private_dns_zone_name = AZURE_WORKSPACE_DATABASE_PRIVATE_DNS_ZONE_NAME
 
     database_config = get_azure_database_config(cloud_provider, {})
+    engine = get_azure_database_engine(database_config)
 
     cli_logger.print("Creating database instance for the workspace: {}...".format(workspace_name))
     try:
@@ -2027,32 +2043,111 @@ def _create_managed_database_instance(
             subscription_id, resource_group_name, virtual_network_name, subnet_name)
         private_dns_zone_resource_id = "/subscriptions/{}/resourceGroups/{}/providers/Microsoft.Network/privateDnsZones/{}".format(
             subscription_id, resource_group_name, private_dns_zone_name)
-        server_params = Server(
-                administrator_login=database_config.get('username', "cloudtik"),
-                administrator_login_password=database_config.get('password', "1kiTdUoLc!"),
-                version=ServerVersion.EIGHT0_21,
-                storage=Storage(
-                    storage_size_gb=database_config.get("storage_size", 50),
-                    auto_grow="Enabled"),
-                sku=Sku(
-                    name=database_config.get("instance_type", "Standard_D4ds_v4"),
-                    tier='GeneralPurpose'),
-                network=Network(
-                    delegated_subnet_resource_id=delegated_subnet_resource_id,
-                    private_dns_zone_resource_id=private_dns_zone_resource_id),
-                create_mode="Default",
+
+        if engine == "mysql":
+            _create_mysql_instance(
+                cloud_provider=cloud_provider,
+                resource_group_name=resource_group_name,
+                server_name=server_name,
                 location=location,
+                database_config=database_config,
+                delegated_subnet_resource_id=delegated_subnet_resource_id,
+                private_dns_zone_resource_id=private_dns_zone_resource_id
             )
-        server_creation_poller = rdbms_client.servers.begin_create(
-            resource_group_name,
-            server_name,
-            server_params
-        )
-        server = server_creation_poller.result()
+        else:
+            _create_postgres_instance(
+                cloud_provider=cloud_provider,
+                resource_group_name=resource_group_name,
+                server_name=server_name,
+                location=location,
+                database_config=database_config,
+                delegated_subnet_resource_id=delegated_subnet_resource_id,
+                private_dns_zone_resource_id=private_dns_zone_resource_id
+            )
+
         cli_logger.print("Successfully created database instance for the workspace: {}.".format(server_name))
     except Exception as e:
         cli_logger.error("Failed to create database instance. {}", str(e))
         raise e
+
+
+def _create_mysql_instance(
+        cloud_provider,
+        resource_group_name,
+        server_name,
+        location,
+        database_config,
+        delegated_subnet_resource_id,
+        private_dns_zone_resource_id,):
+    rdbms_client = _construct_rdbms_client(cloud_provider, engine="mysql")
+
+    if database_config.get("high_availability", False):
+        high_availability = MySQLHighAvailability(mode="ZoneRedundant")
+    else:
+        high_availability = None
+
+    server_params = MySQLServer(
+        administrator_login=database_config.get('username', "cloudtik"),
+        administrator_login_password=database_config.get('password', "1kiTdUoLc!"),
+        version=MySQLServerVersion.EIGHT0_21,
+        storage=MySQLStorage(
+            storage_size_gb=database_config.get("storage_size", 50),
+            auto_grow="Enabled"),
+        sku=MySQLSku(
+            name=database_config.get("instance_type", "Standard_D4ds_v4"),
+            tier='GeneralPurpose'),
+        network=MySQLNetwork(
+            delegated_subnet_resource_id=delegated_subnet_resource_id,
+            private_dns_zone_resource_id=private_dns_zone_resource_id),
+        high_availability=high_availability,
+        create_mode="Default",
+        location=location,
+    )
+    server_creation_poller = rdbms_client.servers.begin_create(
+        resource_group_name,
+        server_name,
+        server_params
+    )
+    return server_creation_poller.result()
+
+
+def _create_postgres_instance(
+        cloud_provider,
+        resource_group_name,
+        server_name,
+        location,
+        database_config,
+        delegated_subnet_resource_id,
+        private_dns_zone_resource_id,):
+    rdbms_client = _construct_rdbms_client(cloud_provider, engine="postgres")
+
+    if database_config.get("high_availability", False):
+        high_availability = PostgreSQLHighAvailability(mode="ZoneRedundant")
+    else:
+        high_availability = None
+
+    server_params = PostgreSQLServer(
+        administrator_login=database_config.get('username', "cloudtik"),
+        administrator_login_password=database_config.get('password', "1kiTdUoLc!"),
+        version=PostgreSQLServerVersion.FOURTEEN,
+        storage=PostgreSQLStorage(
+            storage_size_gb=database_config.get("storage_size", 50)),
+        sku=PostgreSQLSku(
+            name=database_config.get("instance_type", "Standard_D4ds_v4"),
+            tier='GeneralPurpose'),
+        network=PostgreSQLNetwork(
+            delegated_subnet_resource_id=delegated_subnet_resource_id,
+            private_dns_zone_resource_id=private_dns_zone_resource_id),
+        high_availability=high_availability,
+        create_mode="Default",
+        location=location,
+    )
+    server_creation_poller = rdbms_client.servers.begin_create(
+        resource_group_name,
+        server_name,
+        server_params
+    )
+    return server_creation_poller.result()
 
 
 def get_workspace_database_instance(
@@ -2072,7 +2167,9 @@ def get_managed_database_instance(
 
 def _get_managed_database_instance(
         provider_config, resource_group_name, server_name):
-    rdbms_client = _construct_rdbms_client(provider_config)
+    database_config = get_azure_database_config(provider_config, {})
+    engine = get_azure_database_engine(database_config)
+    rdbms_client = _construct_rdbms_client(provider_config, engine=engine)
     cli_logger.verbose("Getting the database instance: {}.".format(server_name))
     try:
         server_instance = rdbms_client.servers.get(resource_group_name, server_name)

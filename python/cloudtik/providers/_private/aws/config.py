@@ -25,12 +25,12 @@ from cloudtik.core._private.utils import check_cidr_conflict, is_use_internal_ip
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI, CLOUDTIK_MANAGED_CLOUD_DATABASE, CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT, \
     CLOUDTIK_MANAGED_CLOUD_DATABASE_PORT
-from cloudtik.providers._private.aws.utils import LazyDefaultDict, \
+from cloudtik.providers._private.aws.utils import \
     handle_boto_error, get_boto_error_code, _get_node_info, BOTO_MAX_RETRIES, _resource, \
     _resource_client, _make_resource, _make_resource_client, make_ec2_client, export_aws_s3_storage_config, \
     get_aws_s3_storage_config, get_aws_s3_storage_config_for_update, _working_node_client, _working_node_resource, \
     get_aws_cloud_storage_uri, AWS_S3_BUCKET, _make_client, get_aws_database_config, export_aws_database_config, \
-    get_aws_database_config_for_update, AWS_DATABASE_ENDPOINT
+    get_aws_database_config_for_update, AWS_DATABASE_ENDPOINT, get_aws_database_engine
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -2621,13 +2621,16 @@ def _create_managed_database_instance(
     db_instance_identifier = AWS_WORKSPACE_DATABASE_NAME.format(workspace_name)
     db_subnet_group = AWS_WORKSPACE_DB_SUBNET_GROUP_NAME.format(workspace_name)
     database_config = get_aws_database_config(cloud_provider, {})
+    engine = get_aws_database_engine(database_config)
 
     cli_logger.print("Creating database instance for the workspace: {}...".format(workspace_name))
+    # Port: If not specified RDS for MySQL - 3306, RDS for PostgreSQL - 5432
+    # Engine Version: MySQL 8.0, PostgreSQL (14 or 16 any soon time)
     try:
         rds_client.create_db_instance(
             DBInstanceIdentifier=db_instance_identifier,
             DBInstanceClass=database_config.get("instance_type", "db.t3.xlarge"),
-            Engine="mysql",
+            Engine=engine,
             StorageType=database_config.get("storage_type", "gp2"),
             AllocatedStorage=database_config.get("storage_size", 50),
             MasterUsername=database_config.get('username', "cloudtik"),
@@ -2636,7 +2639,9 @@ def _create_managed_database_instance(
                 security_group_id
             ],
             DBSubnetGroupName=db_subnet_group,
-            PubliclyAccessible=False
+            PubliclyAccessible=False,
+            Port=database_config.get("port"),
+            MultiAZ=database_config.get("high_availability", False)
         )
         wait_db_instance_creation(rds_client, db_instance_identifier)
     except Exception as e:

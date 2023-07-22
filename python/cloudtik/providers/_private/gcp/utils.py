@@ -449,11 +449,12 @@ def export_gcp_cloud_database_config(provider_config, config_dict: Dict[str, Any
     if database_hostname:
         engine = get_gcp_database_engine(database_config)
         port = get_gcp_database_port(database_config)
+        default_username = "root" if engine == "mysql" else "postgres"
         config_dict["CLOUD_DATABASE"] = True
         config_dict["CLOUD_DATABASE_ENGINE"] = engine
         config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
         config_dict["CLOUD_DATABASE_PORT"] = port
-        config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "root")
+        config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", default_username)
         config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
 
 

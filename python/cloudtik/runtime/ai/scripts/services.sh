@@ -64,7 +64,12 @@ function set_artifact_config_for_cloud_storage() {
 function set_mlflow_server_config() {
     if [ "${CLOUD_DATABASE}" == "true" ] && [ "$AI_WITH_CLOUD_DATABASE" != "false" ]; then
         DATABASE_NAME=mlflow
-        BACKEND_STORE_URI=mysql+pymysql://${CLOUD_DATABASE_USERNAME}:${CLOUD_DATABASE_PASSWORD}@${CLOUD_DATABASE_HOSTNAME}:${CLOUD_DATABASE_PORT}/${DATABASE_NAME}
+        CONNECTION_INFO=${CLOUD_DATABASE_USERNAME}:${CLOUD_DATABASE_PASSWORD}@${CLOUD_DATABASE_HOSTNAME}:${CLOUD_DATABASE_PORT}/${DATABASE_NAME}
+        if [ "${CLOUD_DATABASE_ENGINE}" == "mysql" ]
+            BACKEND_STORE_URI=mysql+pymysql://${CONNECTION_INFO}
+        else
+            BACKEND_STORE_URI=postgresql+psycopg2://${CONNECTION_INFO}
+        fi
     else
         BACKEND_STORE_URI=sqlite:///${MLFLOW_DATA}/mlflow.db
     fi

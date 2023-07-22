@@ -2035,8 +2035,6 @@ def _configure_managed_cloud_database_from_workspace(config, cloud_provider):
 
     database_config = get_gcp_database_config_for_update(config["provider"])
     database_config[GCP_DATABASE_ENDPOINT] = db_address
-    if "username" not in database_config:
-        database_config["username"] = "root"
 
 
 def _get_workspace_service_account(config, iam, service_account_id_template):

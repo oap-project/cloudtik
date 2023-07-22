@@ -23,9 +23,12 @@ mkdir -p $RUNTIME_PATH
 # Hadoop install function
 . "$ROOT_DIR"/common/scripts/hadoop-install.sh
 
-function install_mariadb() {
+function install_database_tools() {
+    # TODO: install only when necessary
     sudo apt-get -qq update -y > /dev/null
     sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y mariadb-server > /dev/null
+
+    which psql > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install postgresql-client -y > /dev/null
 }
 
 function install_hive_metastore() {
@@ -37,9 +40,13 @@ function install_hive_metastore() {
           mkdir -p "$METASTORE_HOME" && \
           tar --extract --file hive-standalone-metastore.tar.gz --directory "$METASTORE_HOME" --strip-components 1 --no-same-owner && \
           rm hive-standalone-metastore.tar.gz)
+        # TODO: download only the driver needed
         wget -q https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.30/mysql-connector-java-8.0.30.jar -P $METASTORE_HOME/lib/
+        wget -q https://jdbc.postgresql.org/download/postgresql-42.6.0.jar -P $METASTORE_HOME/lib/
         echo "export METASTORE_HOME=$METASTORE_HOME">> ${USER_HOME}/.bashrc
     fi
+
+
 }
 
 set_head_option "$@"
@@ -47,7 +54,7 @@ set_head_option "$@"
 if [ $IS_HEAD_NODE == "true" ]; then
     install_jdk
     install_hadoop
-    install_mariadb
+    install_database_tools
     install_hive_metastore
     clean_install_cache
 fi

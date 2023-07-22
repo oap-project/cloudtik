@@ -21,6 +21,13 @@ function install_tools() {
     which g++-9 > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install g++-9 -y > /dev/null
     if [ "$IS_HEAD_NODE" == "true" ]; then
         which mysql > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install mysql-client -y > /dev/null
+
+        POSTGRES_DRIVER=$(pip install psycopg2)
+        if [ "${POSTGRES_DRIVER}" != "" ]; then
+            sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install libpq-dev -y > /dev/null
+        fi
+
+        which psql > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install postgresql-client -y > /dev/null
     fi
 }
 
@@ -66,7 +73,8 @@ function install_ml() {
         datasets~=2.9.0 \
         tensorflow-datasets~=4.8.2 \
         tensorflow-hub~=0.12.0 \
-        protobuf==3.20.3
+        protobuf==3.20.3 \
+        psycopg2==2.9.6
 
     mkdir -p $RUNTIME_PATH/mlflow
 

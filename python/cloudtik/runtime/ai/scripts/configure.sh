@@ -144,7 +144,7 @@ function patch_libraries() {
 
 function prepare_database_schema() {
     DATABASE_NAME=mlflow
-    if [ "${CLOUD_DATABASE_ENGINE}" == "mysql" ]
+    if [ "${CLOUD_DATABASE_ENGINE}" == "mysql" ]; then
         mysql --host=${CLOUD_DATABASE_HOSTNAME} --port=${CLOUD_DATABASE_PORT} --user=${CLOUD_DATABASE_USERNAME} --password=${CLOUD_DATABASE_PASSWORD}  -e "
                 CREATE DATABASE IF NOT EXISTS ${DATABASE_NAME};" > ${MLFLOW_DATA}/logs/configure.log
     else

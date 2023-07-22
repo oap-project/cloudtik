@@ -80,7 +80,7 @@ function configure_hive_metastore() {
             psql \
             --host=${CLOUD_DATABASE_HOSTNAME} \
             --port=${CLOUD_DATABASE_PORT} \
-            --username=${CLOUD_DATABASE_USERNAME} > ${MLFLOW_DATA}/logs/configure.log
+            --username=${CLOUD_DATABASE_USERNAME} > ${METASTORE_HOME}/logs/configure.log
     fi
 
     sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" `grep "{%HEAD_ADDRESS%}" -rl ./`

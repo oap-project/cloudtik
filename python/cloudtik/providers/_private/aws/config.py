@@ -2625,7 +2625,7 @@ def _create_managed_database_instance(
 
     cli_logger.print("Creating database instance for the workspace: {}...".format(workspace_name))
     # Port: If not specified RDS for MySQL - 3306, RDS for PostgreSQL - 5432
-    # Engine Version: MySQL 8.0, PostgreSQL (14 or 16 any soon time)
+    # Engine Version: MySQL 8.0, PostgreSQL (14 or 16 any time soon)
     try:
         rds_client.create_db_instance(
             DBInstanceIdentifier=db_instance_identifier,

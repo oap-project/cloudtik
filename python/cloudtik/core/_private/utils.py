@@ -3245,3 +3245,19 @@ def run_script(script, script_args, with_output=False):
     except subprocess.CalledProcessError as err:
         print(f"Called process error {err}")
         raise err
+
+
+def get_database_engine(database_config):
+    engine = database_config.get("engine")
+    if engine and engine != "mysql" and engine != "postgres":
+        raise ValueError(
+            "The database engine type {} is not supported.".format(engine))
+    return database_config.get("engine") or "mysql"
+
+
+def get_database_port(database_config):
+    port = database_config.get("port")
+    if not port:
+        engine = get_database_engine(database_config)
+        port = 3306 if engine == "mysql" else 5432
+    return port

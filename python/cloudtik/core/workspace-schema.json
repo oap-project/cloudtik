@@ -230,6 +230,18 @@
                                 "password": {
                                     "type": "string",
                                     "description": "AWS RDS MasterUserPassword."
+                                },
+                                "engine": {
+                                    "type": "string",
+                                    "description": "AWS RDS engine type: mysql or postgres. default: mysql"
+                                },
+                                "port": {
+                                    "type": "number",
+                                    "description": "AWS RDS port. default: mysql=3306, postgres=5432"
+                                },
+                                "high_availability": {
+                                    "type": "boolean",
+                                    "description": "AWS RDS high availability flag. Default: false"
                                 }
                             }
                         },
@@ -253,6 +265,14 @@
                                 "password": {
                                     "type": "string",
                                     "description": "Azure Database administrator password."
+                                },
+                                "engine": {
+                                    "type": "string",
+                                    "description": "Azure Database engine type: mysql or postgres. default: mysql"
+                                },
+                                "high_availability": {
+                                    "type": "boolean",
+                                    "description": "Azure Database high availability flag. Default: false"
                                 }
                             }
                         },
@@ -276,6 +296,14 @@
                                 "password": {
                                     "type": "string",
                                     "description": "GCP Cloud SQL root password."
+                                },
+                                "engine": {
+                                    "type": "string",
+                                    "description": "GCP Cloud SQL engine type: mysql or postgres. default: mysql"
+                                },
+                                "high_availability": {
+                                    "type": "boolean",
+                                    "description": "GCP Cloud SQL high availability flag. Default: false"
                                 }
                             }
                         }

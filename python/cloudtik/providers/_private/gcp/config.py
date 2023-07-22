@@ -33,8 +33,9 @@ from cloudtik.providers._private.gcp.utils import _get_node_info, construct_clie
     export_gcp_cloud_storage_config, get_service_account_email, construct_storage_client, construct_storage, \
     get_gcp_cloud_storage_config, get_gcp_cloud_storage_config_for_update, GCP_GCS_BUCKET, get_gcp_cloud_storage_uri, \
     GCP_DATABASE_ENDPOINT, get_gcp_database_config_for_update, construct_sql_admin, get_gcp_database_config, \
-    wait_for_sql_admin_operation, export_gcp_cloud_database_config, construct_compute_client, construct_service_networking, \
-    wait_for_service_networking_operation
+    wait_for_sql_admin_operation, export_gcp_cloud_database_config, construct_compute_client, \
+    construct_service_networking, \
+    wait_for_service_networking_operation, get_gcp_database_engine
 from cloudtik.providers._private.utils import StorageTestingError
 
 logger = logging.getLogger(__name__)
@@ -1527,13 +1528,16 @@ def _create_managed_database_instance(
     sql_admin = construct_sql_admin(provider_config)
     db_instance_identifier = GCP_WORKSPACE_DATABASE_NAME.format(workspace_name)
     region = provider_config["region"]
-    database_config = get_gcp_database_config(provider_config, {})
-
     project_id = provider_config.get("project_id")
+
+    database_config = get_gcp_database_config(provider_config, {})
+    engine = get_gcp_database_engine(database_config)
+    database_version = "MYSQL_8_0" if engine == "mysql" else "POSTGRES_14"
+
     create_body = {
         "name": db_instance_identifier,
         "region": region,
-        "databaseVersion": "MYSQL_8_0",
+        "databaseVersion": database_version,
         "rootPassword": database_config.get('password', "cloudtik"),
         "settings": {
             "tier": database_config.get("instance_type", "db-custom-4-15360"),
@@ -1546,6 +1550,15 @@ def _create_managed_database_instance(
             },
         }
     }
+
+    if database_config.get("high_availability", False):
+        recovery = "binaryLogEnabled" if engine == "mysql" else "pointInTimeRecoveryEnabled"
+        settings = create_body["settings"]
+        settings["backupConfiguration"] = {
+            "enabled": True,
+            recovery: True
+        },
+        settings["availabilityType"] = "REGIONAL"
 
     cli_logger.print("Creating database instance for the workspace: {}...".format(workspace_name))
     try:

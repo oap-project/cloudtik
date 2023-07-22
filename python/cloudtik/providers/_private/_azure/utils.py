@@ -10,10 +10,12 @@ from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.msi import ManagedServiceIdentityClient
 from azure.mgmt.authorization import AuthorizationManagementClient
 from azure.mgmt.rdbms.mysql_flexibleservers import MySQLManagementClient
+from azure.mgmt.rdbms.postgresql_flexibleservers import PostgreSQLManagementClient
 from azure.mgmt.privatedns import PrivateDnsManagementClient
 
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
-from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update
+from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
+    get_database_engine, get_database_port
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 AZURE_DATABASE_ENDPOINT = "server_address"
@@ -103,17 +105,20 @@ def _construct_storage_client(provider_config):
     return storage_client
 
 
-def construct_rdbms_client(config):
-    return _construct_rdbms_client(config["provider"])
+def construct_rdbms_client(config, engine="mysql"):
+    return _construct_rdbms_client(config["provider"], engine=engine)
 
 
-def _construct_rdbms_client(provider_config):
+def _construct_rdbms_client(provider_config, engine):
     subscription_id = provider_config.get("subscription_id")
     if subscription_id is None:
         subscription_id = get_cli_profile().get_subscription_id()
     credential = get_client_credential(provider_config)
-    storage_client = MySQLManagementClient(credential, subscription_id)
-    return storage_client
+    if engine == "mysql":
+        rdbms_client = MySQLManagementClient(credential, subscription_id)
+    else:
+        rdbms_client = PostgreSQLManagementClient(credential, subscription_id)
+    return rdbms_client
 
 
 def construct_network_client(config):
@@ -271,6 +276,14 @@ def get_azure_database_config(provider_config: Dict[str, Any], default=None):
     return default
 
 
+def get_azure_database_engine(database_config):
+    return get_database_engine(database_config)
+
+
+def get_azure_database_port(database_config):
+    return get_database_port(database_config)
+
+
 def get_azure_database_config_for_update(provider_config: Dict[str, Any]):
     database_config = get_database_config_for_update(provider_config)
     if "azure.database" not in database_config:
@@ -285,9 +298,12 @@ def export_azure_cloud_database_config(provider_config, config_dict: Dict[str, A
 
     database_hostname = database_config.get(AZURE_DATABASE_ENDPOINT)
     if database_hostname:
+        engine = get_azure_database_engine(database_config)
+        port = get_azure_database_port(database_config)
         config_dict["CLOUD_DATABASE"] = True
+        config_dict["CLOUD_DATABASE_ENGINE"] = engine
         config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
-        config_dict["CLOUD_DATABASE_PORT"] = database_config.get("port", 3306)
+        config_dict["CLOUD_DATABASE_PORT"] = port
         config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "cloudtik")
         config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "1kiTdUoLc!")
 

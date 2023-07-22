@@ -446,9 +446,13 @@
                                     "type": "string",
                                     "description": "AWS RDS server address"
                                 },
+                                "engine": {
+                                    "type": "string",
+                                    "description": "AWS RDS engine: mysql or postgres. default: mysql"
+                                },
                                 "port": {
                                     "type": "number",
-                                    "description": "AWS RDS server port. default: 3306"
+                                    "description": "AWS RDS server port. default: mysql=3306, postgres=5432"
                                 },
                                 "username": {
                                     "type": "string",
@@ -469,9 +473,13 @@
                                     "type": "string",
                                     "description": "Azure Database server address"
                                 },
+                                "engine": {
+                                    "type": "string",
+                                    "description": "Azure Database engine: mysql or postgres. default: mysql"
+                                },
                                 "port": {
                                     "type": "number",
-                                    "description": "Azure Database server port. default: 3306"
+                                    "description": "Azure Database server port. default: mysql=3306, postgres=5432"
                                 },
                                 "username": {
                                     "type": "string",
@@ -492,9 +500,13 @@
                                     "type": "string",
                                     "description": "GCP Cloud SQL server address"
                                 },
+                                "engine": {
+                                    "type": "string",
+                                    "description": "GCP Cloud SQL engine: mysql or postgres. default: mysql"
+                                },
                                 "port": {
                                     "type": "number",
-                                    "description": "GCP Cloud SQL server port. default: 3306"
+                                    "description": "GCP Cloud SQL server port. default: mysql=3306, postgres=5432"
                                 },
                                 "username": {
                                     "type": "string",

@@ -20,7 +20,7 @@ mkdir -p $RUNTIME_PATH
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function install_tools() {
-    which uuid > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install uuid -y > /dev/null
+    which uuid > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install uuid -y > /dev/null)
 }
 
 function install_presto() {

@@ -11,7 +11,7 @@ eval set -- "${args}"
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function install_ssh_server() {
-    which sshd > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y openssh-server > /dev/null
+    which sshd > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y openssh-server > /dev/null)
 }
 
 set_head_option "$@"

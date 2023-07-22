@@ -65,7 +65,7 @@ function set_mlflow_server_config() {
     if [ "${CLOUD_DATABASE}" == "true" ] && [ "$AI_WITH_CLOUD_DATABASE" != "false" ]; then
         DATABASE_NAME=mlflow
         CONNECTION_INFO=${CLOUD_DATABASE_USERNAME}:${CLOUD_DATABASE_PASSWORD}@${CLOUD_DATABASE_HOSTNAME}:${CLOUD_DATABASE_PORT}/${DATABASE_NAME}
-        if [ "${CLOUD_DATABASE_ENGINE}" == "mysql" ]
+        if [ "${CLOUD_DATABASE_ENGINE}" == "mysql" ]; then
             BACKEND_STORE_URI=mysql+pymysql://${CONNECTION_INFO}
         else
             BACKEND_STORE_URI=postgresql+psycopg2://${CONNECTION_INFO}

@@ -144,9 +144,17 @@ function patch_libraries() {
 
 function prepare_database_schema() {
     DATABASE_NAME=mlflow
-    mysql --host=${CLOUD_DATABASE_HOSTNAME} --port=${CLOUD_DATABASE_PORT} --user=${CLOUD_DATABASE_USERNAME} --password=${CLOUD_DATABASE_PASSWORD}  -e "
-            CREATE DATABASE IF NOT EXISTS ${DATABASE_NAME};" > ${MLFLOW_DATA}/logs/configure.log
-
+    if [ "${CLOUD_DATABASE_ENGINE}" == "mysql" ]
+        mysql --host=${CLOUD_DATABASE_HOSTNAME} --port=${CLOUD_DATABASE_PORT} --user=${CLOUD_DATABASE_USERNAME} --password=${CLOUD_DATABASE_PASSWORD}  -e "
+                CREATE DATABASE IF NOT EXISTS ${DATABASE_NAME};" > ${MLFLOW_DATA}/logs/configure.log
+    else
+        # Use psql to create the database
+        echo "SELECT 'CREATE DATABASE ${DATABASE_NAME}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DATABASE_NAME}')\gexec" | PGPASSWORD=${CLOUD_DATABASE_PASSWORD} \
+            psql \
+            --host=${CLOUD_DATABASE_HOSTNAME} \
+            --port=${CLOUD_DATABASE_PORT} \
+            --username=${CLOUD_DATABASE_USERNAME} > ${MLFLOW_DATA}/logs/configure.log
+    fi
     # Future improvement: mlflow db upgrade [db_uri]
 }
 

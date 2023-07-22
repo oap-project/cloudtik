@@ -23,11 +23,11 @@
     </property>
     <property>
         <name>javax.jdo.option.ConnectionURL</name>
-        <value>jdbc:mysql://{%DATABASE_ADDRESS%}/{%DATABASE_NAME%}?createDatabaseIfNotExist=true</value>
+        <value>{%DATABASE_CONNECTION%}</value>
     </property>
     <property>
         <name>javax.jdo.option.ConnectionDriverName</name>
-        <value>com.mysql.jdbc.Driver</value>
+        <value>{%DATABASE_DRIVER%}</value>
     </property>
 	<property>
         <name>javax.jdo.option.ConnectionUserName</name>

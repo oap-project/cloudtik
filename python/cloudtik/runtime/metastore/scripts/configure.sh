@@ -71,10 +71,10 @@ function configure_hive_metastore() {
 
     if [ "${DATABASE_ENGINE}" == "mysql" ]; then
         DATABASE_DRIVER="com.mysql.jdbc.Driver"
-        DATABASE_CONNECTION="jdbc:mysql://${DATABASE_ADDRESS}/${DATABASE_NAME%}?createDatabaseIfNotExist=true"
+        DATABASE_CONNECTION="jdbc:mysql://${DATABASE_ADDRESS}/${DATABASE_NAME}?createDatabaseIfNotExist=true"
     else
         DATABASE_DRIVER="org.postgresql.Driver"
-        DATABASE_CONNECTION="jdbc:postgresql://${DATABASE_ADDRESS}/${DATABASE_NAME%}"
+        DATABASE_CONNECTION="jdbc:postgresql://${DATABASE_ADDRESS}/${DATABASE_NAME}"
         # create database for postgresql if not exists
         echo "SELECT 'CREATE DATABASE ${DATABASE_NAME}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DATABASE_NAME}')\gexec" | PGPASSWORD=${CLOUD_DATABASE_PASSWORD} \
             psql \

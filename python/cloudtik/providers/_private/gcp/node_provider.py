@@ -173,7 +173,6 @@ class GCPNodeProvider(NodeProvider):
     def _terminate_node(self, node_id: str):
         # Assumes the global lock is held for the duration of this operation.
         # The lock may be held by a different thread if in `terminate_nodes()` case.
-        logger.info("NodeProvider: {}: Terminating node".format(node_id))
         resource = self._get_resource_depending_on_node_name(node_id)
         try:
             result = resource.delete_instance(

@@ -28,7 +28,7 @@ function install_database_tools() {
     sudo apt-get -qq update -y > /dev/null
     sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y mariadb-server > /dev/null
 
-    which psql > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install postgresql-client -y > /dev/null
+    which psql > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install postgresql-client -y > /dev/null)
 }
 
 function install_hive_metastore() {

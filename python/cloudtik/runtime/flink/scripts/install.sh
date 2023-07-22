@@ -83,8 +83,8 @@ function install_jupyter_for_flink() {
 }
 
 function install_tools() {
-    which jq > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install jq -y > /dev/null
-    which vim > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install vim -y > /dev/null
+    which jq > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install jq -y > /dev/null)
+    which vim > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install vim -y > /dev/null)
 }
 
 function download_hadoop_cloud_jars() {

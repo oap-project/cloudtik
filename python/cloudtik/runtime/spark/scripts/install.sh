@@ -89,8 +89,8 @@ function install_jupyter_for_spark() {
 }
 
 function install_tools() {
-    which jq > /dev/null || sudo  apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install jq -y > /dev/null
-    which vim > /dev/null || sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install vim -y > /dev/null
+    which jq > /dev/null || (sudo  apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install jq -y > /dev/null)
+    which vim > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install vim -y > /dev/null)
 }
 
 function install_yarn_with_spark_jars() {

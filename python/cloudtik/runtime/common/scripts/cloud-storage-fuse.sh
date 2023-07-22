@@ -184,7 +184,7 @@ function install_hdfs_fuse() {
     fi
 
     # nfs mount may needed
-    which mount.nfs > /dev/null || sudo  apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install nfs-common -y > /dev/null
+    which mount.nfs > /dev/null || (sudo  apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install nfs-common -y > /dev/null)
 
     # install HDFS NFS fix if not installed
     wget -q ${CLOUDTIK_DOWNLOADS}/hadoop/hadoop-hdfs-nfs-${HADOOP_VERSION}.jar -O ${HADOOP_HOME}/share/hadoop/hdfs/hadoop-hdfs-nfs-${HADOOP_VERSION}.jar
@@ -454,7 +454,7 @@ function unmount_fs() {
 function unmount_cloud_fs() {
     # use findmnt to check the existence and type of the mount
     # if findmnt doesn't exist, install it
-    which findmnt > /dev/null || sudo  apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install util-linux -y > /dev/null
+    which findmnt > /dev/null || (sudo  apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install util-linux -y > /dev/null)
 
     if [ "${CLOUD_FS_MOUNT_PATH}" != "" ]; then
         unmount_fs "${CLOUD_FS_MOUNT_PATH}"

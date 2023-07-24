@@ -73,7 +73,7 @@ function configure_zookeeper() {
 
 set_head_option "$@"
 
-if [ $IS_HEAD_NODE == "false" ];then
+if [ $IS_HEAD_NODE == "false" ]; then
     # Zookeeper doesn't run on head node
     check_zookeeper_installed
     set_head_address

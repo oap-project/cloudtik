@@ -1,10 +1,9 @@
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core._private.utils import \
-    publish_cluster_variable, load_properties_file, save_properties_file, subscribe_runtime_config, \
-    RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config
+    publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 RUNTIME_PROCESSES = [
@@ -118,7 +117,11 @@ def _publish_service_uri_to_workspace(cluster_config: Dict[str, Any], service_ur
 
 def _get_consul_minimal_workers(config: Dict[str, Any]):
     available_node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
     for node_type in available_node_types:
+        if node_type == head_node_type:
+            # Exclude the head
+            continue
         # Check the runtimes of the node type whether it needs to wait minimal before update
         runtime_config = _get_node_type_specific_runtime_config(config, node_type)
         if runtime_config:

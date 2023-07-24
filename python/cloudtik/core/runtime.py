@@ -114,13 +114,16 @@ class Runtime:
         """
         return False, False
 
-    def minimal_nodes_reached(self, cluster_config: Dict[str, Any], nodes_info: Dict[str, Any]):
+    def minimal_nodes_reached(
+            self, cluster_config: Dict[str, Any], node_type: str,
+            head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
         """If the require_minimal_nodes_before_setup method returns True and runtime will be notified on head
         When the minimal nodes are reached. Please note this may call multiple times (for example server down and up)
         """
         pass
 
-    def get_scaling_policy(self, cluster_config: Dict[str, Any], head_ip: str) -> Optional[ScalingPolicy]:
+    def get_scaling_policy(
+            self, cluster_config: Dict[str, Any], head_ip: str) -> Optional[ScalingPolicy]:
         """
         If the runtime has a resource management and configured to act resource scaling source
         return a scaling policy object to use by the cluster scaler.

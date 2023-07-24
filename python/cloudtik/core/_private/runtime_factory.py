@@ -27,6 +27,7 @@ BUILT_IN_RUNTIME_AI = "ai"
 BUILT_IN_RUNTIME_FLINK = "flink"
 BUILT_IN_RUNTIME_RAY = "ray"
 BUILT_IN_RUNTIME_SSHSERVER = "sshserver"
+BUILT_IN_RUNTIME_CONSUL = "consul"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -91,6 +92,11 @@ def _import_ssh_server():
     return SSHServerRuntime
 
 
+def _import_consul():
+    from cloudtik.runtime.consul.runtime import ConsulRuntime
+    return ConsulRuntime
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -104,6 +110,7 @@ _RUNTIMES = {
     "flink": _import_flink,
     "ray": _import_ray,
     "sshserver": _import_ssh_server,
+    "consul": _import_consul,
 }
 
 

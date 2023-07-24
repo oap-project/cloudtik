@@ -3,14 +3,14 @@ from typing import Any, Dict, Tuple
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
-from cloudtik.runtime.zookeeper.utils import _with_runtime_environment_variables, \
+from cloudtik.runtime.consul.utils import _with_runtime_environment_variables, \
     _get_runtime_processes, _get_runtime_logs, _get_runtime_services, _handle_minimal_nodes_reached
 
 logger = logging.getLogger(__name__)
 
 
-class ZooKeeperRuntime(RuntimeBase):
-    """Implementation for ZooKeeper Runtime"""
+class ConsulRuntime(RuntimeBase):
+    """Implementation for Consul Runtime"""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
         super().__init__(runtime_config)

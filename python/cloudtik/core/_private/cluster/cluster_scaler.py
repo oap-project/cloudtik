@@ -1535,9 +1535,18 @@ class ClusterScaler:
         self._notify_minimal_nodes_reached(node_type, nodes_info, minimal_nodes_info)
         return True
 
-    def _notify_minimal_nodes_reached(self, node_type: str, nodes_info, minimal_nodes_info):
+    def _notify_minimal_nodes_reached(
+            self, node_type: str, nodes_info, minimal_nodes_info):
+        head_id = self.non_terminated_nodes.head_id
+        head_node_ip = self.provider.internal_ip(head_id)
+        head_info = {
+            "node_id": head_id,
+            "node_ip": head_node_ip,
+            "node_number": 1
+        }
         _notify_minimal_nodes_reached(
-            self.config, node_type, nodes_info, minimal_nodes_info)
+            self.config, node_type, head_info,
+            nodes_info, minimal_nodes_info)
 
     def is_launch_allowed(self, node_type: str):
         if self._is_minimal_nodes(node_type) and (

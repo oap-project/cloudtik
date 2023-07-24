@@ -29,7 +29,7 @@ setup_commands:
         echo 'export CONDA_ROOT=$HOME/anaconda3' >> ~/.bashrc) || true
     - ((! grep -Fxq 'export CLOUDTIK_ENV=cloudtik' ~/.bashrc) &&
         echo 'export CLOUDTIK_ENV=cloudtik' >> ~/.bashrc) || true
-    - conda activate ${CLOUDTIK_ENV} || conda create -n ${CLOUDTIK_ENV} -y python=${CLOUDTIK_PYTHON_VERSION}
+    - conda activate ${CLOUDTIK_ENV} || conda create -n ${CLOUDTIK_ENV} -y libffi=3.3 python=${CLOUDTIK_PYTHON_VERSION}
     - (stat $HOME/anaconda3/envs/${CLOUDTIK_ENV}/ >/dev/null 2>&1 &&
         (! grep -Fxq 'export PATH=$HOME/anaconda3/envs/${CLOUDTIK_ENV}/bin:$PATH' ~/.bashrc) &&
         echo 'export PATH=$HOME/anaconda3/envs/${CLOUDTIK_ENV}/bin:$PATH' >> ~/.bashrc) || true

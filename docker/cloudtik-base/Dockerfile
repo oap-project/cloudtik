@@ -8,6 +8,7 @@ ENV TZ=America/Los_Angeles
 ENV PATH="/home/cloudtik/anaconda3/bin:$PATH"
 ARG DEBIAN_FRONTEND=noninteractive
 ARG PYTHON_VERSION=3.9
+ARG CPU_ARCH=${CPU_ARCH:-x86_64}
 ARG CONDA_ENV_NAME=cloudtik
 ARG CLOUDTIK_UID=1000
 ARG CLOUDTIK_GID=100
@@ -24,6 +25,7 @@ USER $CLOUDTIK_UID
 ENV HOME=/home/cloudtik
 ENV CLOUDTIK_ENV=$CONDA_ENV_NAME
 
+SHELL ["/bin/bash", "-c"]
 RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo apt-get install -y \
         vim \
@@ -41,7 +43,7 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
         apt-utils \
     # Install Conda
     && wget \
-        --quiet "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh" \
+        --quiet "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${CPU_ARCH}.sh" \
         -O /tmp/miniconda.sh \
     && /bin/bash /tmp/miniconda.sh -b -u -p $HOME/anaconda3 \
     && $HOME/anaconda3/bin/conda init \ 
@@ -60,7 +62,13 @@ RUN sudo apt-get update -y && sudo apt-get upgrade -y \
     && sudo rm -rf /etc/apt/sources.list.d/kubernetes.list \
     && sudo apt-get clean
 
-RUN $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION \
+RUN if [[ "${PYTHON_VERSION}" = "3.11" || "${PYTHON_VERSION}" =~ ^3\.11\. ]]; then \
+        $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y python=$PYTHON_VERSION; \
+    else \
+        # Conda issue #12287: ping libffi=3.3 for python version below 3.11
+        # TODO: Remove libffi=3.3 once it is resolved
+        $HOME/anaconda3/bin/conda create -n $CLOUDTIK_ENV -y libffi=3.3 python=$PYTHON_VERSION; \
+    fi \
     && $HOME/anaconda3/bin/conda clean -itqy
 ENV CONDA_ROOT=$HOME/anaconda3
 ENV PATH=$HOME/anaconda3/envs/$CLOUDTIK_ENV/bin:$PATH

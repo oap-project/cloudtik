@@ -151,8 +151,13 @@ class Runtime:
         #2 filter by command (True)/filter by args (False)
         #3 The third element is the process name.
         #4 The forth element, if node, the process should on all nodes, if head, the process should on head node.
+        if worker, the process runs only on worker nodes
         For example
-        ["cloudtik_cluster_controller.py", False, "ClusterController", "head"],
+        [
+            ["controller_service.py", False, "Controller", "head"],
+            ["worker_service.py", False, "Worker", "worker"],
+            ["agent_service.py", False, "Agent", "node"],
+        ]
         """
         return []
 

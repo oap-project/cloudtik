@@ -72,7 +72,8 @@ def _write_server_ensemble(server_ensemble: List[Dict[str, Any]]):
 
 
 def _handle_minimal_nodes_reached(
-        runtime_config: Dict[str, Any], cluster_config: Dict[str, Any], nodes_info: Dict[str, Any]):
+        runtime_config: Dict[str, Any], cluster_config: Dict[str, Any],
+        node_type: str, head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
     # We know this is called in the cluster scaler context
     server_ensemble = _server_ensemble_from_nodes_info(nodes_info)
     service_uri = ""

@@ -11,7 +11,7 @@ from cloudtik.core._private.constants import env_integer, CLOUDTIK_DEFAULT_CLOUD
 
 # Max number of retries to AWS (default is 5, time increases exponentially)
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
-    get_database_engine, get_database_port
+    get_database_engine, get_database_port, get_config_for_update
 
 BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 
@@ -161,9 +161,7 @@ def get_aws_s3_storage_config(provider_config: Dict[str, Any]):
 
 def get_aws_s3_storage_config_for_update(provider_config: Dict[str, Any]):
     storage_config = get_storage_config_for_update(provider_config)
-    if "aws_s3_storage" not in storage_config:
-        storage_config["aws_s3_storage"] = {}
-    return storage_config["aws_s3_storage"]
+    return get_config_for_update(storage_config, "aws_s3_storage")
 
 
 def export_aws_s3_storage_config(provider_config, config_dict: Dict[str, Any]):
@@ -225,9 +223,7 @@ def get_aws_database_port(database_config):
 
 def get_aws_database_config_for_update(provider_config: Dict[str, Any]):
     database_config = get_database_config_for_update(provider_config)
-    if "aws.database" not in database_config:
-        database_config["aws.database"] = {}
-    return database_config["aws.database"]
+    return get_config_for_update(database_config, "aws.database")
 
 
 def export_aws_database_config(provider_config, config_dict: Dict[str, Any]):

@@ -5,7 +5,7 @@ import math
 from typing import Any, Dict, List
 
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
-from cloudtik.core._private.utils import get_storage_config_for_update
+from cloudtik.core._private.utils import get_storage_config_for_update, get_config_for_update
 
 from cloudtik.core._private.cli_logger import cli_logger
 
@@ -39,9 +39,7 @@ def get_aliyun_oss_storage_config(provider_config: Dict[str, Any]):
 
 def get_aliyun_oss_storage_config_for_update(provider_config: Dict[str, Any]):
     storage_config = get_storage_config_for_update(provider_config)
-    if "aliyun_oss_storage" not in storage_config:
-        storage_config["aliyun_oss_storage"] = {}
-    return storage_config["aliyun_oss_storage"]
+    return get_config_for_update(storage_config, "aliyun_oss_storage")
 
 
 def export_aliyun_oss_storage_config(provider_config, config_dict: Dict[str, Any]):

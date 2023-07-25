@@ -3048,15 +3048,17 @@ def convert_nodes_to_resource(
 
 
 def get_storage_config_for_update(provider_config):
-    if "storage" not in provider_config:
-        provider_config["storage"] = {}
-    return provider_config["storage"]
+    return get_config_for_update(provider_config, "storage")
 
 
 def get_database_config_for_update(provider_config):
-    if "database" not in provider_config:
-        provider_config["database"] = {}
-    return provider_config["database"]
+    return get_config_for_update(provider_config, "database")
+
+
+def get_config_for_update(config, config_key):
+    if config_key not in config:
+        config[config_key] = {}
+    return config[config_key]
 
 
 def print_json_formatted(json_bytes):

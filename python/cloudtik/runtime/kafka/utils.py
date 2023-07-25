@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.utils import \
     subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, subscribe_runtime_config, load_properties_file, \
-    save_properties_file
+    save_properties_file, get_config_for_update
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -22,10 +22,8 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     if workspace_name is None:
         return cluster_config
 
-    runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if KAFKA_RUNTIME_CONFIG_KEY not in runtime_config:
-        runtime_config[KAFKA_RUNTIME_CONFIG_KEY] = {}
-    kafka_config = runtime_config[KAFKA_RUNTIME_CONFIG_KEY]
+    runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
+    kafka_config = get_config_for_update(runtime_config, KAFKA_RUNTIME_CONFIG_KEY)
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)

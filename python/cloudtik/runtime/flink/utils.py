@@ -8,7 +8,7 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_
     BUILT_IN_RUNTIME_FLINK
 from cloudtik.core._private.utils import is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
-    print_json_formatted
+    print_json_formatted, get_config_for_update
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.common.utils import get_runtime_services_of, get_runtime_default_storage_of
@@ -110,10 +110,8 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     if workspace_name is None:
         return cluster_config
 
-    runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if FLINK_RUNTIME_CONFIG_KEY not in runtime_config:
-        runtime_config[FLINK_RUNTIME_CONFIG_KEY] = {}
-    flink_config = runtime_config[FLINK_RUNTIME_CONFIG_KEY]
+    runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
+    flink_config = get_config_for_update(runtime_config, FLINK_RUNTIME_CONFIG_KEY)
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)
@@ -175,13 +173,8 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         flink_taskmanager_memory_all - get_flink_taskmanager_overhead(flink_taskmanager_memory_all)
     runtime_resource["flink_jobmanager_memory"] = get_flink_jobmanager_memory(worker_memory_for_flink)
 
-    if RUNTIME_CONFIG_KEY not in cluster_config:
-        cluster_config[RUNTIME_CONFIG_KEY] = {}
-    runtime_config = cluster_config[RUNTIME_CONFIG_KEY]
-
-    if FLINK_RUNTIME_CONFIG_KEY not in runtime_config:
-        runtime_config[FLINK_RUNTIME_CONFIG_KEY] = {}
-    flink_config = runtime_config[FLINK_RUNTIME_CONFIG_KEY]
+    runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
+    flink_config = get_config_for_update(runtime_config, FLINK_RUNTIME_CONFIG_KEY)
 
     flink_config["yarn_container_resource"] = container_resource
     flink_config["flink_resource"] = runtime_resource

@@ -5,7 +5,7 @@ from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.utils import is_runtime_enabled, \
-    get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config
+    get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config, get_config_for_update
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -39,10 +39,8 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     if workspace_name is None:
         return cluster_config
 
-    runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if TRINO_RUNTIME_CONFIG_KEY not in runtime_config:
-        runtime_config[TRINO_RUNTIME_CONFIG_KEY] = {}
-    trino_config = runtime_config[TRINO_RUNTIME_CONFIG_KEY]
+    runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
+    trino_config = get_config_for_update(runtime_config, TRINO_RUNTIME_CONFIG_KEY)
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     global_variables = workspace_provider.subscribe_global_variables(cluster_config)

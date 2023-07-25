@@ -22,23 +22,23 @@ set_service_command "$@"
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 CONSUL_HOME=$RUNTIME_PATH/consul
-CONSUL_PID_FILE=${CONSUL_HOME}/consul-server.pid
+CONSUL_PID_FILE=${CONSUL_HOME}/consul-agent.pid
 
 case "$SERVICE_COMMAND" in
 start)
     CONSUL_CONFIG_DIR=${CONSUL_HOME}/consul.d
-    CONSUL_LOG_FILE=${CONSUL_HOME}/logs/consul-server.log
-    # Run server agent on each node
+    CONSUL_LOG_FILE=${CONSUL_HOME}/logs/consul-agent.log
+    # Run server or client agent on each node
     nohup consul agent -config-dir=${CONSUL_CONFIG_DIR} -log-file=${CONSUL_LOG_FILE} -pid-file=${CONSUL_PID_FILE} > /dev/null 2>&1 &
     ;;
 stop)
-    # Stop server agent
+    # Stop server or client agent
     if [ -f "${CONSUL_PID_FILE}" ]; then
-        SERVER_PID=$(cat ${CONSUL_PID_FILE})
-        if [ -n "$SERVER_PID" ]; then
-          echo "Stopping Consul server agent..."
+        AGENT_PID=$(cat ${CONSUL_PID_FILE})
+        if [ -n "${AGENT_PID}" ]; then
+          echo "Stopping Consul agent..."
           # SIGTERM = 15
-          kill -15 $SERVER_PID >/dev/null 2>&1
+          kill -15 ${AGENT_PID} >/dev/null 2>&1
         fi
     fi
     ;;

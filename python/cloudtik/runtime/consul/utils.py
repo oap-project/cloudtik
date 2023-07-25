@@ -3,7 +3,8 @@ from typing import Any, Dict
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core._private.utils import \
-    publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config
+    publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, RUNTIME_CONFIG_KEY, \
+    get_config_for_update
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 RUNTIME_PROCESSES = [
@@ -15,6 +16,9 @@ RUNTIME_PROCESSES = [
 ]
 
 CONSUL_RUNTIME_CONFIG_KEY = "consul"
+CONSUL_JOIN_LIST = "consul_join_list"
+CONSUL_RPC_PORT = "consul_rpc_port"
+
 CONSUL_SERVER_RPC_PORT = 8300
 CONSUL_SERVER_HTTP_PORT = 8500
 
@@ -23,12 +27,75 @@ def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
-def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
-    runtime_envs = {"CONSUL_ENABLED": True}
+def _is_agent_server_mode(runtime_config):
+    # Whether this is a consul server cluster or deploy at client
+    consul_config = runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
+    return consul_config.get("server", False)
 
-    # get the number of the workers plus head
-    minimal_workers = _get_consul_minimal_workers(config)
-    runtime_envs["CONSUL_SERVERS"] = minimal_workers + 1
+
+def _to_joint_list(sever_uri):
+    hosts = []
+    port = CONSUL_SERVER_RPC_PORT
+    host_port_list = [x.strip() for x in sever_uri.split(",")]
+    for host_port in host_port_list:
+        parts = [x.strip() for x in host_port.split(":")]
+        n = len(parts)
+        if n == 1:
+            host = parts[0]
+        elif n == 2:
+            host = parts[0]
+            port = int(parts[1])
+        else:
+            raise ValueError(
+                "Invalid Consul server uri: {}".format(sever_uri))
+        hosts.append(host)
+
+    join_list = ",".join(['"{}"'.format(host) for host in hosts])
+    return join_list, port
+
+
+def _bootstrap_join_list(cluster_config: Dict[str, Any]):
+    workspace_name = cluster_config.get("workspace_name")
+    if not workspace_name:
+        raise ValueError("Workspace name should be configured for cluster.")
+
+    # The consul server cluster must be running and registered
+    # discovered with bootstrap methods (workspace global variables)
+    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
+    global_variables = workspace_provider.subscribe_global_variables(cluster_config)
+    consul_uri = global_variables.get("consul-uri")
+    if not consul_uri:
+        raise RuntimeError("No running consul server cluster is detected.")
+
+    runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
+    consul_config = get_config_for_update(runtime_config, CONSUL_RUNTIME_CONFIG_KEY)
+
+    join_list, rpc_port = _to_joint_list(consul_uri)
+    consul_config[CONSUL_JOIN_LIST] = join_list
+    # current we don't use it
+    consul_config[CONSUL_RPC_PORT] = rpc_port
+
+
+def _with_runtime_environment_variables(
+        server_mode, runtime_config, config,
+        provider, node_id: str):
+    runtime_envs = {}
+
+    if server_mode:
+        runtime_envs["CONSUL_SERVER"] = True
+
+        # get the number of the workers plus head
+        minimal_workers = _get_consul_minimal_workers(config)
+        runtime_envs["CONSUL_NUM_SERVERS"] = minimal_workers + 1
+    else:
+        runtime_envs["CONSUL_CLIENT"] = True
+
+        consul_config = runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
+        join_list = consul_config.get(CONSUL_JOIN_LIST)
+        if not join_list:
+            raise RuntimeError("Invalid join list. No running consul server cluster is detected.")
+        runtime_envs["CONSUL_JOIN_LIST"] = join_list
+
     return runtime_envs
 
 
@@ -38,31 +105,34 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_runtime_services(cluster_head_ip):
+def _get_runtime_services(server_mode, cluster_head_ip):
     services = {
         "consul": {
             "name": "Consul RPC",
             "url": "{}:{}".format(cluster_head_ip, CONSUL_SERVER_RPC_PORT)
         },
-        "consul_ui": {
+    }
+    if server_mode:
+        services["consul_ui"] = {
             "name": "Consul UI",
             "url": "http://{}:{}".format(cluster_head_ip, CONSUL_SERVER_HTTP_PORT)
-        },
-    }
+        }
     return services
 
 
-def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_runtime_service_ports(server_mode, runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "consul": {
             "protocol": "TCP",
             "port": CONSUL_SERVER_RPC_PORT,
         },
-        "consul_ui": {
+    }
+
+    if server_mode:
+        service_ports["consul_ui"] = {
             "protocol": "TCP",
             "port": CONSUL_SERVER_HTTP_PORT,
-        },
-    }
+        }
     return service_ports
 
 

@@ -22,7 +22,7 @@ from obs import ObsClient
 
 from cloudtik.core._private.constants import \
     CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI, env_bool
-from cloudtik.core._private.utils import get_storage_config_for_update
+from cloudtik.core._private.utils import get_storage_config_for_update, get_config_for_update
 
 OBS_SERVICES_URL = 'https://obs.{location}.myhuaweicloud.com'
 OBS_SERVICES_DEFAULT_URL = 'https://obs.myhuaweicloud.com'
@@ -214,9 +214,7 @@ def get_huaweicloud_obs_storage_endpoint(region: str = None) -> str:
 def get_huaweicloud_obs_storage_config_for_update(
         provider_config: Dict[str, Any]):
     storage_config = get_storage_config_for_update(provider_config)
-    if "huaweicloud_obs_storage" not in storage_config:
-        storage_config["huaweicloud_obs_storage"] = {}
-    return storage_config["huaweicloud_obs_storage"]
+    return get_config_for_update(storage_config, "huaweicloud_obs_storage")
 
 
 def export_huaweicloud_obs_storage_config(provider_config,

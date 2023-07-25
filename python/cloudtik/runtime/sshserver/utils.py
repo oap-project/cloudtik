@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 from cloudtik.core._private.core_utils import generate_public_key
+from cloudtik.core._private.utils import get_config_for_update
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -37,10 +38,8 @@ def _bootstrap_runtime_config(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
             raise ValueError("Failed to generate public key from private key file: {}. ".format(
                 ssh_private_key) + SSH_PUBLIC_KEY_ERROR)
 
-    if "file_mounts" not in cluster_config:
-        cluster_config["file_mounts"] = {}
-
-    cluster_config["file_mounts"].update({
+    file_mounts_config = get_config_for_update(cluster_config, "file_mounts")
+    file_mounts_config.update({
         "~/.ssh/cloudtik-ssh-server-authorized_keys": ssh_public_key
     })
     return cluster_config

@@ -31,12 +31,21 @@ function check_consul_installed() {
 }
 
 function update_join_list() {
-    # join list for servers, we use the head
-    if [ $IS_HEAD_NODE == "true" ]; then
-        # for head, use its own address
-        JOIN_LIST="\"${NODE_IP_ADDRESS}\""
+    if [ "${CONSUL_SERVER}" == "true" ]; then
+        # join list for servers, we use the head
+        if [ $IS_HEAD_NODE == "true" ]; then
+            # for head, use its own address
+            JOIN_LIST="\"${NODE_IP_ADDRESS}\""
+        else
+            JOIN_LIST="\"${HEAD_ADDRESS}\""
+        fi
     else
-        JOIN_LIST="\"${HEAD_ADDRESS}\""
+        # for client mode cluster, CONSUL_JOIN_LIST will be set by runtime
+        if [ -z  "${CONSUL_JOIN_LIST}" ]; then
+            echo "WARNING: CONSUL_JOIN_LIST is empty. It should be set."
+        fi
+
+        JOIN_LIST=${CONSUL_JOIN_LIST}
     fi
     sed -i "s!{%join.list%}!${JOIN_LIST}!g" ${consul_output_dir}/consul.hcl
 }
@@ -54,12 +63,12 @@ function update_consul_data_dir() {
 }
 
 function update_ui_config() {
-    if [ $IS_HEAD_NODE == "true" ]; then
+    if [ "$IS_HEAD_NODE" == "true" ]; then
         UI_ENABLED=true
     else
         UI_ENABLED=false
     fi
-    sed -i "s!{%ui.config.enabled%}!${UI_ENABLED}!g" ${consul_output_dir}/consul.hcl
+    sed -i "s!{%ui.config.enabled%}!${UI_ENABLED}!g" ${consul_output_dir}/server.hcl
 }
 
 function configure_consul() {
@@ -68,13 +77,17 @@ function configure_consul() {
     cd $output_dir
     consul_output_dir=$output_dir/consul
 
+    # General agent configuration
     sed -i "s!{%bind.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.hcl
     sed -i "s!{%client.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.hcl
-    sed -i "s!{%server.nodes%}!${CONSUL_SERVERS}!g" ${consul_output_dir}/consul.hcl
-
     update_join_list
     update_consul_data_dir
-    update_ui_config
+
+    if [ "${CONSUL_SERVER}" == "true" ]; then
+        # Server agent configuration
+        sed -i "s!{%server.number%}!${CONSUL_NUM_SERVERS}!g" ${consul_output_dir}/server.hcl
+        update_ui_config
+    fi
 
     CONSUL_CONFIG_DIR=${CONSUL_HOME}/consul.d
     CONSUL_CONFIG_DIR_INSTALLED=/etc/consul.d
@@ -83,8 +96,17 @@ function configure_consul() {
         sudo cp -r /etc/consul.d/* ${CONSUL_CONFIG_DIR}/
     fi
     sudo cp -r ${consul_output_dir}/consul.hcl ${CONSUL_CONFIG_DIR}/consul.hcl
+
+    if [ "${CONSUL_SERVER}" == "true" ]; then
+        sudo cp -r ${consul_output_dir}/server.hcl ${CONSUL_CONFIG_DIR}/server.hcl
+    fi
+
     sudo chown --recursive $(whoami):users ${CONSUL_CONFIG_DIR}
     sudo chmod 640 ${CONSUL_CONFIG_DIR}/consul.hcl
+
+    if [ "${CONSUL_SERVER}" == "true" ]; then
+        sudo chmod 640 ${CONSUL_CONFIG_DIR}/server.hcl
+    fi
 }
 
 set_head_option "$@"

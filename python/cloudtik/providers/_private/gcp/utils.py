@@ -11,7 +11,7 @@ from google.oauth2.credentials import Credentials as OAuthCredentials
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
-    get_database_engine, get_database_port
+    get_database_engine, get_database_port, get_config_for_update
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                                   POLL_INTERVAL)
 from cloudtik.providers._private.gcp.node import GCPNode
@@ -360,9 +360,7 @@ def get_gcp_cloud_storage_config(provider_config: Dict[str, Any]):
 
 def get_gcp_cloud_storage_config_for_update(provider_config: Dict[str, Any]):
     storage_config = get_storage_config_for_update(provider_config)
-    if "gcp_cloud_storage" not in storage_config:
-        storage_config["gcp_cloud_storage"] = {}
-    return storage_config["gcp_cloud_storage"]
+    return get_config_for_update(storage_config, "gcp_cloud_storage")
 
 
 def export_gcp_cloud_storage_config(provider_config, config_dict: Dict[str, Any]):
@@ -435,9 +433,7 @@ def get_gcp_database_port(database_config):
 
 def get_gcp_database_config_for_update(provider_config: Dict[str, Any]):
     database_config = get_database_config_for_update(provider_config)
-    if "gcp.database" not in database_config:
-        database_config["gcp.database"] = {}
-    return database_config["gcp.database"]
+    return get_config_for_update(database_config, "gcp.database")
 
 
 def export_gcp_cloud_database_config(provider_config, config_dict: Dict[str, Any]):

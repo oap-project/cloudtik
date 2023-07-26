@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_AI
 from cloudtik.core._private.utils import export_runtime_flags
-from cloudtik.runtime.common.utils import get_runtime_services_of
+from cloudtik.runtime.common.utils import get_head_service_urls_of
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -51,7 +51,7 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_runtime_services(cluster_head_ip):
+def _get_head_service_urls(cluster_head_ip):
     services = {
         "mlflow": {
             "name": "MLflow",
@@ -61,7 +61,7 @@ def _get_runtime_services(cluster_head_ip):
     return services
 
 
-def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "mlflow": {
             "protocol": "TCP",
@@ -71,5 +71,5 @@ def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]
     return service_ports
 
 
-def get_runtime_services(config: Dict[str, Any]):
-    return get_runtime_services_of(config, BUILT_IN_RUNTIME_AI)
+def get_head_service_urls(config: Dict[str, Any]):
+    return get_head_service_urls_of(config, BUILT_IN_RUNTIME_AI)

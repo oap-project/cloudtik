@@ -55,7 +55,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     with_runtime_environment_variables, get_nodes_info, \
-    sum_worker_cpus, sum_worker_memory, get_runtime_services, get_enabled_runtimes, \
+    sum_worker_cpus, sum_worker_memory, get_head_service_urls, get_enabled_runtimes, \
     with_node_ip_environment_variables, run_in_parallel_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
@@ -2087,14 +2087,14 @@ def show_useful_commands(call_context: CallContext,
 
         head_node_cluster_ip = get_node_cluster_ip(provider, head_node)
 
-        runtime_services = get_runtime_services(config.get(RUNTIME_CONFIG_KEY), head_node_cluster_ip)
-        sorted_runtime_services = sorted(runtime_services.items(), key=lambda kv: kv[1]["name"])
-        for service_id, runtime_service in sorted_runtime_services:
-            with _cli_logger.group(runtime_service["name"] + ":"):
-                if "info" in runtime_service:
-                    service_desc = "{}, {}".format(runtime_service["url"], runtime_service["info"])
+        head_service_urls = get_head_service_urls(config.get(RUNTIME_CONFIG_KEY), head_node_cluster_ip)
+        sorted_head_service_urls = sorted(head_service_urls.items(), key=lambda kv: kv[1]["name"])
+        for service_id, head_service_url in sorted_head_service_urls:
+            with _cli_logger.group(head_service_url["name"] + ":"):
+                if "info" in head_service_url:
+                    service_desc = "{}, {}".format(head_service_url["url"], head_service_url["info"])
                 else:
-                    service_desc = runtime_service["url"]
+                    service_desc = head_service_url["url"]
                 _cli_logger.print(cf.bold(service_desc))
 
 

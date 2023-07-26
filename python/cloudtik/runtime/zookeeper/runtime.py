@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.zookeeper.utils import _with_runtime_environment_variables, \
-    _get_runtime_processes, _get_runtime_logs, _get_runtime_services, _handle_minimal_nodes_reached
+    _get_runtime_processes, _get_runtime_logs, _get_head_service_urls, _handle_minimal_nodes_reached
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,8 @@ class ZooKeeperRuntime(RuntimeBase):
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
 
-    def get_runtime_services(self, cluster_head_ip: str):
-        return _get_runtime_services(cluster_head_ip)
+    def get_head_service_urls(self, cluster_head_ip: str):
+        return _get_head_service_urls(cluster_head_ip)
 
     def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.

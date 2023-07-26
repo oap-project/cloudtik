@@ -31,7 +31,7 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_runtime_services(cluster_head_ip):
+def _get_head_service_urls(cluster_head_ip):
     # TODO: how to get the ZooKeeper service address which established after head node
     return None
 

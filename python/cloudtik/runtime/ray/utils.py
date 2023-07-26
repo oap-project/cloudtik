@@ -53,7 +53,7 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_runtime_services(cluster_head_ip):
+def _get_head_service_urls(cluster_head_ip):
     services = {
         "ray": {
             "name": "Ray",
@@ -75,7 +75,7 @@ def _with_memory_configurations(
     pass
 
 
-def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "ray": {
             "protocol": "TCP",

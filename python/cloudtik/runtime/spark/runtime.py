@@ -9,8 +9,8 @@ from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.spark.job_waiter import SparkJobWaiter
 from cloudtik.runtime.spark.utils import _config_runtime_resources, _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, get_runtime_processes, _validate_config, \
-    get_runtime_logs, _get_runtime_services, _config_depended_services, \
-    _get_runtime_service_ports, _get_scaling_policy
+    get_runtime_logs, _get_head_service_urls, _config_depended_services, \
+    _get_head_service_ports, _get_scaling_policy
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +49,11 @@ class SparkRuntime(RuntimeBase):
 
         return _get_runnable_command(target, runtime_options)
 
-    def get_runtime_services(self, cluster_head_ip: str):
-        return _get_runtime_services(cluster_head_ip)
+    def get_head_service_urls(self, cluster_head_ip: str):
+        return _get_head_service_urls(cluster_head_ip)
 
-    def get_runtime_service_ports(self) -> Dict[str, Any]:
-        return _get_runtime_service_ports(self.runtime_config)
+    def get_head_service_ports(self) -> Dict[str, Any]:
+        return _get_head_service_ports(self.runtime_config)
 
     def get_scaling_policy(self, cluster_config: Dict[str, Any], head_ip: str) -> Optional[ScalingPolicy]:
         return _get_scaling_policy(self.runtime_config, cluster_config, head_ip)

@@ -9,7 +9,7 @@ import psutil
 
 from cloudtik.core._private.core_utils import get_memory_in_bytes, get_cloudtik_temp_dir, exec_with_output
 from cloudtik.core._private.utils import AUTH_CONFIG_KEY, DOCKER_CONFIG_KEY, \
-    FILE_MOUNTS_CONFIG_KEY, get_runtime_service_ports
+    FILE_MOUNTS_CONFIG_KEY, get_head_service_ports
 from cloudtik.core._private.resource_spec import ResourceSpec
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME
 
@@ -200,7 +200,7 @@ def _configure_port_mappings(config):
     provider = config["provider"]
     # configure port mappings for head node
     runtime_config = config.get("runtime", {})
-    service_ports = get_runtime_service_ports(runtime_config)
+    service_ports = get_head_service_ports(runtime_config)
 
     port_mapping_base = _get_port_mapping_base(
         provider, service_ports)

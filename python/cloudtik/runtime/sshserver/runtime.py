@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.sshserver.utils import _get_runtime_processes, \
-    _get_runtime_service_ports, _with_runtime_environment_variables, _bootstrap_runtime_config
+    _get_head_service_ports, _with_runtime_environment_variables, _bootstrap_runtime_config
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +30,8 @@ class SSHServerRuntime(RuntimeBase):
         return _with_runtime_environment_variables(
             self.runtime_config, config=config)
 
-    def get_runtime_service_ports(self) -> Dict[str, Any]:
-        return _get_runtime_service_ports(self.runtime_config)
+    def get_head_service_ports(self) -> Dict[str, Any]:
+        return _get_head_service_ports(self.runtime_config)
 
     @staticmethod
     def get_processes():

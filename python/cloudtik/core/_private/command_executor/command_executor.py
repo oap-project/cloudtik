@@ -18,7 +18,7 @@ def is_key_with_privacy(key: str):
     return False
 
 
-def _strip_quotes(value):
+def _strip_quote(value):
     # strip has problem because it will remove all front and tailing quotes
     if not value:
         return value
@@ -51,7 +51,7 @@ def _with_environment_variables(cmd: str,
         escaped_val = json.dumps(val, separators=(",", ":"))
         if isinstance(val, str):
             # remove quote (single or double).
-            escaped_val = _strip_quotes(escaped_val)
+            escaped_val = _strip_quote(escaped_val)
 
         s = "export {}={};".format(key, quote(escaped_val))
         as_strings.append(s)

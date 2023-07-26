@@ -1,7 +1,10 @@
+import json
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL, _get_runtime
+from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
+    get_runtime_config_from_node
 from cloudtik.core._private.utils import \
     publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, RUNTIME_CONFIG_KEY, \
     get_config_for_update
@@ -18,6 +21,7 @@ RUNTIME_PROCESSES = [
 CONSUL_RUNTIME_CONFIG_KEY = "consul"
 CONFIG_KEY_JOIN_LIST = "join_list"
 CONFIG_KEY_RPC_PORT = "rpc_port"
+CONFIG_KEY_SERVICES = "services"
 
 CONSUL_SERVER_RPC_PORT = 8300
 CONSUL_SERVER_HTTP_PORT = 8500
@@ -31,6 +35,11 @@ def _is_agent_server_mode(runtime_config):
     # Whether this is a consul server cluster or deploy at client
     consul_config = runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
     return consul_config.get("server", False)
+
+
+def _get_consul_config_for_update(cluster_config):
+    runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
+    return get_config_for_update(runtime_config, CONSUL_RUNTIME_CONFIG_KEY)
 
 
 def _to_joint_list(sever_uri):
@@ -67,8 +76,7 @@ def _bootstrap_join_list(cluster_config: Dict[str, Any]):
     if not consul_uri:
         raise RuntimeError("No running consul server cluster is detected.")
 
-    runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
-    consul_config = get_config_for_update(runtime_config, CONSUL_RUNTIME_CONFIG_KEY)
+    consul_config = _get_consul_config_for_update(cluster_config)
 
     join_list, rpc_port = _to_joint_list(consul_uri)
     consul_config[CONFIG_KEY_JOIN_LIST] = join_list
@@ -76,6 +84,56 @@ def _bootstrap_join_list(cluster_config: Dict[str, Any]):
     consul_config[CONFIG_KEY_RPC_PORT] = rpc_port
 
     return cluster_config
+
+
+def _match_service_type(service_config, head):
+    node_kind = service_config.get("node_kind")
+    if head:
+        if not node_kind or node_kind == "head":
+            return True
+    else:
+        if not node_kind or node_kind == "worker":
+            return True
+
+    return False
+
+
+def _bootstrap_runtime_services(runtime_config, config: Dict[str, Any]):
+    # for all the runtimes, query its services per node type
+    services_map = {}
+
+    available_node_types = config["available_node_types"]
+    head_node_type = config["head_node_type"]
+    for node_type in available_node_types:
+        runtime_config = _get_node_type_specific_runtime_config(config, node_type)
+        if not runtime_config:
+            continue
+
+        head = True if node_type == head_node_type else False
+
+        services_for_node_type = {}
+        runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+        for runtime_type in runtime_types:
+            if runtime_type == BUILT_IN_RUNTIME_CONSUL:
+                continue
+
+            runtime = _get_runtime(runtime_type, runtime_config)
+            services = runtime.get_runtime_services()
+            if not services:
+                continue
+
+            for service_name, service_config in services.items():
+                if _match_service_type(service_config, head):
+                    # TODO: conversion between the data formats
+                    services_for_node_type[service_name] = service_config
+        if services_for_node_type:
+            services_map[node_type] = services_for_node_type
+
+    if services_map:
+        consul_config = _get_consul_config_for_update(config)
+        consul_config[CONFIG_KEY_SERVICES] = services_map
+
+    return config
 
 
 def _with_runtime_environment_variables(
@@ -101,13 +159,18 @@ def _with_runtime_environment_variables(
     return runtime_envs
 
 
+def _get_home_dir():
+    return os.path.join(os.getenv("HOME"), "runtime", "consul")
+
+
 def _get_runtime_logs():
-    consul_logs_dir = os.path.join(os.getenv("HOME"), "runtime", "consul", "logs")
+    home_dir = _get_home_dir()
+    consul_logs_dir = os.path.join(home_dir, "logs")
     all_logs = {"consul": consul_logs_dir}
     return all_logs
 
 
-def _get_runtime_services(server_mode, cluster_head_ip):
+def _get_head_service_urls(server_mode, cluster_head_ip):
     services = {
         "consul": {
             "name": "Consul RPC",
@@ -122,7 +185,7 @@ def _get_runtime_services(server_mode, cluster_head_ip):
     return services
 
 
-def _get_runtime_service_ports(server_mode, runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_head_service_ports(server_mode, runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "consul": {
             "protocol": "TCP",
@@ -196,10 +259,77 @@ def _get_consul_minimal_workers(config: Dict[str, Any]):
             continue
         # Check the runtimes of the node type whether it needs to wait minimal before update
         runtime_config = _get_node_type_specific_runtime_config(config, node_type)
-        if runtime_config:
-            runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
-            if BUILT_IN_RUNTIME_CONSUL in runtime_types:
-                node_type_config = available_node_types[node_type]
-                min_workers = node_type_config.get("min_workers", 0)
-                return min_workers
+        if not runtime_config:
+            continue
+        runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+        if BUILT_IN_RUNTIME_CONSUL not in runtime_types:
+            continue
+        node_type_config = available_node_types[node_type]
+        min_workers = node_type_config.get("min_workers", 0)
+        return min_workers
     return 0
+
+
+def _get_services_of_node_type(runtime_config, node_type):
+    consul_config = runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
+    services_map = consul_config.get(CONFIG_KEY_SERVICES)
+    if not services_map:
+        return None
+    return services_map.get(node_type)
+
+
+def configure_services(head):
+    """This method is called from configure.py script which is running on node.
+    """
+    node_type = get_runtime_node_type()
+    runtime_config = get_runtime_config_from_node(head)
+    services_config = _get_services_of_node_type(runtime_config, node_type)
+
+    home_dir = _get_home_dir()
+    config_dir = os.path.join(home_dir, "consul.d")
+    services_file = os.path.join(home_dir, "services.json")
+    if not services_config:
+        # no services, remove the services file
+        if os.path.isfile(services_file):
+            os.remove(services_file)
+    else:
+        # generate the services configuration file
+        os.makedirs(config_dir, exist_ok=True)
+        services = _generate_services_def(services_config)
+        with open(services_file, "w") as f:
+            f.write(json.dumps(services, indent=4))
+
+
+def _generate_service_def(service_name, service_config):
+    node_ip = get_runtime_node_ip()
+    port = service_config["port"]
+    service_def = {
+            "name": service_name,
+            "address": node_ip,
+            "port": port,
+            "checks": [
+                {
+                    "tcp": "{}:{}".format(node_ip, port),
+                    "interval": "5s",
+                    "timeout": "10s"
+                }
+            ]
+        }
+
+    tags = service_config.get("tags")
+    if tags:
+        service_def["tags"] = tags
+
+    return service_def
+
+
+def _generate_services_def(services_config):
+    services = []
+    for service_name, service_config in services_config.items():
+        service_def = _generate_service_def(service_name, service_config)
+        services.append(service_def)
+
+    services_config = {
+        "services": services
+    }
+    return services_config

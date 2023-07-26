@@ -3,7 +3,7 @@
 from typing import Union, Optional
 
 from cloudtik.core.api import Cluster, ThisCluster
-from cloudtik.runtime.ai.utils import get_runtime_services
+from cloudtik.runtime.ai.utils import get_head_service_urls
 
 
 class AICluster(Cluster):
@@ -23,7 +23,7 @@ class AICluster(Cluster):
             no_config_cache, verbosity)
 
     def get_services(self):
-        return get_runtime_services(self.config)
+        return get_head_service_urls(self.config)
 
 
 class ThisAICluster(ThisCluster):
@@ -32,4 +32,4 @@ class ThisAICluster(ThisCluster):
         super().__init__(verbosity)
 
     def get_services(self):
-        return get_runtime_services(self.config)
+        return get_head_service_urls(self.config)

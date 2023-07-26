@@ -100,7 +100,7 @@ def _match_service_type(service_config, head):
     return False
 
 
-def _bootstrap_runtime_services(runtime_config, config: Dict[str, Any]):
+def _bootstrap_runtime_services(config: Dict[str, Any]):
     # for all the runtimes, query its services per node type
     services_map = {}
 

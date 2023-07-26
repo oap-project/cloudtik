@@ -32,8 +32,8 @@ from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
 from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_PYTHON_VERSION, \
     CLOUDTIK_DEFAULT_MAX_WORKERS, CLOUDTIK_NODE_SSH_INTERVAL_S, CLOUDTIK_NODE_START_WAIT_S, MAX_PARALLEL_EXEC_NODES, \
     CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
-    CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
-    CLOUDTIK_RUNTIME_ENV_NODE_TYPE, PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
+    CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
+    PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
     CLOUDTIK_ENCRYPTION_PREFIX
 from cloudtik.core._private.core_utils import _load_class, double_quote, check_process_exists, get_cloudtik_temp_dir
 from cloudtik.core._private.crypto import AESCipher
@@ -2592,46 +2592,12 @@ def decode_cluster_secrets(encoded_secrets):
     return base64.b64decode(encoded_secrets.encode('utf-8'))
 
 
-def subscribe_runtime_config():
-    if CLOUDTIK_RUNTIME_ENV_SECRETS not in os.environ:
-        raise RuntimeError("Not able to subscribe runtime config in lack of secrets.")
-
-    node_type = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_TYPE)
-    if node_type:
-        # Try getting node type specific runtime config
-        runtime_config = retrieve_runtime_config(node_type)
-        if runtime_config is not None:
-            return runtime_config
-
-    return retrieve_runtime_config()
-
-
 def get_runtime_config_key(node_type: str):
     if node_type and len(node_type) > 0:
         runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG_NODE_TYPE.format(node_type)
     else:
         runtime_config_key = CLOUDTIK_CLUSTER_RUNTIME_CONFIG
     return runtime_config_key
-
-
-def retrieve_runtime_config(node_type: str = None):
-    # Retrieve the runtime config
-    runtime_config_key = get_runtime_config_key(node_type)
-    encrypted_runtime_config = _get_key_from_kv(runtime_config_key)
-    if encrypted_runtime_config is None:
-        return None
-
-    # Decrypt
-    encoded_secrets = os.environ[CLOUDTIK_RUNTIME_ENV_SECRETS]
-    secrets = decode_cluster_secrets(encoded_secrets)
-    cipher = AESCipher(secrets)
-    runtime_config_str = cipher.decrypt(encrypted_runtime_config)
-
-    # To json object
-    if runtime_config_str == "":
-        return {}
-
-    return json.loads(runtime_config_str)
 
 
 def _get_minimal_nodes_before_update(config: Dict[str, Any], node_type: str):
@@ -2675,22 +2641,6 @@ def _notify_minimal_nodes_reached(
         runtime = _get_runtime(runtime_type, runtime_config)
         runtime.minimal_nodes_reached(
             config, node_type, head_info, nodes_info)
-
-
-def subscribe_nodes_info():
-    if CLOUDTIK_RUNTIME_ENV_NODE_TYPE not in os.environ:
-        raise RuntimeError("Not able to subscribe nodes info in lack of node type.")
-    node_type = os.environ[CLOUDTIK_RUNTIME_ENV_NODE_TYPE]
-    return _retrieve_nodes_info(node_type)
-
-
-def _retrieve_nodes_info(node_type):
-    nodes_info_key = CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE.format(node_type)
-    nodes_info_str = _get_key_from_kv(nodes_info_key)
-    if nodes_info_str is None:
-        return None
-
-    return json.loads(nodes_info_str)
 
 
 def get_running_head_node(

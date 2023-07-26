@@ -35,8 +35,8 @@ class HDFSRuntime(RuntimeBase):
     def get_head_service_ports(self) -> Dict[str, Any]:
         return _get_head_service_ports(self.runtime_config)
 
-    def get_runtime_services(self):
-        return _get_runtime_services(self.runtime_config)
+    def get_runtime_services(self, cluster_name: str):
+        return _get_runtime_services(self.runtime_config, cluster_name)
 
     @staticmethod
     def get_logs() -> Dict[str, str]:

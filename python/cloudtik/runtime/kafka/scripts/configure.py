@@ -2,7 +2,8 @@ import argparse
 import os
 from shlex import quote
 
-from cloudtik.core._private.utils import run_system_command, subscribe_runtime_config
+from cloudtik.core._private.runtime_utils import subscribe_runtime_config
+from cloudtik.core._private.utils import run_system_command
 from cloudtik.runtime.kafka.utils import update_configurations, _get_zookeeper_connect
 
 

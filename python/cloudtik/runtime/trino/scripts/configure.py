@@ -1,6 +1,7 @@
 import argparse
 
-from cloudtik.core._private.utils import load_head_cluster_config, RUNTIME_CONFIG_KEY, subscribe_runtime_config
+from cloudtik.core._private.runtime_utils import subscribe_runtime_config
+from cloudtik.core._private.utils import load_head_cluster_config, RUNTIME_CONFIG_KEY
 from cloudtik.runtime.trino.utils import configure_connectors
 
 

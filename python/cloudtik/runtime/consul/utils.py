@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 from typing import Any, Dict
@@ -6,10 +7,12 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL, _get
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
     get_runtime_config_from_node
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_NODE_KIND, \
-    SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_NODE_KIND_WORKER, SERVICE_DISCOVERY_PORT, SERVICE_DISCOVERY_TAGS
+    SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_NODE_KIND_WORKER, SERVICE_DISCOVERY_PORT, \
+    SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_META, SERVICE_DISCOVERY_META_RUNTIME, \
+    SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_META_CLUSTER
 from cloudtik.core._private.utils import \
-    publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, RUNTIME_CONFIG_KEY, \
-    get_config_for_update
+    publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
+    RUNTIME_CONFIG_KEY, get_config_for_update
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
 RUNTIME_PROCESSES = [
@@ -27,6 +30,9 @@ CONFIG_KEY_SERVICES = "services"
 
 CONSUL_SERVER_RPC_PORT = 8300
 CONSUL_SERVER_HTTP_PORT = 8500
+
+SERVICE_CHECK_INTERVAL_DEFAULT = 10
+SERVICE_CHECK_TIMEOUT_DEFAULT = 5
 
 
 def _get_runtime_processes():
@@ -88,8 +94,8 @@ def _bootstrap_join_list(cluster_config: Dict[str, Any]):
     return cluster_config
 
 
-def _match_service_type(service_config, head):
-    node_kind = service_config.get(SERVICE_DISCOVERY_NODE_KIND)
+def _match_service_type(runtime_service, head):
+    node_kind = runtime_service.get(SERVICE_DISCOVERY_NODE_KIND)
     if head:
         if not node_kind or node_kind == SERVICE_DISCOVERY_NODE_KIND_HEAD:
             return True
@@ -103,7 +109,7 @@ def _match_service_type(service_config, head):
 def _bootstrap_runtime_services(config: Dict[str, Any]):
     # for all the runtimes, query its services per node type
     services_map = {}
-
+    cluster_name = config["cluster_name"]
     available_node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
     for node_type in available_node_types:
@@ -120,13 +126,15 @@ def _bootstrap_runtime_services(config: Dict[str, Any]):
                 continue
 
             runtime = _get_runtime(runtime_type, runtime_config)
-            services = runtime.get_runtime_services()
+            services = runtime.get_runtime_services(cluster_name)
             if not services:
                 continue
 
-            for service_name, service_config in services.items():
-                if _match_service_type(service_config, head):
-                    # TODO: conversion between the data formats
+            for service_name, runtime_service in services.items():
+                if _match_service_type(runtime_service, head):
+                    # conversion between the data formats
+                    service_config = _generate_service_config(
+                        cluster_name, runtime_type, runtime_service)
                     services_for_node_type[service_name] = service_config
         if services_for_node_type:
             services_map[node_type] = services_for_node_type
@@ -136,6 +144,17 @@ def _bootstrap_runtime_services(config: Dict[str, Any]):
         consul_config[CONFIG_KEY_SERVICES] = services_map
 
     return config
+
+
+def _generate_service_config(cluster_name, runtime_type, runtime_service):
+    # We utilize all the standard service discovery properties
+    service_config = copy.deepcopy(runtime_service)
+    meta_config = get_config_for_update(
+        service_config, SERVICE_DISCOVERY_META)
+
+    meta_config[SERVICE_DISCOVERY_META_CLUSTER] = cluster_name
+    meta_config[SERVICE_DISCOVERY_META_RUNTIME] = runtime_type
+    return service_config
 
 
 def _with_runtime_environment_variables(
@@ -289,7 +308,7 @@ def configure_services(head):
 
     home_dir = _get_home_dir()
     config_dir = os.path.join(home_dir, "consul.d")
-    services_file = os.path.join(home_dir, "services.json")
+    services_file = os.path.join(config_dir, "services.json")
     if not services_config:
         # no services, remove the services file
         if os.path.isfile(services_file):
@@ -305,6 +324,10 @@ def configure_services(head):
 def _generate_service_def(service_name, service_config):
     node_ip = get_runtime_node_ip()
     port = service_config[SERVICE_DISCOVERY_PORT]
+    check_interval = service_config.get(
+        SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_CHECK_INTERVAL_DEFAULT)
+    check_timeout = service_config.get(
+        SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_CHECK_TIMEOUT_DEFAULT)
     service_def = {
             "name": service_name,
             "address": node_ip,
@@ -312,8 +335,8 @@ def _generate_service_def(service_name, service_config):
             "checks": [
                 {
                     "tcp": "{}:{}".format(node_ip, port),
-                    "interval": "5s",
-                    "timeout": "10s"
+                    "interval": "{}s".format(check_interval),
+                    "timeout": "{}s".format(check_timeout),
                 }
             ]
         }
@@ -321,6 +344,10 @@ def _generate_service_def(service_name, service_config):
     tags = service_config.get(SERVICE_DISCOVERY_TAGS)
     if tags:
         service_def["tags"] = tags
+
+    meta = service_config.get(SERVICE_DISCOVERY_META)
+    if meta:
+        service_def["meta"] = meta
 
     return service_def
 

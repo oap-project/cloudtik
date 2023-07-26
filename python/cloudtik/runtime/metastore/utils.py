@@ -2,6 +2,9 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
+from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
+    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP, \
+    get_canonical_service_name
 from cloudtik.core._private.utils import export_runtime_flags
 
 RUNTIME_PROCESSES = [
@@ -14,6 +17,9 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_CONFIG_KEY = "metastore"
+
+METASTORE_SERVICE_NAME = "metastore"
+METASTORE_SERVICE_PORT = 9083
 
 
 def _get_runtime_processes():
@@ -36,7 +42,8 @@ def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> No
 
     provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
     head_internal_ip = provider.internal_ip(head_node_id)
-    service_uris = {"hive-metastore-uri": "thrift://{}:9083".format(head_internal_ip)}
+    service_uris = {"hive-metastore-uri": "thrift://{}:{}".format(
+        head_internal_ip, METASTORE_SERVICE_PORT)}
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     workspace_provider.publish_global_variables(cluster_config, service_uris)
@@ -52,7 +59,7 @@ def _get_head_service_urls(cluster_head_ip):
     services = {
         "metastore": {
             "name": "Metastore Uri",
-            "url": "thrift://{}:9083".format(cluster_head_ip)
+            "url": "thrift://{}:{}".format(cluster_head_ip, METASTORE_SERVICE_PORT)
         },
     }
     return services
@@ -62,7 +69,20 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "metastore": {
             "protocol": "TCP",
-            "port": 9083,
+            "port": METASTORE_SERVICE_PORT,
         },
     }
     return service_ports
+
+
+def _get_runtime_services(
+        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+    service_name = get_canonical_service_name(cluster_name, METASTORE_SERVICE_NAME)
+    services = {
+        service_name: {
+            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+            SERVICE_DISCOVERY_PORT: METASTORE_SERVICE_PORT,
+            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_HEAD
+        },
+    }
+    return services

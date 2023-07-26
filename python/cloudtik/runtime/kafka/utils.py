@@ -3,6 +3,9 @@ from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config
+from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
+    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_PROTOCOL_TCP, SERVICE_DISCOVERY_NODE_KIND_WORKER, \
+    get_canonical_service_name
 from cloudtik.core._private.utils import \
     subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, load_properties_file, \
     save_properties_file, get_config_for_update
@@ -16,6 +19,9 @@ RUNTIME_PROCESSES = [
 ]
 
 KAFKA_RUNTIME_CONFIG_KEY = "kafka"
+
+KAFKA_SERVICE_NAME = "kafka"
+KAFKA_SERVICE_PORT = 9092
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -113,3 +119,16 @@ def update_configurations():
 
     # Write back the configuration file
     save_properties_file(server_properties_file, server_properties, comments=comments)
+
+
+def _get_runtime_services(
+        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+    service_name = get_canonical_service_name(cluster_name, KAFKA_SERVICE_NAME)
+    services = {
+        service_name: {
+            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+            SERVICE_DISCOVERY_PORT: KAFKA_SERVICE_PORT,
+            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_WORKER
+        },
+    }
+    return services

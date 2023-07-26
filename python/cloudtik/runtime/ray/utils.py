@@ -1,6 +1,9 @@
 import os
 from typing import Any, Dict, Optional
 
+from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
+    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP, \
+    get_canonical_service_name
 from cloudtik.core._private.utils import get_node_type_config
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.ray.scaling_policy import RayScalingPolicy
@@ -19,7 +22,9 @@ RAY_RUNTIME_CONFIG_KEY = "ray"
 
 # The default proportion of available memory allocated to system and runtime overhead
 RAY_DEFAULT_SHARED_MEMORY_PROPORTION = 0.3
-RAY_PORT = 6379
+
+RAY_SERVICE_NAME = "ray"
+RAY_SERVICE_PORT = 6379
 RAY_DASHBOARD_PORT = 8265
 
 
@@ -58,7 +63,7 @@ def _get_head_service_urls(cluster_head_ip):
         "ray": {
             "name": "Ray",
             "url": "{}:{}".format(
-                cluster_head_ip, RAY_PORT)
+                cluster_head_ip, RAY_SERVICE_PORT)
         },
         "dashboard": {
             "name": "Ray Dashboard",
@@ -79,7 +84,7 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "ray": {
             "protocol": "TCP",
-            "port": RAY_PORT,
+            "port": RAY_SERVICE_PORT,
         },
         "dashboard": {
             "protocol": "TCP",
@@ -99,4 +104,17 @@ def _get_scaling_policy(
 
     return RayScalingPolicy(
         cluster_config, head_ip,
-        ray_port=RAY_PORT)
+        ray_port=RAY_SERVICE_PORT)
+
+
+def _get_runtime_services(
+        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+    service_name = get_canonical_service_name(cluster_name, RAY_SERVICE_NAME)
+    services = {
+        service_name: {
+            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+            SERVICE_DISCOVERY_PORT: RAY_SERVICE_PORT,
+            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_HEAD
+        },
+    }
+    return services

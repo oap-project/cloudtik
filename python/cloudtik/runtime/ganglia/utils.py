@@ -10,6 +10,9 @@ RUNTIME_PROCESSES = [
 ]
 
 
+GANGLIA_WEB_PORT = 80
+
+
 def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
@@ -28,7 +31,7 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "ganglia-web": {
             "protocol": "TCP",
-            "port": 80,
+            "port": GANGLIA_WEB_PORT,
         },
     }
     return service_ports

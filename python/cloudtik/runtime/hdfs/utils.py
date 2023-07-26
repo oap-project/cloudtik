@@ -86,7 +86,8 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     return service_ports
 
 
-def _get_runtime_services(runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+def _get_runtime_services(
+        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
     # service name is decided by the runtime itself
     # For in services backed by the collection of nodes of the cluster
     # service name is a combination of cluster_name + runtime_service_name

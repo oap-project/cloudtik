@@ -5,6 +5,8 @@ from typing import Any, Dict
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL, _get_runtime
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
     get_runtime_config_from_node
+from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_NODE_KIND, \
+    SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_NODE_KIND_WORKER, SERVICE_DISCOVERY_PORT, SERVICE_DISCOVERY_TAGS
 from cloudtik.core._private.utils import \
     publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, RUNTIME_CONFIG_KEY, \
     get_config_for_update
@@ -87,12 +89,12 @@ def _bootstrap_join_list(cluster_config: Dict[str, Any]):
 
 
 def _match_service_type(service_config, head):
-    node_kind = service_config.get("node_kind")
+    node_kind = service_config.get(SERVICE_DISCOVERY_NODE_KIND)
     if head:
-        if not node_kind or node_kind == "head":
+        if not node_kind or node_kind == SERVICE_DISCOVERY_NODE_KIND_HEAD:
             return True
     else:
-        if not node_kind or node_kind == "worker":
+        if not node_kind or node_kind == SERVICE_DISCOVERY_NODE_KIND_WORKER:
             return True
 
     return False
@@ -302,7 +304,7 @@ def configure_services(head):
 
 def _generate_service_def(service_name, service_config):
     node_ip = get_runtime_node_ip()
-    port = service_config["port"]
+    port = service_config[SERVICE_DISCOVERY_PORT]
     service_def = {
             "name": service_name,
             "address": node_ip,
@@ -316,7 +318,7 @@ def _generate_service_def(service_name, service_config):
             ]
         }
 
-    tags = service_config.get("tags")
+    tags = service_config.get(SERVICE_DISCOVERY_TAGS)
     if tags:
         service_def["tags"] = tags
 

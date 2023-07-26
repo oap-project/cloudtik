@@ -81,9 +81,9 @@ class Runtime:
         """Returns a copy of runtime config"""
         return None
 
-    def get_runtime_services(self, cluster_head_ip: str):
-        """Return the user service information provided by this runtime
-        It's a map of dictionary of service properties
+    def get_head_service_urls(self, cluster_head_ip: str):
+        """Return the head service url information provided by this runtime
+        It's a map of dictionary of service url properties
         For example:
         {
             "app-web": {
@@ -95,7 +95,7 @@ class Runtime:
         """
         return None
 
-    def get_runtime_service_ports(self) -> Dict[str, Any]:
+    def get_head_service_ports(self) -> Dict[str, Any]:
         """Return a dictionary of service port with name as the key.
         For example:
             {
@@ -104,6 +104,26 @@ class Runtime:
                     "port": "1234",
                 },
             }
+        """
+        return None
+
+    def get_runtime_services(self):
+        """Return the runtime service information published by any service discovery mechanism
+        It's a map of dictionary of service with standard properties:
+        protocol: The protocol of the service. TCP
+        port: The port number of the service
+        tags: The tags in the format: ["tag1", "tag2"]
+        node_kind: The node kind that service is running: head or worker.
+        If not specified, it runs both on head and worker.
+        For example:
+        {
+            "my-service": {
+                "protocol": "TCP",
+                "port": 3000
+                "node_kind": "head"
+                "tags": ["mysql"]
+            },
+        }
         """
         return None
 

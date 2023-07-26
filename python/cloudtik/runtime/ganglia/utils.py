@@ -14,7 +14,7 @@ def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
-def _get_runtime_services(cluster_head_ip):
+def _get_head_service_urls(cluster_head_ip):
     services = {
         "ganglia-web": {
             "name": "Ganglia Web UI",
@@ -24,7 +24,7 @@ def _get_runtime_services(cluster_head_ip):
     return services
 
 
-def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "ganglia-web": {
             "protocol": "TCP",

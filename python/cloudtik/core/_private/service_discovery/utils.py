@@ -1,0 +1,12 @@
+
+# The standard keys and values used for service discovery
+
+SERVICE_DISCOVERY_PROTOCOL = "protocol"
+SERVICE_DISCOVERY_PROTOCOL_TCP = "TCP"
+
+SERVICE_DISCOVERY_PORT = "port"
+SERVICE_DISCOVERY_NODE_KIND = "node_kind"
+SERVICE_DISCOVERY_NODE_KIND_HEAD = "head"
+SERVICE_DISCOVERY_NODE_KIND_WORKER = "worker"
+
+SERVICE_DISCOVERY_TAGS = "tags"

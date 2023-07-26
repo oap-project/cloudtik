@@ -57,7 +57,7 @@ def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
-def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     ssh_server_port = _get_ssh_server_port(runtime_config)
     service_ports = {
         "sshd": {

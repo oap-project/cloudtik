@@ -6,7 +6,7 @@ from cloudtik.core._private.runtime_factory import _get_runtime, BUILT_IN_RUNTIM
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, get_cluster_head_ip, is_runtime_enabled
 
 
-def get_runtime_services_of(config: Dict[str, Any], runtime_name: str):
+def get_head_service_urls_of(config: Dict[str, Any], runtime_name: str):
     runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # Verify runtime is in configured
@@ -17,7 +17,7 @@ def get_runtime_services_of(config: Dict[str, Any], runtime_name: str):
     head_internal_ip = get_cluster_head_ip(config)
 
     runtime = _get_runtime(runtime_name, runtime_config)
-    return runtime.get_runtime_services(head_internal_ip)
+    return runtime.get_head_service_urls(head_internal_ip)
 
 
 def get_runtime_default_storage_of(config: Dict[str, Any], runtime_name: str):

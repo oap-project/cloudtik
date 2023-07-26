@@ -102,7 +102,7 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_runtime_services(cluster_head_ip):
+def _get_head_service_urls(cluster_head_ip):
     services = {
         "trino": {
             "name": "Trino Web UI",
@@ -169,7 +169,7 @@ def configure_connector(catalog: str, catalog_config: Dict[str, Any]):
             f.write("{}={}\n".format(key, value))
 
 
-def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "trino": {
             "protocol": "TCP",

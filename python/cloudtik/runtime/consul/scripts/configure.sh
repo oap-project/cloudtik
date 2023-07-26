@@ -79,7 +79,10 @@ function configure_consul() {
 
     # General agent configuration
     sed -i "s!{%bind.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.hcl
-    sed -i "s!{%client.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.hcl
+
+    # client address bind to both node ip and local host
+    CLIENT_ADDRESS="${NODE_IP_ADDRESS} 127.0.0.1"
+    sed -i "s!{%client.address%}!${CLIENT_ADDRESS}!g" ${consul_output_dir}/consul.hcl
     update_join_list
     update_consul_data_dir
 
@@ -92,16 +95,12 @@ function configure_consul() {
     CONSUL_CONFIG_DIR=${CONSUL_HOME}/consul.d
     CONSUL_CONFIG_DIR_INSTALLED=/etc/consul.d
     mkdir -p ${CONSUL_CONFIG_DIR}
-    if [ -d "${CONSUL_CONFIG_DIR_INSTALLED}" ]; then
-        sudo cp -r /etc/consul.d/* ${CONSUL_CONFIG_DIR}/
-    fi
     sudo cp -r ${consul_output_dir}/consul.hcl ${CONSUL_CONFIG_DIR}/consul.hcl
 
     if [ "${CONSUL_SERVER}" == "true" ]; then
         sudo cp -r ${consul_output_dir}/server.hcl ${CONSUL_CONFIG_DIR}/server.hcl
     fi
 
-    sudo chown --recursive $(whoami):users ${CONSUL_CONFIG_DIR}
     sudo chmod 640 ${CONSUL_CONFIG_DIR}/consul.hcl
 
     if [ "${CONSUL_SERVER}" == "true" ]; then

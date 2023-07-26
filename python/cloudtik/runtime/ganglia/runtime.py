@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.ganglia.utils import _get_runtime_processes, \
-    _get_runtime_services, _get_runtime_service_ports
+    _get_head_service_urls, _get_head_service_ports
 
 logger = logging.getLogger(__name__)
 
@@ -14,11 +14,11 @@ class GangliaRuntime(RuntimeBase):
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
         super().__init__(runtime_config)
 
-    def get_runtime_services(self, cluster_head_ip: str):
-        return _get_runtime_services(cluster_head_ip)
+    def get_head_service_urls(self, cluster_head_ip: str):
+        return _get_head_service_urls(cluster_head_ip)
 
-    def get_runtime_service_ports(self) -> Dict[str, Any]:
-        return _get_runtime_service_ports(self.runtime_config)
+    def get_head_service_ports(self) -> Dict[str, Any]:
+        return _get_head_service_ports(self.runtime_config)
 
     @staticmethod
     def get_processes():

@@ -11,7 +11,7 @@ from cloudtik.core._private.utils import is_runtime_enabled, round_memory_size_t
     print_json_formatted, get_config_for_update
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.scaling_policy import ScalingPolicy
-from cloudtik.runtime.common.utils import get_runtime_services_of, get_runtime_default_storage_of
+from cloudtik.runtime.common.utils import get_head_service_urls_of, get_runtime_default_storage_of
 from cloudtik.runtime.flink.scaling_policy import FlinkScalingPolicy
 
 RUNTIME_PROCESSES = [
@@ -303,7 +303,7 @@ def _validate_config(config: Dict[str, Any]):
         raise ValueError("No storage configuration found for Flink.")
 
 
-def _get_runtime_services(cluster_head_ip):
+def _get_head_service_urls(cluster_head_ip):
     services = {
         "yarn-web": {
             "name": "Yarn Web UI",
@@ -322,7 +322,7 @@ def _get_runtime_services(cluster_head_ip):
     return services
 
 
-def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "yarn-web": {
             "protocol": "TCP",
@@ -400,5 +400,5 @@ def get_runtime_default_storage(config: Dict[str, Any]):
     return get_runtime_default_storage_of(config, BUILT_IN_RUNTIME_FLINK)
 
 
-def get_runtime_services(config: Dict[str, Any]):
-    return get_runtime_services_of(config, BUILT_IN_RUNTIME_FLINK)
+def get_head_service_urls(config: Dict[str, Any]):
+    return get_head_service_urls_of(config, BUILT_IN_RUNTIME_FLINK)

@@ -15,7 +15,7 @@ from cloudtik.core._private.core_utils import parse_memory_resource, generate_pu
 from cloudtik.core._private.docker import get_versioned_image
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
-    get_runtime_service_ports, _is_use_managed_cloud_storage, _is_use_internal_ip, is_gpu_runtime
+    get_head_service_ports, _is_use_managed_cloud_storage, _is_use_internal_ip, is_gpu_runtime
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
@@ -781,7 +781,7 @@ def _configure_pod_container_ports(config):
         return
 
     runtime_config = config.get("runtime", {})
-    service_ports = get_runtime_service_ports(runtime_config)
+    service_ports = get_head_service_ports(runtime_config)
 
     node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
@@ -943,11 +943,11 @@ def _configure_head_service_ports(config):
     service = provider_config[service_field]
 
     runtime_config = config.get("runtime", {})
-    runtime_service_ports = get_runtime_service_ports(runtime_config)
-    _configure_service_ports_for_runtime(service, runtime_service_ports)
+    head_service_ports = get_head_service_ports(runtime_config)
+    _configure_service_ports(service, head_service_ports)
 
 
-def _configure_service_ports_for_runtime(service, service_ports):
+def _configure_service_ports(service, service_ports):
     if "spec" not in service:
         service["spec"] = {}
     if "ports" not in service["spec"]:

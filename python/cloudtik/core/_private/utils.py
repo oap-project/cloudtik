@@ -2290,20 +2290,20 @@ def _get_runtime_config_object(config_home: str, provider_config, object_name: s
     return config_object
 
 
-def get_runtime_services(runtime_config, head_cluster_ip):
-    all_services = {}
+def get_head_service_urls(runtime_config, head_cluster_ip):
+    head_service_urls = {}
     if runtime_config is None:
-        return all_services
+        return head_service_urls
 
     # Iterate through all the runtimes
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        services_of_runtime = runtime.get_runtime_services(head_cluster_ip)
-        if services_of_runtime:
-            all_services.update(services_of_runtime)
+        service_urls = runtime.get_head_service_urls(head_cluster_ip)
+        if service_urls:
+            head_service_urls.update(service_urls)
 
-    return all_services
+    return head_service_urls
 
 
 def get_enabled_runtimes(config):
@@ -2856,20 +2856,20 @@ def print_dict_info(info: Dict[str, Any]):
             cli_logger.labeled_value(k, v)
 
 
-def get_runtime_service_ports(runtime_config):
+def get_head_service_ports(runtime_config):
     if runtime_config is None:
         return {}
 
     # Iterate through all the runtimes
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
-    return _get_runtime_service_ports(runtime_types, runtime_config)
+    return _get_head_service_ports(runtime_types, runtime_config)
 
 
-def _get_runtime_service_ports(runtime_types, runtime_config):
+def _get_head_service_ports(runtime_types, runtime_config):
     service_ports = {}
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        runtime_service_ports = runtime.get_runtime_service_ports()
+        runtime_service_ports = runtime.get_head_service_ports()
         if runtime_service_ports:
             service_ports.update(runtime_service_ports)
 

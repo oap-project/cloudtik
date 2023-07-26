@@ -1,6 +1,8 @@
 import os
 from typing import Any, Dict
 
+from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
+    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP
 from cloudtik.core._private.utils import get_node_type_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core._private.providers import _get_node_provider
@@ -14,6 +16,9 @@ RUNTIME_PROCESSES = [
     ["proc_datanode", False, "DataNode", "worker"],
 ]
 
+HDFS_WEB_PORT = 9870
+HDFS_SERVICE_PORT = 9000
+
 
 def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> None:
     workspace_name = cluster_config.get("workspace_name")
@@ -22,7 +27,8 @@ def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> No
 
     provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
     head_internal_ip = provider.internal_ip(head_node_id)
-    service_uris = {"hdfs-namenode-uri": "hdfs://{}:9000".format(head_internal_ip)}
+    service_uris = {"hdfs-namenode-uri": "hdfs://{}:{}".format(
+        head_internal_ip, HDFS_SERVICE_PORT)}
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     workspace_provider.publish_global_variables(cluster_config, service_uris)
@@ -49,29 +55,40 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_runtime_services(cluster_head_ip):
+def _get_head_service_urls(cluster_head_ip):
     services = {
         "hdfs-web": {
             "name": "HDFS Web UI",
-            "url": "http://{}:9870".format(cluster_head_ip)
+            "url": "http://{}:{}".format(cluster_head_ip, HDFS_WEB_PORT)
         },
         "hdfs": {
             "name": "HDFS Service",
-            "url": "hdfs://{}:9000".format(cluster_head_ip)
+            "url": "hdfs://{}:{}".format(cluster_head_ip, HDFS_SERVICE_PORT)
         },
     }
     return services
 
 
-def _get_runtime_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "hdfs-web": {
             "protocol": "TCP",
-            "port": 9870,
+            "port": HDFS_WEB_PORT,
         },
         "hdfs-nn": {
             "protocol": "TCP",
-            "port": 9000,
+            "port": HDFS_SERVICE_PORT,
         },
     }
     return service_ports
+
+
+def _get_runtime_services(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+    services = {
+        "hdfs": {
+            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+            SERVICE_DISCOVERY_PORT: HDFS_SERVICE_PORT,
+            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_HEAD
+        },
+    }
+    return services

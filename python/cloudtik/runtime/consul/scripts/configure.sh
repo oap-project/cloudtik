@@ -93,18 +93,17 @@ function configure_consul() {
     fi
 
     CONSUL_CONFIG_DIR=${CONSUL_HOME}/consul.d
-    CONSUL_CONFIG_DIR_INSTALLED=/etc/consul.d
     mkdir -p ${CONSUL_CONFIG_DIR}
-    sudo cp -r ${consul_output_dir}/consul.hcl ${CONSUL_CONFIG_DIR}/consul.hcl
+    cp -r ${consul_output_dir}/consul.hcl ${CONSUL_CONFIG_DIR}/consul.hcl
 
     if [ "${CONSUL_SERVER}" == "true" ]; then
-        sudo cp -r ${consul_output_dir}/server.hcl ${CONSUL_CONFIG_DIR}/server.hcl
+        cp -r ${consul_output_dir}/server.hcl ${CONSUL_CONFIG_DIR}/server.hcl
     fi
 
-    sudo chmod 640 ${CONSUL_CONFIG_DIR}/consul.hcl
+    chmod 640 ${CONSUL_CONFIG_DIR}/consul.hcl
 
     if [ "${CONSUL_SERVER}" == "true" ]; then
-        sudo chmod 640 ${CONSUL_CONFIG_DIR}/server.hcl
+        chmod 640 ${CONSUL_CONFIG_DIR}/server.hcl
     fi
 }
 

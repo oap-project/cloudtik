@@ -1229,6 +1229,18 @@
                             "description": "The SSH Server port."
                         }
                     }
+                },
+                "consul": {
+                    "type": "object",
+                    "description": "Consul runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "server": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether the cluster with Consul runs with Consul server or client agent."
+                        }
+                    }
                 }
             }
         }

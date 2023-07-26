@@ -16,8 +16,8 @@ RUNTIME_PROCESSES = [
 ]
 
 CONSUL_RUNTIME_CONFIG_KEY = "consul"
-CONSUL_JOIN_LIST = "consul_join_list"
-CONSUL_RPC_PORT = "consul_rpc_port"
+CONFIG_KEY_JOIN_LIST = "join_list"
+CONFIG_KEY_RPC_PORT = "rpc_port"
 
 CONSUL_SERVER_RPC_PORT = 8300
 CONSUL_SERVER_HTTP_PORT = 8500
@@ -71,9 +71,11 @@ def _bootstrap_join_list(cluster_config: Dict[str, Any]):
     consul_config = get_config_for_update(runtime_config, CONSUL_RUNTIME_CONFIG_KEY)
 
     join_list, rpc_port = _to_joint_list(consul_uri)
-    consul_config[CONSUL_JOIN_LIST] = join_list
+    consul_config[CONFIG_KEY_JOIN_LIST] = join_list
     # current we don't use it
-    consul_config[CONSUL_RPC_PORT] = rpc_port
+    consul_config[CONFIG_KEY_RPC_PORT] = rpc_port
+
+    return cluster_config
 
 
 def _with_runtime_environment_variables(
@@ -91,7 +93,7 @@ def _with_runtime_environment_variables(
         runtime_envs["CONSUL_CLIENT"] = True
 
         consul_config = runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
-        join_list = consul_config.get(CONSUL_JOIN_LIST)
+        join_list = consul_config.get(CONFIG_KEY_JOIN_LIST)
         if not join_list:
             raise RuntimeError("Invalid join list. No running consul server cluster is detected.")
         runtime_envs["CONSUL_JOIN_LIST"] = join_list

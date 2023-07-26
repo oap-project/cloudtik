@@ -2,6 +2,9 @@ import os
 from typing import Any, Dict, List
 
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config
+from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
+    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_PROTOCOL_TCP, SERVICE_DISCOVERY_NODE_KIND_WORKER, \
+    get_canonical_service_name
 from cloudtik.core._private.utils import \
     publish_cluster_variable, load_properties_file, save_properties_file
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
@@ -15,6 +18,9 @@ RUNTIME_PROCESSES = [
 ]
 
 ZOOKEEPER_RUNTIME_CONFIG_KEY = "zookeeper"
+
+ZOOKEEPER_SERVICE_NAME = "zookeeper"
+ZOOKEEPER_SERVICE_PORT = 2181
 
 
 def _get_runtime_processes():
@@ -80,7 +86,8 @@ def _handle_minimal_nodes_reached(
     service_uri = ""
 
     for node_info in server_ensemble:
-        node_address = "{}:2181".format(node_info["node_ip"])
+        node_address = "{}:{}".format(
+            node_info["node_ip"], ZOOKEEPER_SERVICE_PORT)
         if len(service_uri) > 0:
             service_uri += ","
         service_uri += node_address
@@ -127,3 +134,16 @@ def update_configurations():
 
     # Write back the configuration file
     save_properties_file(server_properties_file, server_properties, comments=comments)
+
+
+def _get_runtime_services(
+        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+    service_name = get_canonical_service_name(cluster_name, ZOOKEEPER_SERVICE_NAME)
+    services = {
+        service_name: {
+            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+            SERVICE_DISCOVERY_PORT: ZOOKEEPER_SERVICE_PORT,
+            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_WORKER
+        },
+    }
+    return services

@@ -4,6 +4,9 @@ from typing import Any, Dict
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
+from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
+    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP, \
+    get_canonical_service_name
 from cloudtik.core._private.utils import is_runtime_enabled, \
     get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config, get_config_for_update
 
@@ -20,6 +23,9 @@ TRINO_RUNTIME_CONFIG_KEY = "trino"
 JVM_MAX_MEMORY_RATIO = 0.8
 QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
 MEMORY_HEAP_HEADROOM_PER_NODE_RATIO = 0.25
+
+TRINO_SERVICE_NAME = "trino"
+TRINO_SERVICE_PORT = 8081
 
 
 def get_jvm_max_memory(total_memory):
@@ -106,7 +112,7 @@ def _get_head_service_urls(cluster_head_ip):
     services = {
         "trino": {
             "name": "Trino Web UI",
-            "url": "http://{}:8081".format(cluster_head_ip)
+            "url": "http://{}:{}".format(cluster_head_ip, TRINO_SERVICE_PORT)
         },
     }
     return services
@@ -173,7 +179,20 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "trino": {
             "protocol": "TCP",
-            "port": 8081,
+            "port": TRINO_SERVICE_PORT,
         },
     }
     return service_ports
+
+
+def _get_runtime_services(
+        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+    service_name = get_canonical_service_name(cluster_name, TRINO_SERVICE_NAME)
+    services = {
+        service_name: {
+            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+            SERVICE_DISCOVERY_PORT: TRINO_SERVICE_PORT,
+            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_HEAD
+        },
+    }
+    return services

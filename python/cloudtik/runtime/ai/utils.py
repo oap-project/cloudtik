@@ -1,6 +1,9 @@
 import os
 from typing import Any, Dict
 
+from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
+    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP, \
+    get_canonical_service_name
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_AI
 from cloudtik.core._private.utils import export_runtime_flags
@@ -15,6 +18,9 @@ RUNTIME_PROCESSES = [
 ]
 
 RUNTIME_CONFIG_KEY = "ai"
+
+MLFLOW_SERVICE_NAME = "mlflow"
+MLFLOW_SERVICE_PORT = 5001
 
 
 def _get_runtime_processes():
@@ -38,7 +44,8 @@ def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> No
 
     provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
     head_internal_ip = provider.internal_ip(head_node_id)
-    service_uris = {"mlflow-service-uri": "http://{}:5001".format(head_internal_ip)}
+    service_uris = {"mlflow-service-uri": "http://{}:{}".format(
+        head_internal_ip, MLFLOW_SERVICE_PORT)}
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
     workspace_provider.publish_global_variables(cluster_config, service_uris)
@@ -55,7 +62,7 @@ def _get_head_service_urls(cluster_head_ip):
     services = {
         "mlflow": {
             "name": "MLflow",
-            "url": "http://{}:5001".format(cluster_head_ip)
+            "url": "http://{}:{}".format(cluster_head_ip, MLFLOW_SERVICE_PORT)
         },
     }
     return services
@@ -65,7 +72,7 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
         "mlflow": {
             "protocol": "TCP",
-            "port": 5001,
+            "port": MLFLOW_SERVICE_PORT,
         },
     }
     return service_ports
@@ -73,3 +80,16 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
 
 def get_head_service_urls(config: Dict[str, Any]):
     return get_head_service_urls_of(config, BUILT_IN_RUNTIME_AI)
+
+
+def _get_runtime_services(
+        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+    service_name = get_canonical_service_name(cluster_name, MLFLOW_SERVICE_NAME)
+    services = {
+        service_name: {
+            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+            SERVICE_DISCOVERY_PORT: MLFLOW_SERVICE_PORT,
+            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_HEAD
+        },
+    }
+    return services

@@ -27,6 +27,9 @@ class ZooKeeperRuntime(RuntimeBase):
     def get_head_service_urls(self, cluster_head_ip: str):
         return _get_head_service_urls(cluster_head_ip)
 
+    def get_runtime_services(self, cluster_name: str):
+        return _get_runtime_services(self.runtime_config, cluster_name)
+
     def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.

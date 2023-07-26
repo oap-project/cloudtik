@@ -41,6 +41,7 @@ FLINK_TASKMANAGER_OVERHEAD_RATIO = 0.1
 
 FLINK_YARN_WEB_API_PORT = 8088
 FLINK_HISTORY_SERVER_API_PORT = 8082
+FLINK_JUPYTER_WEB_PORT = 8888
 
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
@@ -311,7 +312,7 @@ def _get_head_service_urls(cluster_head_ip):
          },
         "jupyter-web": {
             "name": "Jupyter Web UI",
-            "url": "http://{}:8888".format(cluster_head_ip),
+            "url": "http://{}:{}".format(cluster_head_ip, FLINK_JUPYTER_WEB_PORT),
             "info": "default password is \'cloudtik\'"
          },
         "flink-history": {
@@ -330,7 +331,7 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
         },
         "jupyter-web": {
             "protocol": "TCP",
-            "port": 8888,
+            "port": FLINK_JUPYTER_WEB_PORT,
         },
         "flink-history": {
             "protocol": "TCP",

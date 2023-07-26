@@ -1,6 +1,6 @@
 import argparse
 
-from cloudtik.core._private.utils import subscribe_nodes_info
+from cloudtik.core._private.runtime_utils import subscribe_nodes_info
 from cloudtik.runtime.zookeeper.utils import update_configurations, _configure_server_ensemble
 
 

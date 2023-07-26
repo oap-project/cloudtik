@@ -2,8 +2,9 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_workspace_provider
+from cloudtik.core._private.runtime_utils import subscribe_runtime_config
 from cloudtik.core._private.utils import \
-    subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, subscribe_runtime_config, load_properties_file, \
+    subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, load_properties_file, \
     save_properties_file, get_config_for_update
 
 RUNTIME_PROCESSES = [

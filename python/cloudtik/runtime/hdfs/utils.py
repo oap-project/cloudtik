@@ -2,7 +2,8 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
-    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP
+    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP, \
+    get_canonical_service_name
 from cloudtik.core._private.utils import get_node_type_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core._private.providers import _get_node_provider
@@ -17,6 +18,8 @@ RUNTIME_PROCESSES = [
 ]
 
 HDFS_WEB_PORT = 9870
+
+HDFS_SERVICE_NAME = "hdfs"
 HDFS_SERVICE_PORT = 9000
 
 
@@ -83,9 +86,13 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     return service_ports
 
 
-def _get_runtime_services(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+def _get_runtime_services(runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+    # service name is decided by the runtime itself
+    # For in services backed by the collection of nodes of the cluster
+    # service name is a combination of cluster_name + runtime_service_name
+    service_name = get_canonical_service_name(cluster_name, HDFS_SERVICE_NAME)
     services = {
-        "hdfs": {
+        service_name: {
             SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
             SERVICE_DISCOVERY_PORT: HDFS_SERVICE_PORT,
             SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_HEAD

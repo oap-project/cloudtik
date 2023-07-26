@@ -47,7 +47,7 @@ function update_join_list() {
 
         JOIN_LIST=${CONSUL_JOIN_LIST}
     fi
-    sed -i "s!{%join.list%}!${JOIN_LIST}!g" ${consul_output_dir}/consul.hcl
+    sed -i "s#{%join.list%}#${JOIN_LIST}#g" ${consul_output_dir}/consul.hcl
 }
 
 function update_consul_data_dir() {

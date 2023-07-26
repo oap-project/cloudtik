@@ -18,6 +18,17 @@ def is_key_with_privacy(key: str):
     return False
 
 
+def _strip_quotes(value):
+    # strip has problem because it will remove all front and tailing quotes
+    if not value:
+        return value
+    if value.startswith('"') or value.startswith("'"):
+        value = value[1:]
+    if value.endswith('"') or value.endswith("'"):
+        value = value[:-1]
+    return value
+
+
 def _with_environment_variables(cmd: str,
                                 environment_variables: Dict[str, object],
                                 cmd_to_print: str = None):
@@ -39,7 +50,8 @@ def _with_environment_variables(cmd: str,
         # since we use quote to make sure value is safe for shell, we don't need the quote for string
         escaped_val = json.dumps(val, separators=(",", ":"))
         if isinstance(val, str):
-            escaped_val = escaped_val.strip("\"\'")
+            # remove quote (single or double).
+            escaped_val = _strip_quotes(escaped_val)
 
         s = "export {}={};".format(key, quote(escaped_val))
         as_strings.append(s)

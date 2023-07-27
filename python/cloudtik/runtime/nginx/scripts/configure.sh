@@ -37,7 +37,7 @@ function configure_nginx() {
 }
 
 set_head_option "$@"
-check_consul_installed
+check_nginx_installed
 set_head_address
 set_node_ip_address
 configure_nginx

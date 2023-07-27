@@ -17,10 +17,16 @@ RUNTIME_PROCESSES = [
     ["proc_datanode", False, "DataNode", "worker"],
 ]
 
+HDFS_RUNTIME_CONFIG_KEY = "hdfs"
+
 HDFS_WEB_PORT = 9870
 
 HDFS_SERVICE_NAME = "hdfs"
 HDFS_SERVICE_PORT = 9000
+
+
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(HDFS_RUNTIME_CONFIG_KEY, {})
 
 
 def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> None:
@@ -91,7 +97,9 @@ def _get_runtime_services(
     # service name is decided by the runtime itself
     # For in services backed by the collection of nodes of the cluster
     # service name is a combination of cluster_name + runtime_service_name
-    service_name = get_canonical_service_name(cluster_name, HDFS_SERVICE_NAME)
+    hdfs_config = _get_config(runtime_config)
+    service_name = get_canonical_service_name(
+        hdfs_config, cluster_name, HDFS_SERVICE_NAME)
     services = {
         service_name: {
             SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,

@@ -23,6 +23,10 @@ ZOOKEEPER_SERVICE_NAME = "zookeeper"
 ZOOKEEPER_SERVICE_PORT = 2181
 
 
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(ZOOKEEPER_RUNTIME_CONFIG_KEY, {})
+
+
 def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
@@ -138,7 +142,9 @@ def update_configurations():
 
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
-    service_name = get_canonical_service_name(cluster_name, ZOOKEEPER_SERVICE_NAME)
+    zookeeper_config = _get_config(runtime_config)
+    service_name = get_canonical_service_name(
+        zookeeper_config, cluster_name, ZOOKEEPER_SERVICE_NAME)
     services = {
         service_name: {
             SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,

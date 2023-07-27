@@ -17,10 +17,14 @@ RUNTIME_PROCESSES = [
     ["mlflow.server:app", False, "MLflow", "head"],
 ]
 
-RUNTIME_CONFIG_KEY = "ai"
+AI_RUNTIME_CONFIG_KEY = "ai"
 
 MLFLOW_SERVICE_NAME = "mlflow"
 MLFLOW_SERVICE_PORT = 5001
+
+
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(AI_RUNTIME_CONFIG_KEY, {})
 
 
 def _get_runtime_processes():
@@ -30,9 +34,9 @@ def _get_runtime_processes():
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"AI_ENABLED": True}
 
-    ai_config = runtime_config.get(RUNTIME_CONFIG_KEY, {})
+    ai_config = runtime_config.get(AI_RUNTIME_CONFIG_KEY, {})
     export_runtime_flags(
-        ai_config, RUNTIME_CONFIG_KEY, runtime_envs)
+        ai_config, AI_RUNTIME_CONFIG_KEY, runtime_envs)
 
     return runtime_envs
 
@@ -84,7 +88,9 @@ def get_head_service_urls(config: Dict[str, Any]):
 
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
-    service_name = get_canonical_service_name(cluster_name, MLFLOW_SERVICE_NAME)
+    ai_config = _get_config(runtime_config)
+    service_name = get_canonical_service_name(
+        ai_config, cluster_name, MLFLOW_SERVICE_NAME)
     services = {
         service_name: {
             SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,

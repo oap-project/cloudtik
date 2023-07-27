@@ -28,6 +28,7 @@ BUILT_IN_RUNTIME_FLINK = "flink"
 BUILT_IN_RUNTIME_RAY = "ray"
 BUILT_IN_RUNTIME_SSHSERVER = "sshserver"
 BUILT_IN_RUNTIME_CONSUL = "consul"
+BUILT_IN_RUNTIME_NGINX = "nginx"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -97,6 +98,11 @@ def _import_consul():
     return ConsulRuntime
 
 
+def _import_nginx():
+    from cloudtik.runtime.nginx.runtime import NGINXRuntime
+    return NGINXRuntime
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -111,6 +117,7 @@ _RUNTIMES = {
     "ray": _import_ray,
     "sshserver": _import_ssh_server,
     "consul": _import_consul,
+    "nginx": _import_nginx,
 }
 
 

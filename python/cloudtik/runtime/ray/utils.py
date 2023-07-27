@@ -28,6 +28,10 @@ RAY_SERVICE_PORT = 6379
 RAY_DASHBOARD_PORT = 8265
 
 
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(RAY_RUNTIME_CONFIG_KEY, {})
+
+
 def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
@@ -109,7 +113,9 @@ def _get_scaling_policy(
 
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
-    service_name = get_canonical_service_name(cluster_name, RAY_SERVICE_NAME)
+    ray_config = _get_config(runtime_config)
+    service_name = get_canonical_service_name(
+        ray_config, cluster_name, RAY_SERVICE_NAME)
     services = {
         service_name: {
             SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,

@@ -20,6 +20,15 @@ SERVICE_DISCOVERY_CHECK_INTERVAL = "check_interval"
 SERVICE_DISCOVERY_CHECK_TIMEOUT = "check_timeout"
 
 
+# Standard runtime configurations for service discovery
+SERVICE_DISCOVERY_CONFIG_MEMBER_OF = "member_of"
+
+
 def get_canonical_service_name(
-        cluster_name, runtime_service_name):
-    return "{}-{}".format(cluster_name, runtime_service_name)
+        config, cluster_name, runtime_service_name):
+    member_of = config.get(SERVICE_DISCOVERY_CONFIG_MEMBER_OF)
+    if member_of:
+        # This service is a member of a service group
+        return member_of
+    else:
+        return "{}-{}".format(cluster_name, runtime_service_name)

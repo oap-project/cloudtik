@@ -124,6 +124,11 @@ DEFAULT_IMAGE = {
 }
 
 
+######################
+# Workspace functions
+######################
+
+
 def create_huaweicloud_workspace(config):
     workspace_name = config['workspace_name']
     managed_cloud_storage = is_managed_cloud_storage(config)
@@ -1319,6 +1324,11 @@ def _get_workspace_head_nodes(provider_config, workspace_name):
 
     return [head_node for head_node in head_nodes if
             head_node.metadata.get('vpc_id') == workspace_vpc.id]
+
+
+######################
+# Clustering functions
+######################
 
 
 def bootstrap_huaweicloud_workspace(config):

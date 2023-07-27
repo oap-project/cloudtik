@@ -41,6 +41,11 @@ GCP_KUBERNETES_HEAD_WORKER_FACED_NUM_STEPS = 2
 GCP_KUBERNETES_TARGET_RESOURCES = 9
 
 
+######################
+# Workspace functions
+######################
+
+
 def _get_service_account_name(provider_config, account_type: AccountType):
     if account_type == AccountType.HEAD:
         return _get_head_service_account_name(provider_config)
@@ -226,29 +231,6 @@ def update_configurations_for_gcp(
                 current_step += 1
                 _delete_managed_cloud_database_for_gke(
                     cloud_provider, workspace_name, delete_for_update=True)
-
-
-def configure_kubernetes_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
-    # Optionally, if user choose to use managed cloud storage (gcs bucket)
-    # Configure the gcs bucket under cloud storage
-    _configure_cloud_storage_for_gcp(config, cloud_provider)
-    _configure_cloud_database_for_gcp(config, cloud_provider)
-
-
-def _configure_cloud_storage_for_gcp(config: Dict[str, Any], cloud_provider):
-    use_managed_cloud_storage = _is_use_managed_cloud_storage(cloud_provider)
-    if use_managed_cloud_storage:
-        _configure_managed_cloud_storage_from_workspace(config, cloud_provider)
-
-    return config
-
-
-def _configure_cloud_database_for_gcp(config: Dict[str, Any], cloud_provider):
-    use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
-    if use_managed_cloud_database:
-        _configure_managed_cloud_database_from_workspace(config, cloud_provider)
-
-    return config
 
 
 def _create_iam_based_access_for_kubernetes(config: Dict[str, Any], namespace, cloud_provider):
@@ -910,3 +892,31 @@ def get_default_kubernetes_cloud_storage_for_gcp(provider_config):
 
 def get_default_kubernetes_cloud_database_for_gcp(provider_config):
     return get_default_gcp_cloud_database(provider_config)
+
+
+######################
+# Clustering functions
+######################
+
+
+def configure_kubernetes_for_gcp(config: Dict[str, Any], namespace, cloud_provider):
+    # Optionally, if user choose to use managed cloud storage (gcs bucket)
+    # Configure the gcs bucket under cloud storage
+    _configure_cloud_storage_for_gcp(config, cloud_provider)
+    _configure_cloud_database_for_gcp(config, cloud_provider)
+
+
+def _configure_cloud_storage_for_gcp(config: Dict[str, Any], cloud_provider):
+    use_managed_cloud_storage = _is_use_managed_cloud_storage(cloud_provider)
+    if use_managed_cloud_storage:
+        _configure_managed_cloud_storage_from_workspace(config, cloud_provider)
+
+    return config
+
+
+def _configure_cloud_database_for_gcp(config: Dict[str, Any], cloud_provider):
+    use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
+    if use_managed_cloud_database:
+        _configure_managed_cloud_database_from_workspace(config, cloud_provider)
+
+    return config

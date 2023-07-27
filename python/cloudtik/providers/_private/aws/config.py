@@ -36,7 +36,7 @@ from cloudtik.providers._private.utils import StorageTestingError
 logger = logging.getLogger(__name__)
 
 AWS_RESOURCE_NAME_PREFIX = "cloudtik"
-SECURITY_GROUP_TEMPLATE = AWS_RESOURCE_NAME_PREFIX + "-{}"
+AWS_WORKSPACE_SECURITY_GROUP_NAME = AWS_RESOURCE_NAME_PREFIX + "-{}"
 
 AWS_WORKSPACE_VERSION_TAG_NAME = "cloudtik-workspace-version"
 AWS_WORKSPACE_VERSION_CURRENT = "1"
@@ -118,279 +118,15 @@ AWS_MANAGED_STORAGE_S3_BUCKET = "aws.managed.storage.s3.bucket"
 assert StrictVersion(boto3.__version__) >= StrictVersion("1.4.8"), \
     "Boto3 version >= 1.4.8 required, try `pip install -U boto3`"
 
-
-def key_pair(i, region, key_name):
-    """
-    If key_name is not None, key_pair will be named after key_name.
-    Returns the ith default (aws_key_pair_name, key_pair_path).
-    """
-    if i == 0:
-        key_pair_name = ("{}_aws_{}".format(AWS_RESOURCE_NAME_PREFIX, region)
-                         if key_name is None else key_name)
-        return (key_pair_name,
-                os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
-
-    key_pair_name = ("{}_aws_{}_{}".format(AWS_RESOURCE_NAME_PREFIX, region, i)
-                     if key_name is None else key_name + "_key-{}".format(i))
-    return (key_pair_name,
-            os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
-
-
 # Suppress excessive connection dropped logs from boto
 logging.getLogger("botocore").setLevel(logging.WARNING)
 
 _log_info = {}
 
 
-def reload_log_state(override_log_info):
-    _log_info.update(override_log_info)
-
-
-def get_log_state():
-    return _log_info.copy()
-
-
-def _set_config_info(**kwargs):
-    """Record configuration artifacts useful for logging."""
-
-    # todo: this is technically fragile iff we ever use multiple configs
-
-    for k, v in kwargs.items():
-        _log_info[k] = v
-
-
-def _arn_to_name(arn):
-    return arn.split(":")[-1].split("/")[-1]
-
-
-def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
-                       ) -> List[Dict[str, Any]]:
-    """Get all instance-types/resources available in the user's AWS region.
-    Args:
-        region (str): the region of the AWS provider. e.g., "us-west-2".
-    Returns:
-        final_instance_types: a list of instances. An example of one element in
-        the list:
-            {'InstanceType': 'm5a.xlarge', 'ProcessorInfo':
-            {'SupportedArchitectures': ['x86_64'], 'SustainedClockSpeedInGhz':
-            2.5},'VCpuInfo': {'DefaultVCpus': 4, 'DefaultCores': 2,
-            'DefaultThreadsPerCore': 2, 'ValidCores': [2],
-            'ValidThreadsPerCore': [1, 2]}, 'MemoryInfo': {'SizeInMiB': 16384},
-            ...}
-
-    """
-    final_instance_types = []
-    ec2 = make_ec2_client(
-        region=region,
-        max_retries=BOTO_MAX_RETRIES,
-        aws_credentials=aws_credentials)
-    instance_types = ec2.describe_instance_types()
-    final_instance_types.extend(copy.deepcopy(instance_types["InstanceTypes"]))
-    while "NextToken" in instance_types:
-        instance_types = ec2.describe_instance_types(
-            NextToken=instance_types["NextToken"])
-        final_instance_types.extend(
-            copy.deepcopy(instance_types["InstanceTypes"]))
-
-    return final_instance_types
-
-
-def get_latest_ami_id(cluster_config: Dict[str, Any], is_gpu):
-    name_filter = DEFAULT_AMI_NAME_PREFIX_GPU if is_gpu else DEFAULT_AMI_NAME_PREFIX
-    try:
-        ec2 = make_ec2_client(
-            region=cluster_config["provider"]["region"],
-            max_retries=BOTO_MAX_RETRIES,
-            aws_credentials=cluster_config["provider"].get("aws_credentials"))
-        response = ec2.describe_images(Owners=["amazon"],
-                                       Filters=[{'Name': 'name', 'Values': [name_filter + "*"]},
-                                                {"Name": "is-public", "Values": ["true"]},
-                                                {"Name": "state", "Values": ["available"]}
-                                                ])
-        images = response.get('Images', [])
-        if len(images) > 0:
-            images.sort(key=lambda item: item['CreationDate'], reverse=True)
-            ami_id = images[0]["ImageId"]
-            return ami_id
-        else:
-            return None
-    except Exception as e:
-        cli_logger.warning(
-            "Error when getting latest AWS AMI information: {}", str(e))
-        return None
-
-
-def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
-    try:
-        config = fill_available_node_types_resources(config)
-    except Exception as exc:
-        cli_logger.warning(
-            "Failed to detect node resources. Make sure you have properly configured the AWS credentials: {}.",
-            str(exc))
-        raise
-    return config
-
-
-def fill_available_node_types_resources(
-        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fills out missing "resources" field for available_node_types."""
-    if "available_node_types" not in cluster_config:
-        return cluster_config
-    cluster_config = copy.deepcopy(cluster_config)
-
-    # Get instance information from cloud provider
-    instances_list = list_ec2_instances(
-        cluster_config["provider"]["region"],
-        cluster_config["provider"].get("aws_credentials"))
-    instances_dict = {
-        instance["InstanceType"]: instance
-        for instance in instances_list
-    }
-
-    # Update the instance information to node type
-    available_node_types = cluster_config["available_node_types"]
-    for node_type in available_node_types:
-        instance_type = available_node_types[node_type]["node_config"][
-            "InstanceType"]
-        if instance_type in instances_dict:
-            cpus = instances_dict[instance_type]["VCpuInfo"][
-                "DefaultVCpus"]
-            detected_resources = {"CPU": cpus}
-
-            memory_total = instances_dict[instance_type]["MemoryInfo"][
-                "SizeInMiB"]
-            memory_total_in_bytes = int(memory_total) * 1024 * 1024
-            detected_resources["memory"] = memory_total_in_bytes
-
-            gpus = instances_dict[instance_type].get("GpuInfo",
-                                                     {}).get("Gpus")
-            if gpus is not None:
-                assert len(gpus) == 1
-                gpu_name = gpus[0]["Name"]
-                detected_resources.update({
-                    "GPU": gpus[0]["Count"],
-                    f"accelerator_type:{gpu_name}": 1
-                })
-
-            detected_resources.update(
-                available_node_types[node_type].get("resources", {}))
-            if detected_resources != \
-                    available_node_types[node_type].get("resources", {}):
-                available_node_types[node_type][
-                    "resources"] = detected_resources
-                logger.debug("Updating the resources of {} to {}.".format(
-                    node_type, detected_resources))
-        else:
-            raise ValueError("Instance type " + instance_type +
-                             " is not available in AWS region: " +
-                             cluster_config["provider"]["region"] + ".")
-    return cluster_config
-
-
-def log_to_cli(config: Dict[str, Any]) -> None:
-    provider_name = _PROVIDER_PRETTY_NAMES.get("aws", None)
-
-    cli_logger.doassert(provider_name is not None,
-                        "Could not find a pretty name for the AWS provider.")
-
-    head_node_type = config["head_node_type"]
-    head_node_config = config["available_node_types"][head_node_type][
-        "node_config"]
-
-    with cli_logger.group("{} config", provider_name):
-
-        def print_info(resource_string: str,
-                       key: str,
-                       src_key: str,
-                       allowed_tags: Optional[List[str]] = None,
-                       list_value: bool = False) -> None:
-            if allowed_tags is None:
-                allowed_tags = ["default"]
-
-            node_tags = {}
-
-            # set of configurations corresponding to `key`
-            unique_settings = set()
-
-            for node_type_key, node_type in config[
-                    "available_node_types"].items():
-                node_tags[node_type_key] = {}
-                tag = _log_info[src_key][node_type_key]
-                if tag in allowed_tags:
-                    node_tags[node_type_key][tag] = True
-                setting = node_type["node_config"].get(key)
-
-                if list_value:
-                    unique_settings.add(tuple(setting))
-                else:
-                    unique_settings.add(setting)
-
-            head_value_str = head_node_config[key]
-            if list_value:
-                head_value_str = cli_logger.render_list(head_value_str)
-
-            if len(unique_settings) == 1:
-                # all node types are configured the same, condense
-                # log output
-                cli_logger.labeled_value(
-                    resource_string + " (all available node types)",
-                    "{}",
-                    head_value_str,
-                    _tags=node_tags[config["head_node_type"]])
-            else:
-                # do head node type first
-                cli_logger.labeled_value(
-                    resource_string + f" ({head_node_type})",
-                    "{}",
-                    head_value_str,
-                    _tags=node_tags[head_node_type])
-
-                # go through remaining types
-                for node_type_key, node_type in config[
-                        "available_node_types"].items():
-                    if node_type_key == head_node_type:
-                        continue
-                    workers_value_str = node_type["node_config"][key]
-                    if list_value:
-                        workers_value_str = cli_logger.render_list(
-                            workers_value_str)
-                    cli_logger.labeled_value(
-                        resource_string + f" ({node_type_key})",
-                        "{}",
-                        workers_value_str,
-                        _tags=node_tags[node_type_key])
-
-        tags = {"default": _log_info["head_instance_profile_src"] == "default"}
-        # head_node_config is the head_node_type's config,
-        # config["head_node"] is a field that gets applied only to the actual
-        # head node (and not workers of the head's node_type)
-        assert ("IamInstanceProfile" in head_node_config
-                or "IamInstanceProfile" in config["head_node"])
-        if "IamInstanceProfile" in head_node_config:
-            # If the user manually configured the role we're here.
-            IamProfile = head_node_config["IamInstanceProfile"]
-        elif "IamInstanceProfile" in config["head_node"]:
-            # If we filled the default IAM role, we're here.
-            IamProfile = config["head_node"]["IamInstanceProfile"]
-        profile_arn = IamProfile.get("Arn")
-        profile_name = _arn_to_name(profile_arn) \
-            if profile_arn \
-            else IamProfile["Name"]
-        cli_logger.labeled_value("IAM Profile", "{}", profile_name, _tags=tags)
-
-        if all("KeyName" in node_type["node_config"]
-               for node_type in config["available_node_types"].values()):
-            print_info("EC2 Key pair", "KeyName", "keypair_src")
-
-        print_info("VPC Subnets", "SubnetIds", "subnet_src", list_value=True)
-        print_info(
-            "EC2 Security groups",
-            "SecurityGroupIds",
-            "security_group_src",
-            list_value=True)
-        print_info("EC2 AMI", "ImageId", "ami_src", allowed_tags=["dlami"])
-
-    cli_logger.newline()
+######################
+# Workspace functions
+######################
 
 
 def get_workspace_vpc_id(workspace_name, ec2_client):
@@ -521,7 +257,7 @@ def get_workspace_public_route_tables(workspace_name, ec2, vpc_id):
 
 def get_workspace_security_group(config, vpc_id, workspace_name):
     return _get_security_group(
-        config["provider"], vpc_id, SECURITY_GROUP_TEMPLATE.format(workspace_name))
+        config["provider"], vpc_id, AWS_WORKSPACE_SECURITY_GROUP_NAME.format(workspace_name))
 
 
 def get_workspace_internet_gateways(workspace_name, ec2, vpc_id):
@@ -1036,130 +772,11 @@ def _delete_network_resources(config, workspace_name,
 def create_aws_workspace(config):
     # create a copy of the input config to modify
     config = copy.deepcopy(config)
-    
+
     # create workspace
     config = _create_workspace(config)
 
     return config
-
-
-def _configure_spot_for_node_type(node_type_config,
-                                  prefer_spot_node):
-    # To be improved if scheduling has other configurations
-    # InstanceMarketOptions:
-    #   MarketType: spot
-    node_config = node_type_config["node_config"]
-    if prefer_spot_node:
-        # Add spot instruction
-        node_config.pop("InstanceMarketOptions", None)
-        node_config["InstanceMarketOptions"] = {"MarketType": "spot"}
-    else:
-        # Remove spot instruction
-        node_config.pop("InstanceMarketOptions", None)
-
-
-def _configure_prefer_spot_node(config):
-    prefer_spot_node = config["provider"].get("prefer_spot_node")
-
-    # if no such key, we consider user don't want to override
-    if prefer_spot_node is None:
-        return config
-
-    # User override, set or remove spot settings for worker node types
-    node_types = config["available_node_types"]
-    for node_type_name in node_types:
-        if node_type_name == config["head_node_type"]:
-            continue
-
-        # worker node type
-        node_type_data = node_types[node_type_name]
-        _configure_spot_for_node_type(
-            node_type_data, prefer_spot_node)
-
-    return config
-
-
-def bootstrap_aws(config):
-    workspace_name = config.get("workspace_name")
-    if not workspace_name:
-        raise RuntimeError("Workspace name is not specified in cluster configuration.")
-
-    config = bootstrap_aws_from_workspace(config)
-    return config
-
-
-def bootstrap_aws_from_workspace(config):
-    if not check_aws_workspace_integrity(config):
-        workspace_name = config["workspace_name"]
-        cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state.", workspace_name)
-
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
-
-    # Used internally to store head IAM role.
-    config["head_node"] = {}
-
-    # If a LaunchTemplate is provided, extract the necessary fields for the
-    # config stages below.
-    config = _configure_from_launch_template(config)
-
-    # The head node needs to have an IAM role that allows it to create further
-    # EC2 instances.
-    config = _configure_iam_role_from_workspace(config)
-
-    # Set s3.bucket if use_managed_cloud_storage=False
-    config = _configure_cloud_storage_from_workspace(config)
-
-    # Set database parameters if use_managed_cloud_database
-    config = _configure_cloud_database_from_workspace(config)
-
-    # Configure SSH access, using an existing key pair if possible.
-    config = _configure_key_pair(config)
-
-    # Pick a reasonable subnet if not specified by the user.
-    config = _configure_subnet_from_workspace(config)
-
-    # Cluster workers should be in a security group that permits traffic within
-    # the group, and also SSH access from outside.
-    config = _configure_security_group_from_workspace(config)
-
-    # Provide a helpful message for missing AMI.
-    config = _configure_ami(config)
-
-    config = _configure_prefer_spot_node(config)
-    return config
-
-
-def bootstrap_aws_workspace(config):
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
-    _configure_allowed_ssh_sources(config)
-    return config
-
-
-def _configure_allowed_ssh_sources(config):
-    provider_config = config["provider"]
-    if "allowed_ssh_sources" not in provider_config:
-        return
-
-    allowed_ssh_sources = provider_config["allowed_ssh_sources"]
-    if len(allowed_ssh_sources) == 0:
-        return
-
-    if "security_group" not in provider_config:
-        provider_config["security_group"] = {}
-    security_group_config = provider_config["security_group"]
-
-    if "IpPermissions" not in security_group_config:
-        security_group_config["IpPermissions"] = []
-    ip_permissions = security_group_config["IpPermissions"]
-    ip_permission = {
-        "IpProtocol": "tcp",
-        "FromPort": 22,
-        "ToPort": 22,
-        "IpRanges": [{"CidrIp": allowed_ssh_source} for allowed_ssh_source in allowed_ssh_sources]
-    }
-    ip_permissions.append(ip_permission)
 
 
 def get_workspace_head_nodes(config):
@@ -1194,105 +811,6 @@ def _get_workspace_head_nodes(provider_config, workspace_name):
 
     nodes = list(ec2.instances.filter(Filters=filters))
     return nodes
-
-
-def _configure_cloud_storage_from_workspace(config):
-    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
-    if use_managed_cloud_storage:
-        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
-
-    return config
-
-
-def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
-    workspace_name = config["workspace_name"]
-    s3_bucket = get_managed_s3_bucket(cloud_provider, workspace_name)
-    if s3_bucket is None:
-        cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
-                         "you should set managed_cloud_storage equal to True when you creating workspace.")
-
-    cloud_storage = get_aws_s3_storage_config_for_update(config["provider"])
-    cloud_storage[AWS_S3_BUCKET] = s3_bucket.name
-
-
-def _configure_cloud_database_from_workspace(config):
-    use_managed_cloud_database = is_use_managed_cloud_database(config)
-    if use_managed_cloud_database:
-        _configure_managed_cloud_database_from_workspace(
-            config, config["provider"])
-
-    return config
-
-
-def _configure_managed_cloud_database_from_workspace(config, cloud_provider):
-    workspace_name = config["workspace_name"]
-    database_instance = get_managed_database_instance(cloud_provider, workspace_name)
-    if database_instance is None:
-        cli_logger.abort("No managed database was found. If you want to use managed database, "
-                         "you should set managed_cloud_database equal to True when you creating workspace.")
-
-    endpoint = database_instance['Endpoint']
-    database_config = get_aws_database_config_for_update(config["provider"])
-    database_config[AWS_DATABASE_ENDPOINT] = endpoint['Address']
-    database_config["port"] = endpoint['Port']
-    if "username" not in database_config:
-        database_config["username"] = database_instance['MasterUsername']
-
-
-def _configure_iam_role_from_workspace(config):
-    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
-    if worker_role_for_cloud_storage:
-        return _configure_iam_role_for_cluster(config)
-    else:
-        return _configure_iam_role_for_head(config)
-
-
-def _configure_iam_role_for_head(config):
-    head_node_type = config["head_node_type"]
-    head_node_config = config["available_node_types"][head_node_type][
-        "node_config"]
-    if "IamInstanceProfile" in head_node_config:
-        _set_config_info(head_instance_profile_src="config")
-        return config
-    _set_config_info(head_instance_profile_src="workspace")
-
-    instance_profile_name = _get_head_instance_profile_name(
-        config["workspace_name"])
-    profile = _get_instance_profile(instance_profile_name, config)
-    if not profile:
-        raise RuntimeError("Workspace instance profile: {} not found!".format(instance_profile_name))
-
-    # Add IAM role to "head_node" field so that it is applied only to
-    # the head node -- not to workers with the same node type as the head.
-    config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
-
-    return config
-
-
-def _configure_iam_role_for_cluster(config):
-    _set_config_info(head_instance_profile_src="workspace")
-
-    head_instance_profile_name = _get_head_instance_profile_name(
-        config["workspace_name"])
-    head_profile = _get_instance_profile(head_instance_profile_name, config)
-
-    worker_instance_profile_name = _get_worker_instance_profile_name(
-        config["workspace_name"])
-    worker_profile = _get_instance_profile(worker_instance_profile_name, config)
-
-    if not head_profile:
-        raise RuntimeError("Workspace head instance profile: {} not found!".format(head_instance_profile_name))
-    if not worker_profile:
-        raise RuntimeError("Workspace worker instance profile: {} not found!".format(worker_instance_profile_name))
-
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        if key == config["head_node_type"]:
-            node_config["IamInstanceProfile"] = {"Arn": head_profile.arn}
-        else:
-            node_config["IamInstanceProfile"] = {"Arn": worker_profile.arn}
-
-    return config
 
 
 def _create_or_update_instance_profile(config, instance_profile_name, instance_role_name, is_head=True):
@@ -1400,92 +918,6 @@ def _delete_iam_role(cloud_provider, role_name):
 
     # delete the role
     role.delete()
-
-
-def _configure_key_pair(config):
-    node_types = config["available_node_types"]
-
-    # map from node type key -> source of KeyName field
-    key_pair_src_info = {}
-    _set_config_info(keypair_src=key_pair_src_info)
-
-    if "ssh_private_key" in config["auth"]:
-        for node_type_key in node_types:
-            # keypairs should be provided in the config
-            key_pair_src_info[node_type_key] = "config"
-
-        # If the key is not configured via the cloudinit
-        # UserData, it should be configured via KeyName or
-        # else we will risk starting a node that we cannot
-        # SSH into:
-
-        for node_type in node_types:
-            node_config = node_types[node_type]["node_config"]
-            if "UserData" not in node_config:
-                cli_logger.doassert("KeyName" in node_config,
-                                    _key_assert_msg(node_type))
-                assert "KeyName" in node_config
-
-        return config
-
-    for node_type_key in node_types:
-        key_pair_src_info[node_type_key] = "default"
-
-    ec2 = _resource("ec2", config)
-
-    # Writing the new ssh key to the filesystem fails if the ~/.ssh
-    # directory doesn't already exist.
-    os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
-
-    # Try a few times to get or create a good key pair.
-    MAX_NUM_KEYS = 300
-    for i in range(MAX_NUM_KEYS):
-        key_name = config["provider"].get("key_pair", {}).get("key_name")
-        key_name, key_path = key_pair(i, config["provider"]["region"],
-                                      key_name)
-        key = _get_key(key_name, config)
-        # Found a good key.
-        if key and os.path.exists(key_path):
-            break
-
-        # We can safely create a new key.
-        if not key and not os.path.exists(key_path):
-            cli_logger.verbose(
-                "Creating new key pair {} for use as the default.",
-                cf.bold(key_name))
-            key = ec2.create_key_pair(KeyName=key_name)
-
-            # We need to make sure to _create_ the file with the right
-            # permissions. In order to do that we need to change the default
-            # os.open behavior to include the mode we want.
-            with open(key_path, "w", opener=partial(os.open, mode=0o600)) as f:
-                f.write(key.key_material)
-            break
-
-    if not key:
-        cli_logger.abort(
-            "No matching local key file for any of the key pairs in this "
-            "account with ids from 0..{}. "
-            "Consider deleting some unused keys pairs from your account.",
-            key_name)
-
-    cli_logger.doassert(
-        os.path.exists(key_path), "Private key file " + cf.bold("{}") +
-        " not found for " + cf.bold("{}"), key_path, key_name)  # todo: err msg
-    assert os.path.exists(key_path), \
-        "Private key file {} not found for {}".format(key_path, key_name)
-
-    config["auth"]["ssh_private_key"] = key_path
-    for node_type in node_types.values():
-        node_config = node_type["node_config"]
-        node_config["KeyName"] = key_name
-
-    return config
-
-
-def _key_assert_msg(node_type: str) -> str:
-    return ("`KeyName` missing from the `node_config` of"
-            f" node type `{node_type}`.")
 
 
 def _delete_internet_gateway(workspace_name, ec2, vpc_id):
@@ -1620,7 +1052,7 @@ def _delete_nat_gateway(nat, ec2_client):
 
 
 def _delete_workspace_security_group(config, vpc_id):
-    security_group_name = SECURITY_GROUP_TEMPLATE.format(config["workspace_name"])
+    security_group_name = AWS_WORKSPACE_SECURITY_GROUP_NAME.format(config["workspace_name"])
     _delete_security_group(
         config["provider"], vpc_id, security_group_name
     )
@@ -2801,45 +2233,6 @@ def get_current_vpc(config):
     return current_vpc
 
 
-def _configure_subnet_from_workspace(config):
-    ec2 = _resource("ec2", config)
-    ec2_client = _resource_client("ec2", config)
-    workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
-
-    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    public_subnets = get_workspace_public_subnets(workspace_name, ec2, vpc_id)
-    private_subnets = get_workspace_private_subnets(workspace_name, ec2, vpc_id)
-    public_subnet_ids = [public_subnet.id for public_subnet in public_subnets]
-    private_subnet_ids = [private_subnet.id for private_subnet in private_subnets]
-
-    # We need to make sure the first private subnet is the same availability zone with the first public subnet
-    if not use_internal_ips and len(public_subnet_ids) > 0:
-        availability_zone = public_subnets[0].availability_zone
-        for private_subnet in private_subnets:
-            if availability_zone == private_subnet.availability_zone:
-                private_subnet_ids.remove(private_subnet.id)
-                private_subnet_ids.insert(0, private_subnet.id)
-                break
-
-    # map from node type key -> source of SubnetIds field
-    subnet_src_info = {}
-    _set_config_info(subnet_src=subnet_src_info)
-
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        if key == config["head_node_type"]:
-            if use_internal_ips:
-                node_config["SubnetIds"] = private_subnet_ids
-            else:
-                node_config["SubnetIds"] = public_subnet_ids
-        else:
-            node_config["SubnetIds"] = private_subnet_ids
-        subnet_src_info[key] = "workspace"
-
-    return config
-
-
 def _get_vpc_id_of_sg(sg_ids: List[str], config: Dict[str, Any]) -> str:
     """Returns the VPC id of the security groups with the provided security
     group ids.
@@ -2869,61 +2262,6 @@ def _get_vpc_id_of_sg(sg_ids: List[str], config: Dict[str, Any]) -> str:
     return vpc_ids[0]
 
 
-def _configure_security_group_from_workspace(config):
-    ec2_client = _resource_client("ec2", config)
-    workspace_name = config["workspace_name"]
-    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
-    # map from node type key -> source of SecurityGroupIds field
-    security_group_info_src = {}
-    _set_config_info(security_group_src=security_group_info_src)
-    sg = get_workspace_security_group(config,  vpc_id, workspace_name)
-
-    for node_type_key in config["available_node_types"].keys():
-        node_config = config["available_node_types"][node_type_key][
-            "node_config"]
-        node_config["SecurityGroupIds"] = [sg.id]
-        security_group_info_src[node_type_key] = "workspace"
-
-    return config
-
-
-def _get_default_ami(config, default_ami, is_gpu):
-    if default_ami is not None:
-        return default_ami
-
-    default_ami = get_latest_ami_id(config, is_gpu)
-    if not default_ami:
-        region = config["provider"]["region"]
-        cli_logger.warning(
-            "Can not get latest ami information in this region: {}. Will use default ami id".format(region))
-        default_ami = DEFAULT_AMI_GPU.get(region) if is_gpu else DEFAULT_AMI.get(region)
-        if not default_ami:
-            cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".
-                             format(region, sorted(DEFAULT_AMI.keys())))
-    return default_ami
-
-
-def _configure_ami(config):
-    """Provide helpful message for missing ImageId for node configuration."""
-
-    # map from node type key -> source of ImageId field
-    ami_src_info = {key: "config" for key in config["available_node_types"]}
-    _set_config_info(ami_src=ami_src_info)
-
-    is_gpu = is_gpu_runtime(config)
-
-    default_ami = None
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        image_id = node_config.get("ImageId", "")
-        if image_id == "":
-            # Only set to default ami if not specified by the user
-            default_ami = _get_default_ami(config, default_ami, is_gpu)
-            node_config["ImageId"] = default_ami
-
-    return config
-
-
 def _upsert_security_group(config, vpc_id):
     current_step = 1
     total_steps = 2
@@ -2944,7 +2282,7 @@ def _upsert_security_group(config, vpc_id):
 
 
 def _create_workspace_security_group(config, vpc_id):
-    group_name = SECURITY_GROUP_TEMPLATE.format(config["workspace_name"])
+    group_name = AWS_WORKSPACE_SECURITY_GROUP_NAME.format(config["workspace_name"])
     return _create_security_group(config["provider"], vpc_id, group_name)
 
 
@@ -3197,6 +2535,609 @@ def get_workspace_db_subnet_group(provider_config, workspace_name):
     return None
 
 
+def get_cluster_name_from_head(head_node) -> Optional[str]:
+    for tag in head_node.tags:
+        tag_key = tag.get("Key")
+        if tag_key == CLOUDTIK_TAG_CLUSTER_NAME:
+            return tag.get("Value")
+    return None
+
+
+def list_aws_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    head_nodes = get_workspace_head_nodes(config)
+    clusters = {}
+    for head_node in head_nodes:
+        cluster_name = get_cluster_name_from_head(head_node)
+        if cluster_name:
+            clusters[cluster_name] = _get_node_info(head_node)
+    return clusters
+
+
+################################
+# Clustering functions
+################################
+
+
+def key_pair(i, region, key_name):
+    """
+    If key_name is not None, key_pair will be named after key_name.
+    Returns the ith default (aws_key_pair_name, key_pair_path).
+    """
+    if i == 0:
+        key_pair_name = ("{}_aws_{}".format(AWS_RESOURCE_NAME_PREFIX, region)
+                         if key_name is None else key_name)
+        return (key_pair_name,
+                os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
+
+    key_pair_name = ("{}_aws_{}_{}".format(AWS_RESOURCE_NAME_PREFIX, region, i)
+                     if key_name is None else key_name + "_key-{}".format(i))
+    return (key_pair_name,
+            os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
+
+
+def reload_log_state(override_log_info):
+    _log_info.update(override_log_info)
+
+
+def get_log_state():
+    return _log_info.copy()
+
+
+def _set_config_info(**kwargs):
+    """Record configuration artifacts useful for logging."""
+
+    # todo: this is technically fragile iff we ever use multiple configs
+
+    for k, v in kwargs.items():
+        _log_info[k] = v
+
+
+def _arn_to_name(arn):
+    return arn.split(":")[-1].split("/")[-1]
+
+
+def list_ec2_instances(region: str, aws_credentials: Dict[str, Any] = None
+                       ) -> List[Dict[str, Any]]:
+    """Get all instance-types/resources available in the user's AWS region.
+    Args:
+        region (str): the region of the AWS provider. e.g., "us-west-2".
+    Returns:
+        final_instance_types: a list of instances. An example of one element in
+        the list:
+            {'InstanceType': 'm5a.xlarge', 'ProcessorInfo':
+            {'SupportedArchitectures': ['x86_64'], 'SustainedClockSpeedInGhz':
+            2.5},'VCpuInfo': {'DefaultVCpus': 4, 'DefaultCores': 2,
+            'DefaultThreadsPerCore': 2, 'ValidCores': [2],
+            'ValidThreadsPerCore': [1, 2]}, 'MemoryInfo': {'SizeInMiB': 16384},
+            ...}
+
+    """
+    final_instance_types = []
+    ec2 = make_ec2_client(
+        region=region,
+        max_retries=BOTO_MAX_RETRIES,
+        aws_credentials=aws_credentials)
+    instance_types = ec2.describe_instance_types()
+    final_instance_types.extend(copy.deepcopy(instance_types["InstanceTypes"]))
+    while "NextToken" in instance_types:
+        instance_types = ec2.describe_instance_types(
+            NextToken=instance_types["NextToken"])
+        final_instance_types.extend(
+            copy.deepcopy(instance_types["InstanceTypes"]))
+
+    return final_instance_types
+
+
+def get_latest_ami_id(cluster_config: Dict[str, Any], is_gpu):
+    name_filter = DEFAULT_AMI_NAME_PREFIX_GPU if is_gpu else DEFAULT_AMI_NAME_PREFIX
+    try:
+        ec2 = make_ec2_client(
+            region=cluster_config["provider"]["region"],
+            max_retries=BOTO_MAX_RETRIES,
+            aws_credentials=cluster_config["provider"].get("aws_credentials"))
+        response = ec2.describe_images(Owners=["amazon"],
+                                       Filters=[{'Name': 'name', 'Values': [name_filter + "*"]},
+                                                {"Name": "is-public", "Values": ["true"]},
+                                                {"Name": "state", "Values": ["available"]}
+                                                ])
+        images = response.get('Images', [])
+        if len(images) > 0:
+            images.sort(key=lambda item: item['CreationDate'], reverse=True)
+            ami_id = images[0]["ImageId"]
+            return ami_id
+        else:
+            return None
+    except Exception as e:
+        cli_logger.warning(
+            "Error when getting latest AWS AMI information: {}", str(e))
+        return None
+
+
+def post_prepare_aws(config: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        config = fill_available_node_types_resources(config)
+    except Exception as exc:
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the AWS credentials: {}.",
+            str(exc))
+        raise
+    return config
+
+
+def fill_available_node_types_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out missing "resources" field for available_node_types."""
+    if "available_node_types" not in cluster_config:
+        return cluster_config
+    cluster_config = copy.deepcopy(cluster_config)
+
+    # Get instance information from cloud provider
+    instances_list = list_ec2_instances(
+        cluster_config["provider"]["region"],
+        cluster_config["provider"].get("aws_credentials"))
+    instances_dict = {
+        instance["InstanceType"]: instance
+        for instance in instances_list
+    }
+
+    # Update the instance information to node type
+    available_node_types = cluster_config["available_node_types"]
+    for node_type in available_node_types:
+        instance_type = available_node_types[node_type]["node_config"][
+            "InstanceType"]
+        if instance_type in instances_dict:
+            cpus = instances_dict[instance_type]["VCpuInfo"][
+                "DefaultVCpus"]
+            detected_resources = {"CPU": cpus}
+
+            memory_total = instances_dict[instance_type]["MemoryInfo"][
+                "SizeInMiB"]
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            detected_resources["memory"] = memory_total_in_bytes
+
+            gpus = instances_dict[instance_type].get("GpuInfo",
+                                                     {}).get("Gpus")
+            if gpus is not None:
+                assert len(gpus) == 1
+                gpu_name = gpus[0]["Name"]
+                detected_resources.update({
+                    "GPU": gpus[0]["Count"],
+                    f"accelerator_type:{gpu_name}": 1
+                })
+
+            detected_resources.update(
+                available_node_types[node_type].get("resources", {}))
+            if detected_resources != \
+                    available_node_types[node_type].get("resources", {}):
+                available_node_types[node_type][
+                    "resources"] = detected_resources
+                logger.debug("Updating the resources of {} to {}.".format(
+                    node_type, detected_resources))
+        else:
+            raise ValueError("Instance type " + instance_type +
+                             " is not available in AWS region: " +
+                             cluster_config["provider"]["region"] + ".")
+    return cluster_config
+
+
+def log_to_cli(config: Dict[str, Any]) -> None:
+    provider_name = _PROVIDER_PRETTY_NAMES.get("aws", None)
+
+    cli_logger.doassert(provider_name is not None,
+                        "Could not find a pretty name for the AWS provider.")
+
+    head_node_type = config["head_node_type"]
+    head_node_config = config["available_node_types"][head_node_type][
+        "node_config"]
+
+    with cli_logger.group("{} config", provider_name):
+
+        def print_info(resource_string: str,
+                       key: str,
+                       src_key: str,
+                       allowed_tags: Optional[List[str]] = None,
+                       list_value: bool = False) -> None:
+            if allowed_tags is None:
+                allowed_tags = ["default"]
+
+            node_tags = {}
+
+            # set of configurations corresponding to `key`
+            unique_settings = set()
+
+            for node_type_key, node_type in config[
+                    "available_node_types"].items():
+                node_tags[node_type_key] = {}
+                tag = _log_info[src_key][node_type_key]
+                if tag in allowed_tags:
+                    node_tags[node_type_key][tag] = True
+                setting = node_type["node_config"].get(key)
+
+                if list_value:
+                    unique_settings.add(tuple(setting))
+                else:
+                    unique_settings.add(setting)
+
+            head_value_str = head_node_config[key]
+            if list_value:
+                head_value_str = cli_logger.render_list(head_value_str)
+
+            if len(unique_settings) == 1:
+                # all node types are configured the same, condense
+                # log output
+                cli_logger.labeled_value(
+                    resource_string + " (all available node types)",
+                    "{}",
+                    head_value_str,
+                    _tags=node_tags[config["head_node_type"]])
+            else:
+                # do head node type first
+                cli_logger.labeled_value(
+                    resource_string + f" ({head_node_type})",
+                    "{}",
+                    head_value_str,
+                    _tags=node_tags[head_node_type])
+
+                # go through remaining types
+                for node_type_key, node_type in config[
+                        "available_node_types"].items():
+                    if node_type_key == head_node_type:
+                        continue
+                    workers_value_str = node_type["node_config"][key]
+                    if list_value:
+                        workers_value_str = cli_logger.render_list(
+                            workers_value_str)
+                    cli_logger.labeled_value(
+                        resource_string + f" ({node_type_key})",
+                        "{}",
+                        workers_value_str,
+                        _tags=node_tags[node_type_key])
+
+        tags = {"default": _log_info["head_instance_profile_src"] == "default"}
+        # head_node_config is the head_node_type's config,
+        # config["head_node"] is a field that gets applied only to the actual
+        # head node (and not workers of the head's node_type)
+        assert ("IamInstanceProfile" in head_node_config
+                or "IamInstanceProfile" in config["head_node"])
+        if "IamInstanceProfile" in head_node_config:
+            # If the user manually configured the role we're here.
+            IamProfile = head_node_config["IamInstanceProfile"]
+        elif "IamInstanceProfile" in config["head_node"]:
+            # If we filled the default IAM role, we're here.
+            IamProfile = config["head_node"]["IamInstanceProfile"]
+        profile_arn = IamProfile.get("Arn")
+        profile_name = _arn_to_name(profile_arn) \
+            if profile_arn \
+            else IamProfile["Name"]
+        cli_logger.labeled_value("IAM Profile", "{}", profile_name, _tags=tags)
+
+        if all("KeyName" in node_type["node_config"]
+               for node_type in config["available_node_types"].values()):
+            print_info("EC2 Key pair", "KeyName", "keypair_src")
+
+        print_info("VPC Subnets", "SubnetIds", "subnet_src", list_value=True)
+        print_info(
+            "EC2 Security groups",
+            "SecurityGroupIds",
+            "security_group_src",
+            list_value=True)
+        print_info("EC2 AMI", "ImageId", "ami_src", allowed_tags=["dlami"])
+
+    cli_logger.newline()
+
+
+def _configure_spot_for_node_type(node_type_config,
+                                  prefer_spot_node):
+    # To be improved if scheduling has other configurations
+    # InstanceMarketOptions:
+    #   MarketType: spot
+    node_config = node_type_config["node_config"]
+    if prefer_spot_node:
+        # Add spot instruction
+        node_config.pop("InstanceMarketOptions", None)
+        node_config["InstanceMarketOptions"] = {"MarketType": "spot"}
+    else:
+        # Remove spot instruction
+        node_config.pop("InstanceMarketOptions", None)
+
+
+def _configure_prefer_spot_node(config):
+    prefer_spot_node = config["provider"].get("prefer_spot_node")
+
+    # if no such key, we consider user don't want to override
+    if prefer_spot_node is None:
+        return config
+
+    # User override, set or remove spot settings for worker node types
+    node_types = config["available_node_types"]
+    for node_type_name in node_types:
+        if node_type_name == config["head_node_type"]:
+            continue
+
+        # worker node type
+        node_type_data = node_types[node_type_name]
+        _configure_spot_for_node_type(
+            node_type_data, prefer_spot_node)
+
+    return config
+
+
+def bootstrap_aws(config):
+    workspace_name = config.get("workspace_name")
+    if not workspace_name:
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
+
+    config = bootstrap_aws_from_workspace(config)
+    return config
+
+
+def bootstrap_aws_from_workspace(config):
+    if not check_aws_workspace_integrity(config):
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("AWS workspace {} doesn't exist or is in wrong state.", workspace_name)
+
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+
+    # Used internally to store head IAM role.
+    config["head_node"] = {}
+
+    # If a LaunchTemplate is provided, extract the necessary fields for the
+    # config stages below.
+    config = _configure_from_launch_template(config)
+
+    # The head node needs to have an IAM role that allows it to create further
+    # EC2 instances.
+    config = _configure_iam_role_from_workspace(config)
+
+    # Set s3.bucket if use_managed_cloud_storage=False
+    config = _configure_cloud_storage_from_workspace(config)
+
+    # Set database parameters if use_managed_cloud_database
+    config = _configure_cloud_database_from_workspace(config)
+
+    # Configure SSH access, using an existing key pair if possible.
+    config = _configure_key_pair(config)
+
+    # Pick a reasonable subnet if not specified by the user.
+    config = _configure_subnet_from_workspace(config)
+
+    # Cluster workers should be in a security group that permits traffic within
+    # the group, and also SSH access from outside.
+    config = _configure_security_group_from_workspace(config)
+
+    # Provide a helpful message for missing AMI.
+    config = _configure_ami(config)
+
+    config = _configure_prefer_spot_node(config)
+    return config
+
+
+def bootstrap_aws_workspace(config):
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+    _configure_allowed_ssh_sources(config)
+    return config
+
+
+def _configure_allowed_ssh_sources(config):
+    provider_config = config["provider"]
+    if "allowed_ssh_sources" not in provider_config:
+        return
+
+    allowed_ssh_sources = provider_config["allowed_ssh_sources"]
+    if len(allowed_ssh_sources) == 0:
+        return
+
+    if "security_group" not in provider_config:
+        provider_config["security_group"] = {}
+    security_group_config = provider_config["security_group"]
+
+    if "IpPermissions" not in security_group_config:
+        security_group_config["IpPermissions"] = []
+    ip_permissions = security_group_config["IpPermissions"]
+    ip_permission = {
+        "IpProtocol": "tcp",
+        "FromPort": 22,
+        "ToPort": 22,
+        "IpRanges": [{"CidrIp": allowed_ssh_source} for allowed_ssh_source in allowed_ssh_sources]
+    }
+    ip_permissions.append(ip_permission)
+
+
+def _configure_cloud_storage_from_workspace(config):
+    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
+    if use_managed_cloud_storage:
+        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
+
+    return config
+
+
+def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    s3_bucket = get_managed_s3_bucket(cloud_provider, workspace_name)
+    if s3_bucket is None:
+        cli_logger.abort("No managed s3 bucket was found. If you want to use managed s3 bucket, "
+                         "you should set managed_cloud_storage equal to True when you creating workspace.")
+
+    cloud_storage = get_aws_s3_storage_config_for_update(config["provider"])
+    cloud_storage[AWS_S3_BUCKET] = s3_bucket.name
+
+
+def _configure_cloud_database_from_workspace(config):
+    use_managed_cloud_database = is_use_managed_cloud_database(config)
+    if use_managed_cloud_database:
+        _configure_managed_cloud_database_from_workspace(
+            config, config["provider"])
+
+    return config
+
+
+def _configure_managed_cloud_database_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    database_instance = get_managed_database_instance(cloud_provider, workspace_name)
+    if database_instance is None:
+        cli_logger.abort("No managed database was found. If you want to use managed database, "
+                         "you should set managed_cloud_database equal to True when you creating workspace.")
+
+    endpoint = database_instance['Endpoint']
+    database_config = get_aws_database_config_for_update(config["provider"])
+    database_config[AWS_DATABASE_ENDPOINT] = endpoint['Address']
+    database_config["port"] = endpoint['Port']
+    if "username" not in database_config:
+        database_config["username"] = database_instance['MasterUsername']
+
+
+def _configure_iam_role_from_workspace(config):
+    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
+    if worker_role_for_cloud_storage:
+        return _configure_iam_role_for_cluster(config)
+    else:
+        return _configure_iam_role_for_head(config)
+
+
+def _configure_iam_role_for_head(config):
+    head_node_type = config["head_node_type"]
+    head_node_config = config["available_node_types"][head_node_type][
+        "node_config"]
+    if "IamInstanceProfile" in head_node_config:
+        _set_config_info(head_instance_profile_src="config")
+        return config
+    _set_config_info(head_instance_profile_src="workspace")
+
+    instance_profile_name = _get_head_instance_profile_name(
+        config["workspace_name"])
+    profile = _get_instance_profile(instance_profile_name, config)
+    if not profile:
+        raise RuntimeError("Workspace instance profile: {} not found!".format(instance_profile_name))
+
+    # Add IAM role to "head_node" field so that it is applied only to
+    # the head node -- not to workers with the same node type as the head.
+    config["head_node"]["IamInstanceProfile"] = {"Arn": profile.arn}
+
+    return config
+
+
+def _configure_iam_role_for_cluster(config):
+    _set_config_info(head_instance_profile_src="workspace")
+
+    head_instance_profile_name = _get_head_instance_profile_name(
+        config["workspace_name"])
+    head_profile = _get_instance_profile(head_instance_profile_name, config)
+
+    worker_instance_profile_name = _get_worker_instance_profile_name(
+        config["workspace_name"])
+    worker_profile = _get_instance_profile(worker_instance_profile_name, config)
+
+    if not head_profile:
+        raise RuntimeError("Workspace head instance profile: {} not found!".format(head_instance_profile_name))
+    if not worker_profile:
+        raise RuntimeError("Workspace worker instance profile: {} not found!".format(worker_instance_profile_name))
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            node_config["IamInstanceProfile"] = {"Arn": head_profile.arn}
+        else:
+            node_config["IamInstanceProfile"] = {"Arn": worker_profile.arn}
+
+    return config
+
+
+def _configure_subnet_from_workspace(config):
+    ec2 = _resource("ec2", config)
+    ec2_client = _resource_client("ec2", config)
+    workspace_name = config["workspace_name"]
+    use_internal_ips = is_use_internal_ip(config)
+
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    public_subnets = get_workspace_public_subnets(workspace_name, ec2, vpc_id)
+    private_subnets = get_workspace_private_subnets(workspace_name, ec2, vpc_id)
+    public_subnet_ids = [public_subnet.id for public_subnet in public_subnets]
+    private_subnet_ids = [private_subnet.id for private_subnet in private_subnets]
+
+    # We need to make sure the first private subnet is the same availability zone with the first public subnet
+    if not use_internal_ips and len(public_subnet_ids) > 0:
+        availability_zone = public_subnets[0].availability_zone
+        for private_subnet in private_subnets:
+            if availability_zone == private_subnet.availability_zone:
+                private_subnet_ids.remove(private_subnet.id)
+                private_subnet_ids.insert(0, private_subnet.id)
+                break
+
+    # map from node type key -> source of SubnetIds field
+    subnet_src_info = {}
+    _set_config_info(subnet_src=subnet_src_info)
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            if use_internal_ips:
+                node_config["SubnetIds"] = private_subnet_ids
+            else:
+                node_config["SubnetIds"] = public_subnet_ids
+        else:
+            node_config["SubnetIds"] = private_subnet_ids
+        subnet_src_info[key] = "workspace"
+
+    return config
+
+
+def _configure_security_group_from_workspace(config):
+    ec2_client = _resource_client("ec2", config)
+    workspace_name = config["workspace_name"]
+    vpc_id = get_workspace_vpc_id(workspace_name, ec2_client)
+    # map from node type key -> source of SecurityGroupIds field
+    security_group_info_src = {}
+    _set_config_info(security_group_src=security_group_info_src)
+    sg = get_workspace_security_group(config,  vpc_id, workspace_name)
+
+    for node_type_key in config["available_node_types"].keys():
+        node_config = config["available_node_types"][node_type_key][
+            "node_config"]
+        node_config["SecurityGroupIds"] = [sg.id]
+        security_group_info_src[node_type_key] = "workspace"
+
+    return config
+
+
+def _get_default_ami(config, default_ami, is_gpu):
+    if default_ami is not None:
+        return default_ami
+
+    default_ami = get_latest_ami_id(config, is_gpu)
+    if not default_ami:
+        region = config["provider"]["region"]
+        cli_logger.warning(
+            "Can not get latest ami information in this region: {}. Will use default ami id".format(region))
+        default_ami = DEFAULT_AMI_GPU.get(region) if is_gpu else DEFAULT_AMI.get(region)
+        if not default_ami:
+            cli_logger.abort("Not support on this region: {}. Please use one of these regions {}".
+                             format(region, sorted(DEFAULT_AMI.keys())))
+    return default_ami
+
+
+def _configure_ami(config):
+    """Provide helpful message for missing ImageId for node configuration."""
+
+    # map from node type key -> source of ImageId field
+    ami_src_info = {key: "config" for key in config["available_node_types"]}
+    _set_config_info(ami_src=ami_src_info)
+
+    is_gpu = is_gpu_runtime(config)
+
+    default_ami = None
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        image_id = node_config.get("ImageId", "")
+        if image_id == "":
+            # Only set to default ami if not specified by the user
+            default_ami = _get_default_ami(config, default_ami, is_gpu)
+            node_config["ImageId"] = default_ami
+
+    return config
+
+
 def _get_key(key_name, config):
     ec2 = _resource("ec2", config)
     try:
@@ -3210,6 +3151,92 @@ def _get_key(key_name, config):
         handle_boto_error(exc, "Failed to fetch EC2 key pair {} from AWS.",
                           cf.bold(key_name))
         raise exc
+
+
+def _key_assert_msg(node_type: str) -> str:
+    return ("`KeyName` missing from the `node_config` of"
+            f" node type `{node_type}`.")
+
+
+def _configure_key_pair(config):
+    node_types = config["available_node_types"]
+
+    # map from node type key -> source of KeyName field
+    key_pair_src_info = {}
+    _set_config_info(keypair_src=key_pair_src_info)
+
+    if "ssh_private_key" in config["auth"]:
+        for node_type_key in node_types:
+            # keypairs should be provided in the config
+            key_pair_src_info[node_type_key] = "config"
+
+        # If the key is not configured via the cloudinit
+        # UserData, it should be configured via KeyName or
+        # else we will risk starting a node that we cannot
+        # SSH into:
+
+        for node_type in node_types:
+            node_config = node_types[node_type]["node_config"]
+            if "UserData" not in node_config:
+                cli_logger.doassert("KeyName" in node_config,
+                                    _key_assert_msg(node_type))
+                assert "KeyName" in node_config
+
+        return config
+
+    for node_type_key in node_types:
+        key_pair_src_info[node_type_key] = "default"
+
+    ec2 = _resource("ec2", config)
+
+    # Writing the new ssh key to the filesystem fails if the ~/.ssh
+    # directory doesn't already exist.
+    os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
+
+    # Try a few times to get or create a good key pair.
+    MAX_NUM_KEYS = 300
+    for i in range(MAX_NUM_KEYS):
+        key_name = config["provider"].get("key_pair", {}).get("key_name")
+        key_name, key_path = key_pair(i, config["provider"]["region"],
+                                      key_name)
+        key = _get_key(key_name, config)
+        # Found a good key.
+        if key and os.path.exists(key_path):
+            break
+
+        # We can safely create a new key.
+        if not key and not os.path.exists(key_path):
+            cli_logger.verbose(
+                "Creating new key pair {} for use as the default.",
+                cf.bold(key_name))
+            key = ec2.create_key_pair(KeyName=key_name)
+
+            # We need to make sure to _create_ the file with the right
+            # permissions. In order to do that we need to change the default
+            # os.open behavior to include the mode we want.
+            with open(key_path, "w", opener=partial(os.open, mode=0o600)) as f:
+                f.write(key.key_material)
+            break
+
+    if not key:
+        cli_logger.abort(
+            "No matching local key file for any of the key pairs in this "
+            "account with ids from 0..{}. "
+            "Consider deleting some unused keys pairs from your account.",
+            key_name)
+
+    cli_logger.doassert(
+        os.path.exists(key_path), "Private key file " + cf.bold("{}") +
+        " not found for " + cf.bold("{}"), key_path, key_name)  # todo: err msg
+    assert os.path.exists(key_path), \
+        "Private key file {} not found for {}".format(key_path, key_name)
+
+    config["auth"]["ssh_private_key"] = key_path
+    for node_type in node_types.values():
+        node_config = node_type["node_config"]
+        node_config["KeyName"] = key_name
+
+    return config
 
 
 def _configure_from_launch_template(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -3345,24 +3372,6 @@ def verify_s3_storage(provider_config: Dict[str, Any]):
                                   "If you want to go without passing the verification, "
                                   "set 'verify_cloud_storage' to False under provider config. "
                                   "Error: {}.".format(e.message)) from None
-
-
-def get_cluster_name_from_head(head_node) -> Optional[str]:
-    for tag in head_node.tags:
-        tag_key = tag.get("Key")
-        if tag_key == CLOUDTIK_TAG_CLUSTER_NAME:
-            return tag.get("Value")
-    return None
-
-
-def list_aws_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    head_nodes = get_workspace_head_nodes(config)
-    clusters = {}
-    for head_node in head_nodes:
-        cluster_name = get_cluster_name_from_head(head_node)
-        if cluster_name:
-            clusters[cluster_name] = _get_node_info(head_node)
-    return clusters
 
 
 def with_aws_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):

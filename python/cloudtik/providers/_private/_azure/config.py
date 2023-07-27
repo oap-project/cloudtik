@@ -83,78 +83,9 @@ AZURE_MANAGED_STORAGE_CONTAINER = "azure.managed.storage.container"
 logger = logging.getLogger(__name__)
 
 
-def post_prepare_azure(config: Dict[str, Any]) -> Dict[str, Any]:
-    try:
-        config = fill_available_node_types_resources(config)
-    except Exception as exc:
-        cli_logger.warning(
-            "Failed to detect node resources. Make sure you have properly configured the Azure credentials: {}.",
-            str(exc))
-        raise
-    return config
-
-
-def fill_available_node_types_resources(
-        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fills out missing "resources" field for available_node_types."""
-    if "available_node_types" not in cluster_config:
-        return cluster_config
-    cluster_config = copy.deepcopy(cluster_config)
-
-    # Get instance information from cloud provider
-    provider_config = cluster_config["provider"]
-    subscription_id = provider_config["subscription_id"]
-    location = provider_config["location"]
-
-    credential = get_credential(provider_config)
-    compute_client = ComputeManagementClient(credential, subscription_id)
-
-    location_filter = f"location eq '{location}'"
-    resource_skus = compute_client.resource_skus.list(filter=location_filter)
-    instances_dict = {}
-    for resource_sku in resource_skus:
-        if resource_sku.resource_type == "virtualMachines" and resource_sku.capabilities:
-            capability_map = {}
-            for capability in resource_sku.capabilities:
-                if capability.name:
-                    capability_map[capability.name] = capability.value
-            instances_dict[resource_sku.name] = capability_map
-
-    # Update the instance information to node type
-    available_node_types = cluster_config["available_node_types"]
-    for node_type in available_node_types:
-        instance_type = available_node_types[node_type]["node_config"]["azure_arm_parameters"]["vmSize"]
-        if instance_type in instances_dict:
-            capability_map = instances_dict[instance_type]
-
-            cpus = capability_map.get("vCPUs", "0")
-            detected_resources = {"CPU": int(cpus)}
-
-            memory_total = capability_map.get("MemoryGB", "0")
-            memory_total_in_bytes = int(memory_total) * 1024 * 1024 * 1024
-            detected_resources["memory"] = memory_total_in_bytes
-
-            gpus = capability_map.get("GPUs")
-            if gpus:
-                # Current we consider only GPU accelerator type
-                detected_resources.update({
-                    "GPU": int(gpus),
-                    f"accelerator_type:GPU": 1
-                })
-
-            detected_resources.update(
-                available_node_types[node_type].get("resources", {}))
-            if detected_resources != \
-                    available_node_types[node_type].get("resources", {}):
-                available_node_types[node_type][
-                    "resources"] = detected_resources
-                logger.debug("Updating the resources of {} to {}.".format(
-                    node_type, detected_resources))
-        else:
-            raise ValueError("Instance type " + instance_type +
-                             " is not available in Azure location: " +
-                             location + ".")
-    return cluster_config
+################################
+# Workspace functions
+################################
 
 
 def get_workspace_resource_group_name(workspace_name):
@@ -2725,6 +2656,85 @@ def _create_network_resources(config, resource_group_name, current_step, total_s
     return current_step
 
 
+################################
+# Clustering functions
+################################
+
+
+def post_prepare_azure(config: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        config = fill_available_node_types_resources(config)
+    except Exception as exc:
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the Azure credentials: {}.",
+            str(exc))
+        raise
+    return config
+
+
+def fill_available_node_types_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out missing "resources" field for available_node_types."""
+    if "available_node_types" not in cluster_config:
+        return cluster_config
+    cluster_config = copy.deepcopy(cluster_config)
+
+    # Get instance information from cloud provider
+    provider_config = cluster_config["provider"]
+    subscription_id = provider_config["subscription_id"]
+    location = provider_config["location"]
+
+    credential = get_credential(provider_config)
+    compute_client = ComputeManagementClient(credential, subscription_id)
+
+    location_filter = f"location eq '{location}'"
+    resource_skus = compute_client.resource_skus.list(filter=location_filter)
+    instances_dict = {}
+    for resource_sku in resource_skus:
+        if resource_sku.resource_type == "virtualMachines" and resource_sku.capabilities:
+            capability_map = {}
+            for capability in resource_sku.capabilities:
+                if capability.name:
+                    capability_map[capability.name] = capability.value
+            instances_dict[resource_sku.name] = capability_map
+
+    # Update the instance information to node type
+    available_node_types = cluster_config["available_node_types"]
+    for node_type in available_node_types:
+        instance_type = available_node_types[node_type]["node_config"]["azure_arm_parameters"]["vmSize"]
+        if instance_type in instances_dict:
+            capability_map = instances_dict[instance_type]
+
+            cpus = capability_map.get("vCPUs", "0")
+            detected_resources = {"CPU": int(cpus)}
+
+            memory_total = capability_map.get("MemoryGB", "0")
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024 * 1024
+            detected_resources["memory"] = memory_total_in_bytes
+
+            gpus = capability_map.get("GPUs")
+            if gpus:
+                # Current we consider only GPU accelerator type
+                detected_resources.update({
+                    "GPU": int(gpus),
+                    f"accelerator_type:GPU": 1
+                })
+
+            detected_resources.update(
+                available_node_types[node_type].get("resources", {}))
+            if detected_resources != \
+                    available_node_types[node_type].get("resources", {}):
+                available_node_types[node_type][
+                    "resources"] = detected_resources
+                logger.debug("Updating the resources of {} to {}.".format(
+                    node_type, detected_resources))
+        else:
+            raise ValueError("Instance type " + instance_type +
+                             " is not available in Azure location: " +
+                             location + ".")
+    return cluster_config
+
+
 def bootstrap_azure_from_workspace(config):
     if not check_azure_workspace_integrity(config):
         workspace_name = config["workspace_name"]
@@ -3166,6 +3176,39 @@ def _get_workspace_head_nodes(workspace_name,
     return workspace_heads
 
 
+def get_cluster_name_from_head(head_node) -> Optional[str]:
+    for key, value in head_node.tags.items():
+        if key == CLOUDTIK_TAG_CLUSTER_NAME:
+            return value
+    return None
+
+
+def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    compute_client = construct_compute_client(config)
+    resource_client = construct_resource_client(config)
+    network_client = construct_network_client(config)
+    use_working_vpc = is_use_working_vpc(config)
+    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
+
+    head_nodes = _get_workspace_head_nodes(
+        workspace_name=config.get("workspace_name"),
+        resource_group_name=resource_group_name,
+        compute_client=compute_client
+    )
+
+    clusters = {}
+    for head_node in head_nodes:
+        cluster_name = get_cluster_name_from_head(head_node)
+        if cluster_name:
+            head_node_meta = _extract_metadata_for_node(
+                head_node,
+                resource_group=resource_group_name,
+                compute_client=compute_client,
+                network_client=network_client)
+            clusters[cluster_name] = _get_node_info(head_node_meta)
+    return clusters
+
+
 def verify_azure_blob_storage(provider_config: Dict[str, Any]):
     azure_cloud_storage = get_azure_cloud_storage_config(provider_config)
     azure_storage_account = azure_cloud_storage["azure.storage.account"]
@@ -3233,39 +3276,6 @@ def verify_azure_cloud_storage(provider_config: Dict[str, Any]):
                                   "If you want to go without passing the verification, "
                                   "set 'verify_cloud_storage' to False under provider config. "
                                   "Error: {}.".format(str(e))) from None
-
-
-def get_cluster_name_from_head(head_node) -> Optional[str]:
-    for key, value in head_node.tags.items():
-        if key == CLOUDTIK_TAG_CLUSTER_NAME:
-            return value
-    return None
-
-
-def list_azure_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    compute_client = construct_compute_client(config)
-    resource_client = construct_resource_client(config)
-    network_client = construct_network_client(config)
-    use_working_vpc = is_use_working_vpc(config)
-    resource_group_name = get_resource_group_name(config, resource_client, use_working_vpc)
-
-    head_nodes = _get_workspace_head_nodes(
-        workspace_name=config.get("workspace_name"),
-        resource_group_name=resource_group_name,
-        compute_client=compute_client
-    )
-
-    clusters = {}
-    for head_node in head_nodes:
-        cluster_name = get_cluster_name_from_head(head_node)
-        if cluster_name:
-            head_node_meta = _extract_metadata_for_node(
-                head_node,
-                resource_group=resource_group_name,
-                compute_client=compute_client,
-                network_client=network_client)
-            clusters[cluster_name] = _get_node_info(head_node_meta)
-    return clusters
 
 
 def with_azure_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):

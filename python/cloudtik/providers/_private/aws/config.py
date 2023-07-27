@@ -2553,9 +2553,9 @@ def list_aws_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return clusters
 
 
-################################
+######################
 # Clustering functions
-################################
+######################
 
 
 def key_pair(i, region, key_name):

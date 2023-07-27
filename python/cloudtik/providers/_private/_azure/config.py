@@ -83,9 +83,9 @@ AZURE_MANAGED_STORAGE_CONTAINER = "azure.managed.storage.container"
 logger = logging.getLogger(__name__)
 
 
-################################
+######################
 # Workspace functions
-################################
+######################
 
 
 def get_workspace_resource_group_name(workspace_name):
@@ -2656,9 +2656,9 @@ def _create_network_resources(config, resource_group_name, current_step, total_s
     return current_step
 
 
-################################
+######################
 # Clustering functions
-################################
+######################
 
 
 def post_prepare_azure(config: Dict[str, Any]) -> Dict[str, Any]:

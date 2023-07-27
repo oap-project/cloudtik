@@ -24,6 +24,10 @@ KAFKA_SERVICE_NAME = "kafka"
 KAFKA_SERVICE_PORT = 9092
 
 
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(KAFKA_RUNTIME_CONFIG_KEY, {})
+
+
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     workspace_name = cluster_config.get("workspace_name")
     if workspace_name is None:
@@ -123,7 +127,9 @@ def update_configurations():
 
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
-    service_name = get_canonical_service_name(cluster_name, KAFKA_SERVICE_NAME)
+    kafka_config = _get_config(runtime_config)
+    service_name = get_canonical_service_name(
+        kafka_config, cluster_name, KAFKA_SERVICE_NAME)
     services = {
         service_name: {
             SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,

@@ -50,6 +50,10 @@ YARN_REQUEST_REST_RETRY_DELAY_S = 5
 YARN_REQUEST_REST_RETRY_COUNT = 36
 
 
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
+
+
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
     yarn_resource_memory_ratio = YARN_RESOURCE_MEMORY_RATIO
     spark_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get(SPARK_RUNTIME_CONFIG_KEY, {})
@@ -277,7 +281,7 @@ def _with_hadoop_default(spark_config, runtime_envs):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
-    spark_config = runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
+    spark_config = _get_config(runtime_config)
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # export yarn memory ratio to use if configured by user
@@ -336,7 +340,7 @@ def _validate_config(config: Dict[str, Any]):
     if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_HDFS):
         return
     # check if there is remote HDFS configured
-    spark_config = runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
+    spark_config = _get_config(runtime_config)
     if spark_config.get(SPARK_HDFS_NAMENODE_URI_KEY) is not None:
         return
 
@@ -388,7 +392,7 @@ def _get_scaling_policy(
         runtime_config: Dict[str, Any],
         cluster_config: Dict[str, Any],
         head_ip: str) -> Optional[ScalingPolicy]:
-    spark_config = runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
+    spark_config = _get_config(runtime_config)
     if "scaling" not in spark_config:
         return None
 

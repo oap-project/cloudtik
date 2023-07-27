@@ -28,6 +28,10 @@ TRINO_SERVICE_NAME = "trino"
 TRINO_SERVICE_PORT = 8081
 
 
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(TRINO_RUNTIME_CONFIG_KEY, {})
+
+
 def get_jvm_max_memory(total_memory):
     return int(total_memory * JVM_MAX_MEMORY_RATIO)
 
@@ -80,7 +84,7 @@ def _get_runnable_command(target):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"TRINO_ENABLED": True}
-    trino_config = runtime_config.get(TRINO_RUNTIME_CONFIG_KEY, {})
+    trino_config = _get_config(runtime_config)
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # 1) Try to use local metastore if there is one started;
@@ -187,7 +191,9 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
-    service_name = get_canonical_service_name(cluster_name, TRINO_SERVICE_NAME)
+    trino_config = _get_config(runtime_config)
+    service_name = get_canonical_service_name(
+        trino_config, cluster_name, TRINO_SERVICE_NAME)
     services = {
         service_name: {
             SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,

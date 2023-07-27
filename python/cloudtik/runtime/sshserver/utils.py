@@ -18,9 +18,12 @@ SSH_PUBLIC_KEY_ERROR = ("For use SSH Server runtime, "
                         "using ssh_public_key under auth configuration.")
 
 
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(SSH_SERVER_RUNTIME_CONFIG_KEY, {})
+
+
 def _get_ssh_server_port(runtime_config):
-    ssh_server_config = runtime_config.get(
-        SSH_SERVER_RUNTIME_CONFIG_KEY, {})
+    ssh_server_config = _get_config(runtime_config)
     return ssh_server_config.get("port", SSH_SERVER_DEFAULT_PORT)
 
 

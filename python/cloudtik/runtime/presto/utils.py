@@ -90,7 +90,7 @@ def _get_runnable_command(target):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"PRESTO_ENABLED": True}
-    presto_config = runtime_config.get(PRESTO_RUNTIME_CONFIG_KEY, {})
+    presto_config = _get_config(runtime_config)
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # 1) Try to use local metastore if there is one started;

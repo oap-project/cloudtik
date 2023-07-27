@@ -38,7 +38,7 @@ def _get_runtime_processes():
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"RAY_ENABLED": True}
-    ray_config = runtime_config.get(RAY_RUNTIME_CONFIG_KEY, {})
+    ray_config = _get_config(runtime_config)
 
     _with_memory_configurations(
         runtime_envs, ray_config=ray_config,
@@ -102,7 +102,7 @@ def _get_scaling_policy(
         runtime_config: Dict[str, Any],
         cluster_config: Dict[str, Any],
         head_ip: str) -> Optional[ScalingPolicy]:
-    ray_config = runtime_config.get(RAY_RUNTIME_CONFIG_KEY, {})
+    ray_config = _get_config(runtime_config)
     if "scaling" not in ray_config:
         return None
 

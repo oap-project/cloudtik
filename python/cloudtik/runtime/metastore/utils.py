@@ -33,7 +33,7 @@ def _get_runtime_processes():
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"METASTORE_ENABLED": True}
 
-    metastore_config = runtime_config.get(METASTORE_RUNTIME_CONFIG_KEY, {})
+    metastore_config = _get_config(runtime_config)
     export_runtime_flags(
         metastore_config, METASTORE_RUNTIME_CONFIG_KEY, runtime_envs)
     return runtime_envs

@@ -34,7 +34,7 @@ def _get_runtime_processes():
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"AI_ENABLED": True}
 
-    ai_config = runtime_config.get(AI_RUNTIME_CONFIG_KEY, {})
+    ai_config = _get_config(runtime_config)
     export_runtime_flags(
         ai_config, AI_RUNTIME_CONFIG_KEY, runtime_envs)
 

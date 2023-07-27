@@ -35,13 +35,17 @@ SERVICE_CHECK_INTERVAL_DEFAULT = 10
 SERVICE_CHECK_TIMEOUT_DEFAULT = 5
 
 
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
+
+
 def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
 def _is_agent_server_mode(runtime_config):
     # Whether this is a consul server cluster or deploy at client
-    consul_config = runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
+    consul_config = _get_config(runtime_config)
     return consul_config.get("server", False)
 
 
@@ -171,7 +175,7 @@ def _with_runtime_environment_variables(
     else:
         runtime_envs["CONSUL_CLIENT"] = True
 
-        consul_config = runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
+        consul_config = _get_config(runtime_config)
         join_list = consul_config.get(CONFIG_KEY_JOIN_LIST)
         if not join_list:
             raise RuntimeError("Invalid join list. No running consul server cluster is detected.")
@@ -292,7 +296,7 @@ def _get_consul_minimal_workers(config: Dict[str, Any]):
 
 
 def _get_services_of_node_type(runtime_config, node_type):
-    consul_config = runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
+    consul_config = _get_config(runtime_config)
     services_map = consul_config.get(CONFIG_KEY_SERVICES)
     if not services_map:
         return None

@@ -44,6 +44,10 @@ FLINK_HISTORY_SERVER_API_PORT = 8082
 FLINK_JUPYTER_WEB_PORT = 8888
 
 
+def _get_config(runtime_config: Dict[str, Any]):
+    return runtime_config.get(FLINK_RUNTIME_CONFIG_KEY, {})
+
+
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
     yarn_resource_memory_ratio = YARN_RESOURCE_MEMORY_RATIO
     flink_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get(FLINK_RUNTIME_CONFIG_KEY, {})
@@ -237,7 +241,7 @@ def _with_hadoop_default(spark_config, runtime_envs):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
-    flink_config = runtime_config.get(FLINK_RUNTIME_CONFIG_KEY, {})
+    flink_config = _get_config(runtime_config)
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # export yarn memory ratio to use if configured by user
@@ -293,7 +297,7 @@ def _validate_config(config: Dict[str, Any]):
     if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_HDFS):
         return
     # check if there is remote HDFS configured
-    flink_config = runtime_config.get(FLINK_RUNTIME_CONFIG_KEY, {})
+    flink_config = _get_config(runtime_config)
     if flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY) is not None:
         return
 
@@ -345,7 +349,7 @@ def _get_scaling_policy(
         runtime_config: Dict[str, Any],
         cluster_config: Dict[str, Any],
         head_ip: str) -> Optional[ScalingPolicy]:
-    flink_config = runtime_config.get(FLINK_RUNTIME_CONFIG_KEY, {})
+    flink_config = _get_config(runtime_config)
     if "scaling" not in flink_config:
         return None
 

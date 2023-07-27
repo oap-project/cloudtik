@@ -84,7 +84,7 @@ def _get_runnable_command(target):
 
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {"TRINO_ENABLED": True}
-    trino_config = runtime_config.get(TRINO_RUNTIME_CONFIG_KEY, {})
+    trino_config = _get_config(runtime_config)
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # 1) Try to use local metastore if there is one started;

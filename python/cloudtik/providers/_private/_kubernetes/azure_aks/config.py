@@ -48,6 +48,11 @@ AZURE_KUBERNETES_HEAD_WORKER_FACED_NUM_STEPS = 2
 AZURE_KUBERNETES_TARGET_RESOURCES = 9
 
 
+######################
+# Workspace functions
+######################
+
+
 def _get_service_account_name(provider_config, account_type: AccountType):
     if account_type == AccountType.HEAD:
         return _get_head_service_account_name(provider_config)
@@ -385,57 +390,6 @@ def update_configurations_for_azure(
                 current_step += 1
                 _delete_managed_cloud_database_for_aks(
                     cloud_provider, workspace_name)
-
-
-def configure_kubernetes_for_azure(config: Dict[str, Any], namespace, cloud_provider):
-    # Optionally, if user choose to use managed cloud storage (Azure DataLake)
-    # Configure the Azure DataLake container under cloud storage
-    _configure_cloud_storage_for_azure(config, cloud_provider)
-    _configure_cloud_database_for_azure(config, cloud_provider)
-    _configure_pod_label_for_use_workload_identity(config)
-
-
-def _configure_cloud_storage_for_azure(config: Dict[str, Any], cloud_provider):
-    use_managed_cloud_storage = _is_use_managed_cloud_storage(cloud_provider)
-    if use_managed_cloud_storage:
-        workspace_name = config["workspace_name"]
-        resource_group_name = get_aks_workspace_resource_group_name(workspace_name)
-        _configure_managed_cloud_storage_from_workspace(
-            config, cloud_provider, resource_group_name)
-
-    return config
-
-
-def _configure_cloud_database_for_azure(config: Dict[str, Any], cloud_provider):
-    use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
-    if use_managed_cloud_database:
-        vnet_resource_group_name, _ = _get_aks_virtual_network(
-            cloud_provider)
-        _configure_managed_cloud_database_from_workspace(
-            config, cloud_provider, vnet_resource_group_name)
-
-    return config
-
-
-def _configure_pod_label_for_use_workload_identity(config):
-    if "available_node_types" not in config:
-        return
-
-    node_types = config["available_node_types"]
-    for node_type in node_types:
-        node_config = node_types[node_type]["node_config"]
-        pod = node_config["pod"]
-        if "metadata" not in pod:
-            pod["metadata"] = {}
-        metadata = pod["metadata"]
-        _configure_pod_label_for_use_workload_identity_of_type(metadata)
-
-
-def _configure_pod_label_for_use_workload_identity_of_type(metadata):
-    if "labels" not in metadata:
-        metadata["labels"] = {}
-    labels = metadata["labels"]
-    labels[AZURE_KUBERNETES_WORKLOAD_IDENTITY_LABEL_NAME] = "true"
 
 
 def _create_aks_resource_group(cloud_provider, workspace_name):
@@ -1208,3 +1162,59 @@ def get_default_kubernetes_cloud_storage_for_azure(provider_config):
 
 def get_default_kubernetes_cloud_database_for_azure(provider_config):
     return get_default_azure_cloud_database(provider_config)
+
+
+######################
+# Clustering functions
+######################
+
+
+def configure_kubernetes_for_azure(config: Dict[str, Any], namespace, cloud_provider):
+    # Optionally, if user choose to use managed cloud storage (Azure DataLake)
+    # Configure the Azure DataLake container under cloud storage
+    _configure_cloud_storage_for_azure(config, cloud_provider)
+    _configure_cloud_database_for_azure(config, cloud_provider)
+    _configure_pod_label_for_use_workload_identity(config)
+
+
+def _configure_cloud_storage_for_azure(config: Dict[str, Any], cloud_provider):
+    use_managed_cloud_storage = _is_use_managed_cloud_storage(cloud_provider)
+    if use_managed_cloud_storage:
+        workspace_name = config["workspace_name"]
+        resource_group_name = get_aks_workspace_resource_group_name(workspace_name)
+        _configure_managed_cloud_storage_from_workspace(
+            config, cloud_provider, resource_group_name)
+
+    return config
+
+
+def _configure_cloud_database_for_azure(config: Dict[str, Any], cloud_provider):
+    use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
+    if use_managed_cloud_database:
+        vnet_resource_group_name, _ = _get_aks_virtual_network(
+            cloud_provider)
+        _configure_managed_cloud_database_from_workspace(
+            config, cloud_provider, vnet_resource_group_name)
+
+    return config
+
+
+def _configure_pod_label_for_use_workload_identity(config):
+    if "available_node_types" not in config:
+        return
+
+    node_types = config["available_node_types"]
+    for node_type in node_types:
+        node_config = node_types[node_type]["node_config"]
+        pod = node_config["pod"]
+        if "metadata" not in pod:
+            pod["metadata"] = {}
+        metadata = pod["metadata"]
+        _configure_pod_label_for_use_workload_identity_of_type(metadata)
+
+
+def _configure_pod_label_for_use_workload_identity_of_type(metadata):
+    if "labels" not in metadata:
+        metadata["labels"] = {}
+    labels = metadata["labels"]
+    labels[AZURE_KUBERNETES_WORKLOAD_IDENTITY_LABEL_NAME] = "true"

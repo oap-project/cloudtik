@@ -94,620 +94,9 @@ MAX_POLLS_NAT = MAX_POLLS * 8
 POLL_INTERVAL = 1
 
 
-def bootstrap_aliyun(config):
-    workspace_name = config.get("workspace_name")
-    if not workspace_name:
-        raise RuntimeError("Workspace name is not specified in cluster configuration.")
-
-    config = bootstrap_aliyun_from_workspace(config)
-    return config
-
-
-def bootstrap_aliyun_from_workspace(config):
-    if not check_aliyun_workspace_integrity(config):
-        workspace_name = config["workspace_name"]
-        cli_logger.abort("Alibaba Cloud workspace {} doesn't exist or is in wrong state.".format(workspace_name))
-
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
-
-    # Used internally to store head IAM role.
-    config["head_node"] = {}
-
-    # If a LaunchTemplate is provided, extract the necessary fields for the
-    # config stages below.
-    config = _configure_from_launch_template(config)
-
-    # The head node needs to have an RAM role that allows it to create further
-    # ECS instances.
-    config = _configure_ram_role_from_workspace(config)
-
-    # Set oss.bucket if use_managed_cloud_storage
-    config = _configure_cloud_storage_from_workspace(config)
-
-    # Configure SSH access, using an existing key pair if possible.
-    config = _configure_key_pair(config)
-
-    # Pick a reasonable subnet if not specified by the user.
-    config = _configure_vswitch_from_workspace(config)
-
-    # Cluster workers should be in a security group that permits traffic within
-    # the group, and also SSH access from outside.
-    config = _configure_security_group_from_workspace(config)
-
-    # Provide a helpful message for missing AMI.
-    config = _configure_image(config)
-
-    # Configure spot instance based on user prefer options
-    config = _configure_prefer_spot_node(config)
-
-    # Configure docker image registry for built-in images
-    config = _configure_docker_registry(config)
-    return config
-
-
-def _configure_from_launch_template(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Merges any launch template data referenced by the node config of all
-    available node type's into their parent node config. Any parameters
-    specified in node config override the same parameters in the launch
-    template, in compliance with the behavior of the create_instances
-    API.
-
-    Args:
-        config (Dict[str, Any]): config to bootstrap
-    Returns:
-        config (Dict[str, Any]): The input config with all launch template
-        data merged into the node config of all available node types. If no
-        launch template data is found, then the config is returned
-        unchanged.
-    Raises:
-        ValueError: If no launch template is found for any launch
-        template [name|id] and version, or more than one launch template is
-        found.
-    """
-    node_types = config["available_node_types"]
-
-    # iterate over sorted node types to support deterministic unit test stubs
-    for name, node_type in sorted(node_types.items()):
-        node_config = node_type["node_config"]
-        if ("LaunchTemplateId" in node_config
-                or "LaunchTemplateName" in node_config):
-            node_types[name] = _configure_node_type_from_launch_template(
-                config, node_type)
-    return config
-
-
-def _configure_node_type_from_launch_template(
-        config: Dict[str, Any], node_type: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Merges any launch template data referenced by the given node type's
-    node config into the parent node config. Any parameters specified in
-    node config override the same parameters in the launch template.
-
-    Args:
-        config (Dict[str, Any]): config to bootstrap
-        node_type (Dict[str, Any]): node type config to bootstrap
-    Returns:
-        node_type (Dict[str, Any]): The input config with all launch template
-        data merged into the node config of the input node type. If no
-        launch template data is found, then the config is returned
-        unchanged.
-    Raises:
-        ValueError: If no launch template is found for the given launch
-        template [name|id] and version, or more than one launch template is
-        found.
-    """
-    # create a copy of the input config to modify
-    node_type = copy.deepcopy(node_type)
-
-    node_config = node_type["node_config"]
-    node_type["node_config"] = \
-        _configure_node_config_from_launch_template(config, node_config)
-    return node_type
-
-
-def _configure_node_config_from_launch_template(
-        config: Dict[str, Any], node_config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Merges any launch template data referenced by the given node type's
-    node config into the parent node config. Any parameters specified in
-    node config override the same parameters in the launch template.
-
-    Note that this merge is simply a bidirectional dictionary update, from
-    the node config to the launch template data, and from the launch
-    template data to the node config. Thus, the final result captures the
-    relative complement of launch template data with respect to node config,
-    and allows all subsequent config bootstrapping code paths to act as
-    if the complement was explicitly specified in the user's node config. A
-    deep merge of nested elements like tag specifications isn't required
-    here, since the AliyunNodeProvider's ecs.create_instances call will do this
-    for us after it fetches the referenced launch template data.
-
-    Args:
-        config (Dict[str, Any]): config to bootstrap
-        node_config (Dict[str, Any]): node config to bootstrap
-    Returns:
-        node_config (Dict[str, Any]): The input node config merged with all launch
-        template data. If no launch template data is found, then the node
-        config is returned unchanged.
-    Raises:
-        ValueError: If no launch template is found for the given launch
-        template [name|id] and version, or more than one launch template is
-        found.
-    """
-    # create a copy of the input config to modify
-    node_config = copy.deepcopy(node_config)
-
-    ecs_client = EcsClient(config["provider"])
-    query_params = {
-        "LaunchTemplateId": node_config.get("LaunchTemplateId"),
-        "LaunchTemplateName": node_config.get("LaunchTemplateName")
-    }
-    if "LaunchTemplateVersion" in node_config:
-        query_params["LaunchTemplateVersion"] = [node_config["LaunchTemplateVersion"]]
-    else:
-        query_params["DefaultVersion"] = True
-
-    templates = ecs_client.describe_launch_template_versions(query_params)
-
-    if templates is None or len(templates) != 1:
-        raise ValueError(f"Expected to find 1 launch template but found "
-                         f"{len(templates)}")
-
-    lt_data = templates[0].launch_template_data.to_map()
-    # override launch template parameters with explicit node config parameters
-    lt_data.update(node_config)
-    # copy all new launch template parameters back to node config
-    node_config.update(lt_data)
-
-    return node_config
-
-
-def _configure_cloud_storage_from_workspace(config):
-    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
-    if use_managed_cloud_storage:
-        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
-
-    return config
-
-
-def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
-    workspace_name = config["workspace_name"]
-    oss_bucket = get_managed_oss_bucket(cloud_provider, workspace_name)
-    if oss_bucket is None:
-        cli_logger.abort("No managed OSS bucket was found. If you want to use managed OSS bucket, "
-                         "you should set managed_cloud_storage equal to True when you creating workspace.")
-
-    cloud_storage = get_aliyun_oss_storage_config_for_update(config["provider"])
-    cloud_storage[ALIYUN_OSS_BUCKET] = oss_bucket.name
-    cloud_storage[ALIYUN_OSS_INTERNAL_ENDPOINT] = _get_oss_internal_endpoint(config["provider"]["region"])
-
-
-def _key_assert_msg(node_type: str) -> str:
-    return ("`KeyPairName` missing from the `node_config` of"
-            f" node type `{node_type}`.")
-
-
-def _key_pair(i, region, key_name):
-    """
-    If key_name is not None, key_pair will be named after key_name.
-    Returns the ith default (aws_key_pair_name, key_pair_path).
-    """
-    if i == 0:
-        key_pair_name = ("{}_aliyun_{}".format(ALIYUN_RESOURCE_NAME_PREFIX, region)
-                         if key_name is None else key_name)
-        return (key_pair_name,
-                os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
-
-    key_pair_name = ("{}_aliyun_{}_{}".format(ALIYUN_RESOURCE_NAME_PREFIX, region, i)
-                     if key_name is None else key_name + "_key-{}".format(i))
-    return (key_pair_name,
-            os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
-
-
-def _configure_key_pair(config):
-    node_types = config["available_node_types"]
-
-    if "ssh_private_key" in config["auth"]:
-        # If the key is not configured via the cloudinit
-        # UserData, it should be configured via KeyName or
-        # else we will risk starting a node that we cannot
-        # SSH into:
-        for node_type in node_types:
-            node_config = node_types[node_type]["node_config"]
-            if "UserData" not in node_config:
-                cli_logger.doassert("KeyPairName" in node_config,
-                                    _key_assert_msg(node_type))
-                assert "KeyPairName" in node_config
-
-        return config
-
-    ecs_client = EcsClient(config["provider"])
-
-    # Writing the new ssh key to the filesystem fails if the ~/.ssh
-    # directory doesn't already exist.
-    os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
-
-    # Try a few times to get or create a good key pair.
-    MAX_NUM_KEYS = 30
-    for i in range(MAX_NUM_KEYS):
-        key_name = config["provider"].get("key_pair", {}).get("key_name")
-        key_name, key_path = _key_pair(
-            i, config["provider"]["region"], key_name)
-        key = ecs_client.describe_key_pair(key_name)
-        # Found a good key.
-        if key and os.path.exists(key_path):
-            break
-
-        # We can safely create a new key.
-        if not key and not os.path.exists(key_path):
-            cli_logger.verbose(
-                "Creating new key pair {} for use as the default.",
-                cf.bold(key_name))
-            key = ecs_client.create_key_pair(key_name)
-
-            # We need to make sure to _create_ the file with the right
-            # permissions. In order to do that we need to change the default
-            # os.open behavior to include the mode we want.
-            with open(key_path, "w", opener=partial(os.open, mode=0o600)) as f:
-                f.write(key.private_key_body)
-            break
-
-    if not key:
-        cli_logger.abort(
-            "No matching local key file for any of the key pairs in this "
-            "account with ids from 0..{}. "
-            "Consider deleting some unused keys pairs from your account.",
-            key_name)
-
-    cli_logger.doassert(
-        os.path.exists(key_path), "Private key file " + cf.bold("{}") +
-        " not found for " + cf.bold("{}"), key_path, key_name)
-    assert os.path.exists(key_path), \
-        "Private key file {} not found for {}".format(key_path, key_name)
-
-    config["auth"]["ssh_private_key"] = key_path
-    for node_type in node_types.values():
-        node_config = node_type["node_config"]
-        node_config["KeyPairName"] = key_name
-
-    return config
-
-
-def _configure_ram_role_from_workspace(config):
-    config = copy.deepcopy(config)
-    _configure_ram_role_for_head(config)
-
-    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
-    if worker_role_for_cloud_storage:
-        _configure_ram_role_for_worker(config)
-
-    return config
-
-
-def _configure_ram_role_for_head(config):
-    head_node_type = config["head_node_type"]
-    head_node_config = config["available_node_types"][head_node_type][
-        "node_config"]
-    if "RamRoleName" in head_node_config:
-        return
-
-    head_instance_ram_role_name = _get_head_instance_role_name(
-        config["workspace_name"])
-    if not head_instance_ram_role_name:
-        raise RuntimeError("Head instance ram role: {} not found!".format(head_instance_ram_role_name))
-
-    head_node_config["RamRoleName"] = head_instance_ram_role_name
-
-
-def _configure_ram_role_for_worker(config):
-    worker_instance_ram_role_name = _get_worker_instance_role_name(
-        config["workspace_name"])
-    if not worker_instance_ram_role_name:
-        raise RuntimeError("Workspace worker instance ram role: {} not found!".format(
-            worker_instance_ram_role_name))
-
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        if key == config["head_node_type"]:
-            continue
-
-        if "RamRoleName" in node_config:
-            continue
-
-        node_config["RamRoleName"] = worker_instance_ram_role_name
-
-
-def _configure_security_group_from_workspace(config):
-    vpc_client = VpcClient(config["provider"])
-    vpc_id = get_workspace_vpc_id(config, vpc_client)
-
-    ecs_cli = EcsClient(config["provider"])
-    security_group = get_workspace_security_group(config, ecs_cli, vpc_id)
-
-    for node_type_key in config["available_node_types"].keys():
-        node_config = config["available_node_types"][node_type_key][
-            "node_config"]
-        node_config["SecurityGroupId"] = security_group.security_group_id
-
-    return config
-
-
-def _configure_vswitch_from_workspace(config):
-    workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
-
-    vpc_cli = VpcClient(config["provider"])
-    vpc_id = _get_workspace_vpc_id(workspace_name, vpc_cli)
-
-    instance_vswitches = get_workspace_instance_vswitches(workspace_name, vpc_id, vpc_cli)
-    instance_vswitch_ids = [instance_vswitch.v_switch_id for instance_vswitch in instance_vswitches]
-
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        node_config["VSwitchIds"] = instance_vswitch_ids
-        if key == config["head_node_type"] and not use_internal_ips:
-            node_config["InternetMaxBandwidthOut"] = node_config.get("InternetMaxBandwidthOut", 10)
-            node_config["InternetMaxBandwidthIn"] = node_config.get("InternetMaxBandwidthIn", 200)
-
-    return config
-
-
-def get_latest_image_id(config: Dict[str, Any], is_gpu):
-    image_family = None if is_gpu else ALIYUN_DEFAULT_IMAGE_FAMILY
-    image_name = ALIYUN_DEFAULT_IMAGE_NAME_GPU if is_gpu else None
-    try:
-        ecs_client = EcsClient(config["provider"])
-        images = ecs_client.describe_images(image_family, image_name)
-        if images is not None and len(images) > 0:
-            images.sort(key=lambda item: item.creation_time, reverse=True)
-            image_id = images[0].image_id
-            return image_id
-        else:
-            return None
-    except Exception as e:
-        cli_logger.warning(
-            "Error when getting latest image information.", str(e))
-        return None
-
-
-def _get_default_image(config, default_image, is_gpu):
-    if default_image is not None:
-        return default_image
-
-    default_image = get_latest_image_id(config, is_gpu)
-    if not default_image:
-        region = config["provider"]["region"]
-        cli_logger.warning(
-            "Can not get latest image information in this region: {}. Will use default image id".format(region))
-        default_image = ALIYUN_DEFAULT_IMAGE_BY_REGION_GPU.get(
-            region) if is_gpu else ALIYUN_DEFAULT_IMAGE_BY_REGION.get(region)
-        if not default_image:
-            if is_gpu:
-                cli_logger.warning(
-                    "Can not get GPU supported image in this region: {}. "
-                    "Will use default image id without GPU support.".format(region))
-            return ALIYUN_DEFAULT_IMAGE_ID
-    return default_image
-
-
-def _configure_image(config):
-    """Provide helpful message for missing ImageId for node configuration."""
-    is_gpu = is_gpu_runtime(config)
-
-    default_image = None
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        image_id = node_config.get("ImageId", "")
-        if image_id == "":
-            # Only set to default image if not specified by the user
-            default_image = _get_default_image(config, default_image, is_gpu)
-            node_config["ImageId"] = default_image
-
-    return config
-
-
-def _configure_spot_for_node_type(node_type_config,
-                                  prefer_spot_node):
-    # To be improved if scheduling has other configurations
-    # SpotStrategy: SpotAsPriceGo
-    # SpotStrategy: NoSpot
-    node_config = node_type_config["node_config"]
-    if prefer_spot_node:
-        # Add spot instruction
-        node_config["SpotStrategy"] = "SpotAsPriceGo"
-    else:
-        # Remove spot instruction
-        node_config.pop("SpotStrategy", None)
-
-
-def _configure_prefer_spot_node(config):
-    prefer_spot_node = config["provider"].get("prefer_spot_node")
-
-    # if no such key, we consider user don't want to override
-    if prefer_spot_node is None:
-        return config
-
-    # User override, set or remove spot settings for worker node types
-    node_types = config["available_node_types"]
-    for node_type_name in node_types:
-        if node_type_name == config["head_node_type"]:
-            continue
-
-        # worker node type
-        node_type_data = node_types[node_type_name]
-        _configure_spot_for_node_type(
-            node_type_data, prefer_spot_node)
-
-    return config
-
-
-def _configure_docker_registry(config):
-    # Check whether the region in China
-    auto_optimize_docker_registry = config["provider"].get(
-        "auto_optimize_docker_registry", True)
-    if not auto_optimize_docker_registry:
-        return config
-
-    region = config["provider"].get("region")
-    if region and region.startswith("cn-"):
-        # Set for top docker config
-        if DOCKER_CONFIG_KEY in config:
-            _configure_docker_registry_for_china(
-                config[DOCKER_CONFIG_KEY])
-
-        # Set for node type specific docker config
-        node_types = config["available_node_types"]
-        for node_type_name in node_types:
-            node_type_data = node_types[node_type_name]
-            if DOCKER_CONFIG_KEY in node_type_data:
-                _configure_docker_registry_for_china(
-                    node_type_data[DOCKER_CONFIG_KEY])
-
-    return config
-
-
-def _configure_docker_registry_for_china(docker_config):
-    _configure_docker_registry_for_key(docker_config, "image")
-    _configure_docker_registry_for_key(docker_config, "head_image")
-    _configure_docker_registry_for_key(docker_config, "worker_image")
-
-
-def _configure_docker_registry_for_key(docker_config, image_key):
-    if image_key not in docker_config:
-        return
-
-    image = docker_config[image_key]
-    if image.startswith("cloudtik/"):
-        docker_config[image_key] = "registry.cn-shanghai.aliyuncs.com/" + image
-
-
-def verify_oss_storage(provider_config: Dict[str, Any]):
-    oss_storage = get_aliyun_oss_storage_config(provider_config)
-    if oss_storage is None:
-        return
-
-    credentials_config = None
-    oss_access_key_id = oss_storage.get("oss.access.key.id")
-    oss_access_key_secret = oss_storage.get("oss.access.key.secret")
-    if oss_access_key_id and oss_access_key_secret:
-        credentials_config = {
-            "aliyun_access_key_id": oss_access_key_id,
-            "aliyun_access_key_secret": oss_access_key_secret
-        }
-
-    oss_client = OssClient(provider_config, credentials_config)
-
-    try:
-        oss_client.list_objects(oss_storage[ALIYUN_OSS_BUCKET])
-    except Exception as e:
-        raise StorageTestingError("Error happens when verifying OSS storage configurations. "
-                                  "If you want to go without passing the verification, "
-                                  "set 'verify_cloud_storage' to False under provider config. "
-                                  "Error: {}.".format(e.message)) from None
-
-
-def post_prepare_aliyun(config: Dict[str, Any]) -> Dict[str, Any]:
-    try:
-        config = fill_available_node_types_resources(config)
-    except Exception as exc:
-        cli_logger.warning(
-            "Failed to detect node resources. Make sure you have properly configured the Alibaba Cloud credentials: {}.",
-            str(exc))
-        raise
-    return config
-
-
-def list_ecs_instances(provider_config) -> List[Any]:
-    """Get all instance-types/resources available.
-    Args:
-        provider_config: the provider config of the Alibaba Cloud.
-    Returns:
-        final_instance_types: a list of instances.
-
-    """
-    final_instance_types = []
-    ecs_client = EcsClient(provider_config)
-    instance_types_body = ecs_client.describe_instance_types()
-    if (instance_types_body.instance_types is not None
-            and instance_types_body.instance_types.instance_type is not None):
-        final_instance_types.extend(
-            copy.deepcopy(instance_types_body.instance_types.instance_type))
-
-    while instance_types_body.next_token:
-        instance_types_body = ecs_client.describe_instance_types(
-            next_token=instance_types_body.next_token)
-        if (instance_types_body.instance_types is not None
-                and instance_types_body.instance_types.instance_type is not None):
-            final_instance_types.extend(
-                copy.deepcopy(instance_types_body.instance_types.instance_type))
-
-    return final_instance_types
-
-
-def fill_available_node_types_resources(
-        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fills out missing "resources" field for available_node_types."""
-    if "available_node_types" not in cluster_config:
-        return cluster_config
-    cluster_config = copy.deepcopy(cluster_config)
-
-    # Get instance information from cloud provider
-    instances_list = list_ecs_instances(cluster_config["provider"])
-    instances_dict = {
-        instance.instance_type_id: instance
-        for instance in instances_list
-    }
-
-    # Update the instance information to node type
-    available_node_types = cluster_config["available_node_types"]
-    for node_type in available_node_types:
-        instance_type = available_node_types[node_type]["node_config"][
-            "InstanceType"]
-        if instance_type in instances_dict:
-            cpus = instances_dict[instance_type].cpu_core_count
-            detected_resources = {"CPU": cpus}
-
-            # memory_size is in GB float
-            memory_total = int(instances_dict[instance_type].memory_size * 1024)
-            memory_total_in_bytes = int(memory_total) * 1024 * 1024
-            detected_resources["memory"] = memory_total_in_bytes
-
-            gpuamount = instances_dict[instance_type].gpuamount
-            if gpuamount:
-                gpu_name = instances_dict[instance_type].gpuspec
-                detected_resources.update({
-                    "GPU": gpuamount,
-                    f"accelerator_type:{gpu_name}": 1
-                })
-
-            detected_resources.update(
-                available_node_types[node_type].get("resources", {}))
-            if detected_resources != \
-                    available_node_types[node_type].get("resources", {}):
-                available_node_types[node_type][
-                    "resources"] = detected_resources
-                logger.debug("Updating the resources of {} to {}.".format(
-                    node_type, detected_resources))
-        else:
-            raise ValueError("Instance type " + instance_type +
-                             " is not available.")
-    return cluster_config
-
-
-def with_aliyun_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
-    config_dict = {}
-    export_aliyun_oss_storage_config(provider_config, config_dict)
-
-    if node_type_config is not None:
-        node_config = node_type_config.get("node_config")
-        ram_role_name = node_config.get("RamRoleName")
-        if ram_role_name:
-            config_dict["ALIYUN_ECS_RAM_ROLE_NAME"] = ram_role_name
-
-    return config_dict
-
+######################
+# Workspace functions
+######################
 
 def get_workspace_vpc_peering_name(workspace_name):
     return ALIYUN_WORKSPACE_VPC_PEERING_NAME.format(workspace_name)
@@ -2236,3 +1625,623 @@ def get_aliyun_managed_cloud_storage_info(config, cloud_provider, info):
         managed_cloud_storage = {ALIYUN_MANAGED_STORAGE_OSS_BUCKET: managed_bucket_name,
                                  CLOUDTIK_MANAGED_CLOUD_STORAGE_URI: get_aliyun_cloud_storage_uri(oss_cloud_storage)}
         info[CLOUDTIK_MANAGED_CLOUD_STORAGE] = managed_cloud_storage
+
+
+######################
+# Clustering functions
+######################
+
+
+def bootstrap_aliyun(config):
+    workspace_name = config.get("workspace_name")
+    if not workspace_name:
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
+
+    config = bootstrap_aliyun_from_workspace(config)
+    return config
+
+
+def bootstrap_aliyun_from_workspace(config):
+    if not check_aliyun_workspace_integrity(config):
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("Alibaba Cloud workspace {} doesn't exist or is in wrong state.".format(workspace_name))
+
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+
+    # Used internally to store head IAM role.
+    config["head_node"] = {}
+
+    # If a LaunchTemplate is provided, extract the necessary fields for the
+    # config stages below.
+    config = _configure_from_launch_template(config)
+
+    # The head node needs to have an RAM role that allows it to create further
+    # ECS instances.
+    config = _configure_ram_role_from_workspace(config)
+
+    # Set oss.bucket if use_managed_cloud_storage
+    config = _configure_cloud_storage_from_workspace(config)
+
+    # Configure SSH access, using an existing key pair if possible.
+    config = _configure_key_pair(config)
+
+    # Pick a reasonable subnet if not specified by the user.
+    config = _configure_vswitch_from_workspace(config)
+
+    # Cluster workers should be in a security group that permits traffic within
+    # the group, and also SSH access from outside.
+    config = _configure_security_group_from_workspace(config)
+
+    # Provide a helpful message for missing AMI.
+    config = _configure_image(config)
+
+    # Configure spot instance based on user prefer options
+    config = _configure_prefer_spot_node(config)
+
+    # Configure docker image registry for built-in images
+    config = _configure_docker_registry(config)
+    return config
+
+
+def _configure_from_launch_template(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Merges any launch template data referenced by the node config of all
+    available node type's into their parent node config. Any parameters
+    specified in node config override the same parameters in the launch
+    template, in compliance with the behavior of the create_instances
+    API.
+
+    Args:
+        config (Dict[str, Any]): config to bootstrap
+    Returns:
+        config (Dict[str, Any]): The input config with all launch template
+        data merged into the node config of all available node types. If no
+        launch template data is found, then the config is returned
+        unchanged.
+    Raises:
+        ValueError: If no launch template is found for any launch
+        template [name|id] and version, or more than one launch template is
+        found.
+    """
+    node_types = config["available_node_types"]
+
+    # iterate over sorted node types to support deterministic unit test stubs
+    for name, node_type in sorted(node_types.items()):
+        node_config = node_type["node_config"]
+        if ("LaunchTemplateId" in node_config
+                or "LaunchTemplateName" in node_config):
+            node_types[name] = _configure_node_type_from_launch_template(
+                config, node_type)
+    return config
+
+
+def _configure_node_type_from_launch_template(
+        config: Dict[str, Any], node_type: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Merges any launch template data referenced by the given node type's
+    node config into the parent node config. Any parameters specified in
+    node config override the same parameters in the launch template.
+
+    Args:
+        config (Dict[str, Any]): config to bootstrap
+        node_type (Dict[str, Any]): node type config to bootstrap
+    Returns:
+        node_type (Dict[str, Any]): The input config with all launch template
+        data merged into the node config of the input node type. If no
+        launch template data is found, then the config is returned
+        unchanged.
+    Raises:
+        ValueError: If no launch template is found for the given launch
+        template [name|id] and version, or more than one launch template is
+        found.
+    """
+    # create a copy of the input config to modify
+    node_type = copy.deepcopy(node_type)
+
+    node_config = node_type["node_config"]
+    node_type["node_config"] = \
+        _configure_node_config_from_launch_template(config, node_config)
+    return node_type
+
+
+def _configure_node_config_from_launch_template(
+        config: Dict[str, Any], node_config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Merges any launch template data referenced by the given node type's
+    node config into the parent node config. Any parameters specified in
+    node config override the same parameters in the launch template.
+
+    Note that this merge is simply a bidirectional dictionary update, from
+    the node config to the launch template data, and from the launch
+    template data to the node config. Thus, the final result captures the
+    relative complement of launch template data with respect to node config,
+    and allows all subsequent config bootstrapping code paths to act as
+    if the complement was explicitly specified in the user's node config. A
+    deep merge of nested elements like tag specifications isn't required
+    here, since the AliyunNodeProvider's ecs.create_instances call will do this
+    for us after it fetches the referenced launch template data.
+
+    Args:
+        config (Dict[str, Any]): config to bootstrap
+        node_config (Dict[str, Any]): node config to bootstrap
+    Returns:
+        node_config (Dict[str, Any]): The input node config merged with all launch
+        template data. If no launch template data is found, then the node
+        config is returned unchanged.
+    Raises:
+        ValueError: If no launch template is found for the given launch
+        template [name|id] and version, or more than one launch template is
+        found.
+    """
+    # create a copy of the input config to modify
+    node_config = copy.deepcopy(node_config)
+
+    ecs_client = EcsClient(config["provider"])
+    query_params = {
+        "LaunchTemplateId": node_config.get("LaunchTemplateId"),
+        "LaunchTemplateName": node_config.get("LaunchTemplateName")
+    }
+    if "LaunchTemplateVersion" in node_config:
+        query_params["LaunchTemplateVersion"] = [node_config["LaunchTemplateVersion"]]
+    else:
+        query_params["DefaultVersion"] = True
+
+    templates = ecs_client.describe_launch_template_versions(query_params)
+
+    if templates is None or len(templates) != 1:
+        raise ValueError(f"Expected to find 1 launch template but found "
+                         f"{len(templates)}")
+
+    lt_data = templates[0].launch_template_data.to_map()
+    # override launch template parameters with explicit node config parameters
+    lt_data.update(node_config)
+    # copy all new launch template parameters back to node config
+    node_config.update(lt_data)
+
+    return node_config
+
+
+def _configure_cloud_storage_from_workspace(config):
+    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
+    if use_managed_cloud_storage:
+        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
+
+    return config
+
+
+def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    oss_bucket = get_managed_oss_bucket(cloud_provider, workspace_name)
+    if oss_bucket is None:
+        cli_logger.abort("No managed OSS bucket was found. If you want to use managed OSS bucket, "
+                         "you should set managed_cloud_storage equal to True when you creating workspace.")
+
+    cloud_storage = get_aliyun_oss_storage_config_for_update(config["provider"])
+    cloud_storage[ALIYUN_OSS_BUCKET] = oss_bucket.name
+    cloud_storage[ALIYUN_OSS_INTERNAL_ENDPOINT] = _get_oss_internal_endpoint(config["provider"]["region"])
+
+
+def _key_assert_msg(node_type: str) -> str:
+    return ("`KeyPairName` missing from the `node_config` of"
+            f" node type `{node_type}`.")
+
+
+def _key_pair(i, region, key_name):
+    """
+    If key_name is not None, key_pair will be named after key_name.
+    Returns the ith default (aws_key_pair_name, key_pair_path).
+    """
+    if i == 0:
+        key_pair_name = ("{}_aliyun_{}".format(ALIYUN_RESOURCE_NAME_PREFIX, region)
+                         if key_name is None else key_name)
+        return (key_pair_name,
+                os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
+
+    key_pair_name = ("{}_aliyun_{}_{}".format(ALIYUN_RESOURCE_NAME_PREFIX, region, i)
+                     if key_name is None else key_name + "_key-{}".format(i))
+    return (key_pair_name,
+            os.path.expanduser("~/.ssh/{}.pem".format(key_pair_name)))
+
+
+def _configure_key_pair(config):
+    node_types = config["available_node_types"]
+
+    if "ssh_private_key" in config["auth"]:
+        # If the key is not configured via the cloudinit
+        # UserData, it should be configured via KeyName or
+        # else we will risk starting a node that we cannot
+        # SSH into:
+        for node_type in node_types:
+            node_config = node_types[node_type]["node_config"]
+            if "UserData" not in node_config:
+                cli_logger.doassert("KeyPairName" in node_config,
+                                    _key_assert_msg(node_type))
+                assert "KeyPairName" in node_config
+
+        return config
+
+    ecs_client = EcsClient(config["provider"])
+
+    # Writing the new ssh key to the filesystem fails if the ~/.ssh
+    # directory doesn't already exist.
+    os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
+
+    # Try a few times to get or create a good key pair.
+    MAX_NUM_KEYS = 30
+    for i in range(MAX_NUM_KEYS):
+        key_name = config["provider"].get("key_pair", {}).get("key_name")
+        key_name, key_path = _key_pair(
+            i, config["provider"]["region"], key_name)
+        key = ecs_client.describe_key_pair(key_name)
+        # Found a good key.
+        if key and os.path.exists(key_path):
+            break
+
+        # We can safely create a new key.
+        if not key and not os.path.exists(key_path):
+            cli_logger.verbose(
+                "Creating new key pair {} for use as the default.",
+                cf.bold(key_name))
+            key = ecs_client.create_key_pair(key_name)
+
+            # We need to make sure to _create_ the file with the right
+            # permissions. In order to do that we need to change the default
+            # os.open behavior to include the mode we want.
+            with open(key_path, "w", opener=partial(os.open, mode=0o600)) as f:
+                f.write(key.private_key_body)
+            break
+
+    if not key:
+        cli_logger.abort(
+            "No matching local key file for any of the key pairs in this "
+            "account with ids from 0..{}. "
+            "Consider deleting some unused keys pairs from your account.",
+            key_name)
+
+    cli_logger.doassert(
+        os.path.exists(key_path), "Private key file " + cf.bold("{}") +
+        " not found for " + cf.bold("{}"), key_path, key_name)
+    assert os.path.exists(key_path), \
+        "Private key file {} not found for {}".format(key_path, key_name)
+
+    config["auth"]["ssh_private_key"] = key_path
+    for node_type in node_types.values():
+        node_config = node_type["node_config"]
+        node_config["KeyPairName"] = key_name
+
+    return config
+
+
+def _configure_ram_role_from_workspace(config):
+    config = copy.deepcopy(config)
+    _configure_ram_role_for_head(config)
+
+    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
+    if worker_role_for_cloud_storage:
+        _configure_ram_role_for_worker(config)
+
+    return config
+
+
+def _configure_ram_role_for_head(config):
+    head_node_type = config["head_node_type"]
+    head_node_config = config["available_node_types"][head_node_type][
+        "node_config"]
+    if "RamRoleName" in head_node_config:
+        return
+
+    head_instance_ram_role_name = _get_head_instance_role_name(
+        config["workspace_name"])
+    if not head_instance_ram_role_name:
+        raise RuntimeError("Head instance ram role: {} not found!".format(head_instance_ram_role_name))
+
+    head_node_config["RamRoleName"] = head_instance_ram_role_name
+
+
+def _configure_ram_role_for_worker(config):
+    worker_instance_ram_role_name = _get_worker_instance_role_name(
+        config["workspace_name"])
+    if not worker_instance_ram_role_name:
+        raise RuntimeError("Workspace worker instance ram role: {} not found!".format(
+            worker_instance_ram_role_name))
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            continue
+
+        if "RamRoleName" in node_config:
+            continue
+
+        node_config["RamRoleName"] = worker_instance_ram_role_name
+
+
+def _configure_security_group_from_workspace(config):
+    vpc_client = VpcClient(config["provider"])
+    vpc_id = get_workspace_vpc_id(config, vpc_client)
+
+    ecs_cli = EcsClient(config["provider"])
+    security_group = get_workspace_security_group(config, ecs_cli, vpc_id)
+
+    for node_type_key in config["available_node_types"].keys():
+        node_config = config["available_node_types"][node_type_key][
+            "node_config"]
+        node_config["SecurityGroupId"] = security_group.security_group_id
+
+    return config
+
+
+def _configure_vswitch_from_workspace(config):
+    workspace_name = config["workspace_name"]
+    use_internal_ips = is_use_internal_ip(config)
+
+    vpc_cli = VpcClient(config["provider"])
+    vpc_id = _get_workspace_vpc_id(workspace_name, vpc_cli)
+
+    instance_vswitches = get_workspace_instance_vswitches(workspace_name, vpc_id, vpc_cli)
+    instance_vswitch_ids = [instance_vswitch.v_switch_id for instance_vswitch in instance_vswitches]
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        node_config["VSwitchIds"] = instance_vswitch_ids
+        if key == config["head_node_type"] and not use_internal_ips:
+            node_config["InternetMaxBandwidthOut"] = node_config.get("InternetMaxBandwidthOut", 10)
+            node_config["InternetMaxBandwidthIn"] = node_config.get("InternetMaxBandwidthIn", 200)
+
+    return config
+
+
+def get_latest_image_id(config: Dict[str, Any], is_gpu):
+    image_family = None if is_gpu else ALIYUN_DEFAULT_IMAGE_FAMILY
+    image_name = ALIYUN_DEFAULT_IMAGE_NAME_GPU if is_gpu else None
+    try:
+        ecs_client = EcsClient(config["provider"])
+        images = ecs_client.describe_images(image_family, image_name)
+        if images is not None and len(images) > 0:
+            images.sort(key=lambda item: item.creation_time, reverse=True)
+            image_id = images[0].image_id
+            return image_id
+        else:
+            return None
+    except Exception as e:
+        cli_logger.warning(
+            "Error when getting latest image information.", str(e))
+        return None
+
+
+def _get_default_image(config, default_image, is_gpu):
+    if default_image is not None:
+        return default_image
+
+    default_image = get_latest_image_id(config, is_gpu)
+    if not default_image:
+        region = config["provider"]["region"]
+        cli_logger.warning(
+            "Can not get latest image information in this region: {}. Will use default image id".format(region))
+        default_image = ALIYUN_DEFAULT_IMAGE_BY_REGION_GPU.get(
+            region) if is_gpu else ALIYUN_DEFAULT_IMAGE_BY_REGION.get(region)
+        if not default_image:
+            if is_gpu:
+                cli_logger.warning(
+                    "Can not get GPU supported image in this region: {}. "
+                    "Will use default image id without GPU support.".format(region))
+            return ALIYUN_DEFAULT_IMAGE_ID
+    return default_image
+
+
+def _configure_image(config):
+    """Provide helpful message for missing ImageId for node configuration."""
+    is_gpu = is_gpu_runtime(config)
+
+    default_image = None
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        image_id = node_config.get("ImageId", "")
+        if image_id == "":
+            # Only set to default image if not specified by the user
+            default_image = _get_default_image(config, default_image, is_gpu)
+            node_config["ImageId"] = default_image
+
+    return config
+
+
+def _configure_spot_for_node_type(node_type_config,
+                                  prefer_spot_node):
+    # To be improved if scheduling has other configurations
+    # SpotStrategy: SpotAsPriceGo
+    # SpotStrategy: NoSpot
+    node_config = node_type_config["node_config"]
+    if prefer_spot_node:
+        # Add spot instruction
+        node_config["SpotStrategy"] = "SpotAsPriceGo"
+    else:
+        # Remove spot instruction
+        node_config.pop("SpotStrategy", None)
+
+
+def _configure_prefer_spot_node(config):
+    prefer_spot_node = config["provider"].get("prefer_spot_node")
+
+    # if no such key, we consider user don't want to override
+    if prefer_spot_node is None:
+        return config
+
+    # User override, set or remove spot settings for worker node types
+    node_types = config["available_node_types"]
+    for node_type_name in node_types:
+        if node_type_name == config["head_node_type"]:
+            continue
+
+        # worker node type
+        node_type_data = node_types[node_type_name]
+        _configure_spot_for_node_type(
+            node_type_data, prefer_spot_node)
+
+    return config
+
+
+def _configure_docker_registry(config):
+    # Check whether the region in China
+    auto_optimize_docker_registry = config["provider"].get(
+        "auto_optimize_docker_registry", True)
+    if not auto_optimize_docker_registry:
+        return config
+
+    region = config["provider"].get("region")
+    if region and region.startswith("cn-"):
+        # Set for top docker config
+        if DOCKER_CONFIG_KEY in config:
+            _configure_docker_registry_for_china(
+                config[DOCKER_CONFIG_KEY])
+
+        # Set for node type specific docker config
+        node_types = config["available_node_types"]
+        for node_type_name in node_types:
+            node_type_data = node_types[node_type_name]
+            if DOCKER_CONFIG_KEY in node_type_data:
+                _configure_docker_registry_for_china(
+                    node_type_data[DOCKER_CONFIG_KEY])
+
+    return config
+
+
+def _configure_docker_registry_for_china(docker_config):
+    _configure_docker_registry_for_key(docker_config, "image")
+    _configure_docker_registry_for_key(docker_config, "head_image")
+    _configure_docker_registry_for_key(docker_config, "worker_image")
+
+
+def _configure_docker_registry_for_key(docker_config, image_key):
+    if image_key not in docker_config:
+        return
+
+    image = docker_config[image_key]
+    if image.startswith("cloudtik/"):
+        docker_config[image_key] = "registry.cn-shanghai.aliyuncs.com/" + image
+
+
+def verify_oss_storage(provider_config: Dict[str, Any]):
+    oss_storage = get_aliyun_oss_storage_config(provider_config)
+    if oss_storage is None:
+        return
+
+    credentials_config = None
+    oss_access_key_id = oss_storage.get("oss.access.key.id")
+    oss_access_key_secret = oss_storage.get("oss.access.key.secret")
+    if oss_access_key_id and oss_access_key_secret:
+        credentials_config = {
+            "aliyun_access_key_id": oss_access_key_id,
+            "aliyun_access_key_secret": oss_access_key_secret
+        }
+
+    oss_client = OssClient(provider_config, credentials_config)
+
+    try:
+        oss_client.list_objects(oss_storage[ALIYUN_OSS_BUCKET])
+    except Exception as e:
+        raise StorageTestingError("Error happens when verifying OSS storage configurations. "
+                                  "If you want to go without passing the verification, "
+                                  "set 'verify_cloud_storage' to False under provider config. "
+                                  "Error: {}.".format(e.message)) from None
+
+
+def post_prepare_aliyun(config: Dict[str, Any]) -> Dict[str, Any]:
+    try:
+        config = fill_available_node_types_resources(config)
+    except Exception as exc:
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the Alibaba Cloud credentials: {}.",
+            str(exc))
+        raise
+    return config
+
+
+def list_ecs_instances(provider_config) -> List[Any]:
+    """Get all instance-types/resources available.
+    Args:
+        provider_config: the provider config of the Alibaba Cloud.
+    Returns:
+        final_instance_types: a list of instances.
+
+    """
+    final_instance_types = []
+    ecs_client = EcsClient(provider_config)
+    instance_types_body = ecs_client.describe_instance_types()
+    if (instance_types_body.instance_types is not None
+            and instance_types_body.instance_types.instance_type is not None):
+        final_instance_types.extend(
+            copy.deepcopy(instance_types_body.instance_types.instance_type))
+
+    while instance_types_body.next_token:
+        instance_types_body = ecs_client.describe_instance_types(
+            next_token=instance_types_body.next_token)
+        if (instance_types_body.instance_types is not None
+                and instance_types_body.instance_types.instance_type is not None):
+            final_instance_types.extend(
+                copy.deepcopy(instance_types_body.instance_types.instance_type))
+
+    return final_instance_types
+
+
+def fill_available_node_types_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out missing "resources" field for available_node_types."""
+    if "available_node_types" not in cluster_config:
+        return cluster_config
+    cluster_config = copy.deepcopy(cluster_config)
+
+    # Get instance information from cloud provider
+    instances_list = list_ecs_instances(cluster_config["provider"])
+    instances_dict = {
+        instance.instance_type_id: instance
+        for instance in instances_list
+    }
+
+    # Update the instance information to node type
+    available_node_types = cluster_config["available_node_types"]
+    for node_type in available_node_types:
+        instance_type = available_node_types[node_type]["node_config"][
+            "InstanceType"]
+        if instance_type in instances_dict:
+            cpus = instances_dict[instance_type].cpu_core_count
+            detected_resources = {"CPU": cpus}
+
+            # memory_size is in GB float
+            memory_total = int(instances_dict[instance_type].memory_size * 1024)
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            detected_resources["memory"] = memory_total_in_bytes
+
+            gpuamount = instances_dict[instance_type].gpuamount
+            if gpuamount:
+                gpu_name = instances_dict[instance_type].gpuspec
+                detected_resources.update({
+                    "GPU": gpuamount,
+                    f"accelerator_type:{gpu_name}": 1
+                })
+
+            detected_resources.update(
+                available_node_types[node_type].get("resources", {}))
+            if detected_resources != \
+                    available_node_types[node_type].get("resources", {}):
+                available_node_types[node_type][
+                    "resources"] = detected_resources
+                logger.debug("Updating the resources of {} to {}.".format(
+                    node_type, detected_resources))
+        else:
+            raise ValueError("Instance type " + instance_type +
+                             " is not available.")
+    return cluster_config
+
+
+def with_aliyun_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
+    config_dict = {}
+    export_aliyun_oss_storage_config(provider_config, config_dict)
+
+    if node_type_config is not None:
+        node_config = node_type_config.get("node_config")
+        ram_role_name = node_config.get("RamRoleName")
+        if ram_role_name:
+            config_dict["ALIYUN_ECS_RAM_ROLE_NAME"] = ram_role_name
+
+    return config_dict

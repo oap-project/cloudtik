@@ -15,8 +15,7 @@ from googleapiclient import errors
 from google.oauth2 import service_account
 
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
-    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI, CLOUDTIK_MANAGED_CLOUD_DATABASE, CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT, \
-    CLOUDTIK_MANAGED_CLOUD_DATABASE_PORT
+    CLOUDTIK_MANAGED_CLOUD_STORAGE_URI, CLOUDTIK_MANAGED_CLOUD_DATABASE, CLOUDTIK_MANAGED_CLOUD_DATABASE_ENDPOINT
 
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, CLOUDTIK_TAG_CLUSTER_NAME
 from cloudtik.core._private.cli_logger import cli_logger, cf
@@ -86,109 +85,9 @@ GCP_WORKSPACE_TARGET_RESOURCES = 8
 GCP_MANAGED_STORAGE_GCS_BUCKET = "gcp.managed.storage.gcs.bucket"
 
 
-def key_pair_name(i, region, project_id, ssh_user):
-    """Returns the ith default gcp_key_pair_name."""
-    key_name = "{}_gcp_{}_{}_{}_{}".format(GCP_RESOURCE_NAME_PREFIX, region, project_id, ssh_user,
-                                           i)
-    return key_name
-
-
-def key_pair_paths(key_name):
-    """Returns public and private key paths for a given key_name."""
-    public_key_path = os.path.expanduser("~/.ssh/{}.pub".format(key_name))
-    private_key_path = os.path.expanduser("~/.ssh/{}.pem".format(key_name))
-    return public_key_path, private_key_path
-
-
-def generate_rsa_key_pair():
-    """Create public and private ssh-keys."""
-
-    key = rsa.generate_private_key(
-        backend=default_backend(), public_exponent=65537, key_size=2048)
-
-    public_key = key.public_key().public_bytes(
-        serialization.Encoding.OpenSSH,
-        serialization.PublicFormat.OpenSSH).decode("utf-8")
-
-    pem = key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption()).decode("utf-8")
-
-    return public_key, pem
-
-
-def post_prepare_gcp(config: Dict[str, Any]) -> Dict[str, Any]:
-    config = copy.deepcopy(config)
-    config = _configure_project_id(config)
-
-    try:
-        config = fill_available_node_types_resources(config)
-    except Exception as exc:
-        cli_logger.warning(
-            "Failed to detect node resources. Make sure you have properly configured the GCP credentials: {}.",
-            str(exc))
-        raise
-    return config
-
-
-def fill_available_node_types_resources(
-        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    """Fills out missing "resources" field for available_node_types."""
-    if "available_node_types" not in cluster_config:
-        return cluster_config
-
-    # Get instance information from cloud provider
-    provider_config = cluster_config["provider"]
-    _, _, compute, tpu = construct_clients_from_provider_config(
-        provider_config)
-
-    response = compute.machineTypes().list(
-        project=provider_config["project_id"],
-        zone=provider_config["availability_zone"],
-    ).execute()
-
-    instances_list = response.get("items", [])
-    instances_dict = {
-        instance["name"]: instance
-        for instance in instances_list
-    }
-
-    # Update the instance information to node type
-    available_node_types = cluster_config["available_node_types"]
-    for node_type in available_node_types:
-        instance_type = available_node_types[node_type]["node_config"][
-            "machineType"]
-        if instance_type in instances_dict:
-            cpus = instances_dict[instance_type]["guestCpus"]
-            detected_resources = {"CPU": cpus}
-
-            memory_total = instances_dict[instance_type]["memoryMb"]
-            memory_total_in_bytes = int(memory_total) * 1024 * 1024
-            detected_resources["memory"] = memory_total_in_bytes
-
-            gpus = instances_dict[instance_type].get("accelerators")
-            if gpus:
-                # Current we consider only one accelerator type
-                gpu_name = gpus[0]["guestAcceleratorType"]
-                detected_resources.update({
-                    "GPU": gpus[0]["guestAcceleratorCount"],
-                    f"accelerator_type:{gpu_name}": 1
-                })
-
-            detected_resources.update(
-                available_node_types[node_type].get("resources", {}))
-            if detected_resources != \
-                    available_node_types[node_type].get("resources", {}):
-                available_node_types[node_type][
-                    "resources"] = detected_resources
-                logger.debug("Updating the resources of {} to {}.".format(
-                    node_type, detected_resources))
-        else:
-            raise ValueError("Instance type " + instance_type +
-                             " is not available in GCP zone: " +
-                             provider_config["availability_zone"] + ".")
-    return cluster_config
+######################
+# Workspace functions
+######################
 
 
 def get_workspace_head_nodes(provider_config, workspace_name):
@@ -296,6 +195,38 @@ def _create_workspace(config):
     cli_logger.success(
         "Successfully created workspace: {}.",
         cf.bold(workspace_name))
+
+    return config
+
+
+def _configure_project(config, crm):
+    """Setup a Google Cloud Platform Project.
+
+    Google Compute Platform organizes all the resources, such as storage
+    buckets, users, and instances under projects. This is different from
+    aws ec2 where everything is global.
+    """
+    config = copy.deepcopy(config)
+
+    project_id = config["provider"].get("project_id")
+    assert config["provider"]["project_id"] is not None, (
+        "'project_id' must be set in the 'provider' section of the"
+        " config. Notice that the project id must be globally unique.")
+    project = _get_project(project_id, crm)
+
+    if project is None:
+        #  Project not found, try creating it
+        _create_project(project_id, crm)
+        project = _get_project(project_id, crm)
+    else:
+        cli_logger.print("Using the existing project: {}.".format(project_id))
+
+    assert project is not None, "Failed to create project"
+    assert project["lifecycleState"] == "ACTIVE", (
+        "Project status needs to be ACTIVE, got {}".format(
+            project["lifecycleState"]))
+
+    config["provider"]["project_id"] = project["projectId"]
 
     return config
 
@@ -1754,495 +1685,6 @@ def get_gcp_managed_cloud_database_info(config, cloud_provider, info):
         info[CLOUDTIK_MANAGED_CLOUD_DATABASE] = managed_cloud_database_info
 
 
-def _fix_disk_type_for_disk(zone, disk):
-    # fix disk type for all disks
-    initialize_params = disk.get("initializeParams")
-    if initialize_params is None:
-        return
-
-    disk_type = initialize_params.get("diskType")
-    if disk_type is None or "diskTypes" in disk_type:
-        return
-
-    # Fix to format: zones/zone/diskTypes/diskType
-    fix_disk_type = "zones/{}/diskTypes/{}".format(zone, disk_type)
-    initialize_params["diskType"] = fix_disk_type
-
-
-def _fix_disk_info_for_disk(zone, disk, boot, source_image):
-    if boot:
-        # Need to fix source image for only boot disk
-        if "initializeParams" not in disk:
-            disk["initializeParams"] = {"sourceImage": source_image}
-        else:
-            disk["initializeParams"]["sourceImage"] = source_image
-
-    _fix_disk_type_for_disk(zone, disk)
-
-
-def _fix_disk_info_for_node(node_config, zone):
-    source_image = node_config.get("sourceImage", None)
-    disks = node_config.get("disks", [])
-    for disk in disks:
-        boot = disk.get("boot", False)
-        _fix_disk_info_for_disk(zone, disk, boot, source_image)
-
-    # Remove the sourceImage from node config
-    node_config.pop("sourceImage", None)
-
-
-def _fix_disk_info(config):
-    zone = config["provider"]["availability_zone"]
-    for node_type in config["available_node_types"].values():
-        node_config = node_type["node_config"]
-        _fix_disk_info_for_node(node_config, zone)
-
-    return config
-
-
-def _configure_spot_for_node_type(node_type_config,
-                                  prefer_spot_node):
-    # To be improved if scheduling has other configurations
-    # scheduling:
-    #   - preemptible: true
-    node_config = node_type_config["node_config"]
-    if prefer_spot_node:
-        # Add spot instruction
-        node_config.pop("scheduling", None)
-        node_config["scheduling"] = [{"preemptible": True}]
-    else:
-        # Remove spot instruction
-        node_config.pop("scheduling", None)
-
-
-def _configure_prefer_spot_node(config):
-    prefer_spot_node = config["provider"].get("prefer_spot_node")
-
-    # if no such key, we consider user don't want to override
-    if prefer_spot_node is None:
-        return config
-
-    # User override, set or remove spot settings for worker node types
-    node_types = config["available_node_types"]
-    for node_type_name in node_types:
-        if node_type_name == config["head_node_type"]:
-            continue
-
-        # worker node type
-        node_type_data = node_types[node_type_name]
-        _configure_spot_for_node_type(
-            node_type_data, prefer_spot_node)
-
-    return config
-
-
-def _configure_image(config):
-    is_gpu = is_gpu_runtime(config)
-
-    default_image = None
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        source_image = node_config.get("sourceImage", "")
-        if source_image == "":
-            # Only set to default image if not specified by the user
-            default_image = _get_default_image(default_image, is_gpu)
-            node_config["sourceImage"] = default_image
-
-    return config
-
-
-def _get_default_image(default_image, is_gpu):
-    if default_image is not None:
-        return default_image
-
-    if is_gpu:
-        default_image = "projects/deeplearning-platform-release/global/images/family/common-cu110-ubuntu-2004"
-    else:
-        default_image = "projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts"
-    return default_image
-
-
-def bootstrap_gcp(config):
-    workspace_name = config.get("workspace_name")
-    if not workspace_name:
-        raise RuntimeError("Workspace name is not specified in cluster configuration.")
-
-    config = bootstrap_gcp_from_workspace(config)
-    return config
-
-
-def bootstrap_gcp_from_workspace(config):
-    if not check_gcp_workspace_integrity(config):
-        workspace_name = config["workspace_name"]
-        cli_logger.abort("GCP workspace {} doesn't exist or is in wrong state!", workspace_name)
-
-    config = copy.deepcopy(config)
-
-    # Used internally to store head IAM role.
-    config["head_node"] = {}
-
-    # Check if we have any TPUs defined, and if so,
-    # insert that information into the provider config
-    if _has_tpus_in_node_configs(config):
-        config["provider"][HAS_TPU_PROVIDER_FIELD] = True
-
-        # We can't run autoscaling through a serviceAccount on TPUs (atm)
-        if _is_head_node_a_tpu(config):
-            raise RuntimeError("TPUs are not supported as head nodes.")
-
-    crm, iam, compute, tpu = \
-        construct_clients_from_provider_config(config["provider"])
-
-    config = _configure_image(config)
-    config = _fix_disk_info(config)
-    config = _configure_iam_role_from_workspace(config, iam)
-    config = _configure_cloud_storage_from_workspace(config)
-    config = _configure_cloud_database_from_workspace(config)
-    config = _configure_key_pair(config, compute)
-    config = _configure_subnet_from_workspace(config, compute)
-    config = _configure_prefer_spot_node(config)
-    return config
-
-
-def bootstrap_gcp_workspace(config):
-    # create a copy of the input config to modify
-    config = copy.deepcopy(config)
-    _configure_allowed_ssh_sources(config)
-    return config
-
-
-def _configure_project_id(config):
-    project_id = config["provider"].get("project_id")
-    if project_id is None and "workspace_name" in config:
-        config["provider"]["project_id"] = config["workspace_name"]
-    return config
-
-
-def _configure_allowed_ssh_sources(config):
-    provider_config = config["provider"]
-    if "allowed_ssh_sources" not in provider_config:
-        return
-
-    allowed_ssh_sources = provider_config["allowed_ssh_sources"]
-    if len(allowed_ssh_sources) == 0:
-        return
-
-    if "firewalls" not in provider_config:
-        provider_config["firewalls"] = {}
-    fire_walls = provider_config["firewalls"]
-
-    if "firewall_rules" not in fire_walls:
-        fire_walls["firewall_rules"] = []
-    firewall_rules = fire_walls["firewall_rules"]
-
-    firewall_rule = {
-        "allowed": [
-            {
-              "IPProtocol": "tcp",
-              "ports": [
-                "22"
-              ]
-            }
-        ],
-        "sourceRanges": [allowed_ssh_source for allowed_ssh_source in allowed_ssh_sources]
-    }
-    firewall_rules.append(firewall_rule)
-
-
-def _configure_project(config, crm):
-    """Setup a Google Cloud Platform Project.
-
-    Google Compute Platform organizes all the resources, such as storage
-    buckets, users, and instances under projects. This is different from
-    aws ec2 where everything is global.
-    """
-    config = copy.deepcopy(config)
-
-    project_id = config["provider"].get("project_id")
-    assert config["provider"]["project_id"] is not None, (
-        "'project_id' must be set in the 'provider' section of the"
-        " config. Notice that the project id must be globally unique.")
-    project = _get_project(project_id, crm)
-
-    if project is None:
-        #  Project not found, try creating it
-        _create_project(project_id, crm)
-        project = _get_project(project_id, crm)
-    else:
-        cli_logger.print("Using the existing project: {}.".format(project_id))
-
-    assert project is not None, "Failed to create project"
-    assert project["lifecycleState"] == "ACTIVE", (
-        "Project status needs to be ACTIVE, got {}".format(
-            project["lifecycleState"]))
-
-    config["provider"]["project_id"] = project["projectId"]
-
-    return config
-
-
-def _configure_cloud_storage_from_workspace(config):
-    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
-    if use_managed_cloud_storage:
-        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
-
-    return config
-
-
-def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
-    workspace_name = config["workspace_name"]
-    gcs_bucket = get_managed_gcs_bucket(cloud_provider, workspace_name)
-    if gcs_bucket is None:
-        cli_logger.abort("No managed GCS bucket was found. If you want to use managed GCS bucket, "
-                         "you should set managed_cloud_storage equal to True when you creating workspace.")
-
-    cloud_storage = get_gcp_cloud_storage_config_for_update(config["provider"])
-    cloud_storage[GCP_GCS_BUCKET] = gcs_bucket.name
-
-
-def _configure_cloud_database_from_workspace(config):
-    use_managed_cloud_database = is_use_managed_cloud_database(config)
-    if use_managed_cloud_database:
-        _configure_managed_cloud_database_from_workspace(
-            config, config["provider"])
-
-    return config
-
-
-def _get_managed_database_address(database_instance):
-    if "ipAddresses" not in database_instance:
-        return None
-
-    ip_addresses = database_instance["ipAddresses"]
-    for ip_addr in ip_addresses:
-        addr_type = ip_addr.get("type")
-        if "PRIVATE" == addr_type or "PRIMARY" == addr_type:
-            return ip_addr["ipAddress"]
-
-    return None
-
-
-def _configure_managed_cloud_database_from_workspace(config, cloud_provider):
-    workspace_name = config["workspace_name"]
-    database_instance = get_managed_database_instance(cloud_provider, workspace_name)
-    if database_instance is None:
-        cli_logger.abort("No managed database was found. If you want to use managed database, "
-                         "you should set managed_cloud_database equal to True when you creating workspace.")
-
-    db_address = _get_managed_database_address(database_instance)
-    if not db_address:
-        raise RuntimeError("No IP address for managed database instance.")
-
-    database_config = get_gcp_database_config_for_update(config["provider"])
-    database_config[GCP_DATABASE_ENDPOINT] = db_address
-
-
-def _get_workspace_service_account(config, iam, service_account_id_template):
-    workspace_name = config["workspace_name"]
-    service_account_id = service_account_id_template.format(workspace_name)
-    email = get_service_account_email(
-        account_id=service_account_id,
-        project_id=config["provider"]["project_id"])
-    service_account = _get_service_account(config["provider"], email, iam)
-    return service_account
-
-
-def _configure_iam_role_for_head(config, iam):
-    head_service_account = _get_workspace_service_account(
-        config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID)
-    if head_service_account is None:
-        cli_logger.abort("Head service account not found for workspace.")
-
-    head_service_accounts = [{
-        "email": head_service_account["email"],
-        # NOTE: The amount of access is determined by the scope + IAM
-        # role of the service account. Even if the cloud-platform scope
-        # gives (scope) access to the whole cloud-platform, the service
-        # account is limited by the IAM rights specified below.
-        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
-    }]
-    config["head_node"]["serviceAccounts"] = head_service_accounts
-
-
-def _configure_iam_role_for_worker(config, iam):
-    # worker service account
-    worker_service_account = _get_workspace_service_account(
-        config, iam, GCP_WORKER_SERVICE_ACCOUNT_ID)
-    if worker_service_account is None:
-        cli_logger.abort("Worker service account not found for workspace.")
-
-    worker_service_accounts = [{
-        "email": worker_service_account["email"],
-        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
-    }]
-
-    for key, node_type in config["available_node_types"].items():
-        if key == config["head_node_type"]:
-            continue
-        node_config = node_type["node_config"]
-        node_config["serviceAccounts"] = worker_service_accounts
-
-
-def _configure_iam_role_from_workspace(config, iam):
-    config = copy.deepcopy(config)
-    _configure_iam_role_for_head(config, iam)
-
-    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
-    if worker_role_for_cloud_storage:
-        _configure_iam_role_for_worker(config, iam)
-
-    return config
-
-
-def _configure_key_pair(config, compute):
-    """Configure SSH access, using an existing key pair if possible.
-
-    Creates a project-wide ssh key that can be used to access all the instances
-    unless explicitly prohibited by instance config.
-
-    The ssh-keys created are of format:
-
-      [USERNAME]:ssh-rsa [KEY_VALUE] [USERNAME]
-
-    where:
-
-      [USERNAME] is the user for the SSH key, specified in the config.
-      [KEY_VALUE] is the public SSH key value.
-    """
-    config = copy.deepcopy(config)
-
-    if "ssh_private_key" in config["auth"]:
-        return config
-
-    ssh_user = config["auth"]["ssh_user"]
-
-    project = compute.projects().get(
-        project=config["provider"]["project_id"]).execute()
-
-    # Key pairs associated with project meta data. The key pairs are general,
-    # and not just ssh keys.
-    ssh_keys_str = next(
-        (item for item in project["commonInstanceMetadata"].get("items", [])
-         if item["key"] == "ssh-keys"), {}).get("value", "")
-
-    ssh_keys = ssh_keys_str.split("\n") if ssh_keys_str else []
-
-    # Try a few times to get or create a good key pair.
-    key_found = False
-    for i in range(10):
-        key_name = key_pair_name(i, config["provider"]["region"],
-                                 config["provider"]["project_id"], ssh_user)
-        public_key_path, private_key_path = key_pair_paths(key_name)
-
-        for ssh_key in ssh_keys:
-            key_parts = ssh_key.split(" ")
-            if len(key_parts) != 3:
-                continue
-
-            if key_parts[2] == ssh_user and os.path.exists(private_key_path):
-                # Found a key
-                key_found = True
-                break
-
-        # Writing the new ssh key to the filesystem fails if the ~/.ssh
-        # directory doesn't already exist.
-        os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
-
-        # Create a key since it doesn't exist locally or in GCP
-        if not key_found and not os.path.exists(private_key_path):
-            cli_logger.print("Creating new key pair: {}".format(key_name))
-            public_key, private_key = generate_rsa_key_pair()
-
-            _create_project_ssh_key_pair(project, public_key, ssh_user,
-                                         compute)
-
-            # Create the directory if it doesn't exists
-            private_key_dir = os.path.dirname(private_key_path)
-            os.makedirs(private_key_dir, exist_ok=True)
-
-            # We need to make sure to _create_ the file with the right
-            # permissions. In order to do that we need to change the default
-            # os.open behavior to include the mode we want.
-            with open(
-                    private_key_path,
-                    "w",
-                    opener=partial(os.open, mode=0o600),
-            ) as f:
-                f.write(private_key)
-
-            with open(public_key_path, "w") as f:
-                f.write(public_key)
-
-            key_found = True
-
-            break
-
-        if key_found:
-            break
-
-    assert key_found, "SSH keypair for user {} not found for {}".format(
-        ssh_user, private_key_path)
-    assert os.path.exists(private_key_path), (
-        "Private key file {} not found for user {}"
-        "".format(private_key_path, ssh_user))
-
-    cli_logger.print("Private key not specified in config, using: {}",
-                     cf.bold(private_key_path))
-
-    config["auth"]["ssh_private_key"] = private_key_path
-
-    return config
-
-
-def _configure_subnet_from_workspace(config, compute):
-    workspace_name = config["workspace_name"]
-    use_internal_ips = is_use_internal_ip(config)
-
-    """Pick a reasonable subnet if not specified by the config."""
-    config = copy.deepcopy(config)
-
-    # Rationale: avoid subnet lookup if the network is already
-    # completely manually configured
-
-    # networkInterfaces is compute, networkConfig is TPU
-    public_subnet = get_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute)
-    private_subnet = get_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute)
-
-    public_interfaces = [{
-        "subnetwork": public_subnet["selfLink"],
-        "accessConfigs": [{
-            "name": "External NAT",
-            "type": "ONE_TO_ONE_NAT",
-        }],
-    }]
-
-    private_interfaces = [{
-        "subnetwork": private_subnet["selfLink"],
-    }]
-
-    for key, node_type in config["available_node_types"].items():
-        node_config = node_type["node_config"]
-        if key == config["head_node_type"]:
-            if use_internal_ips:
-                # compute
-                node_config["networkInterfaces"] = copy.deepcopy(private_interfaces)
-                # TPU
-                node_config["networkConfig"] = copy.deepcopy(private_interfaces)[0]
-            else:
-                # compute
-                node_config["networkInterfaces"] = copy.deepcopy(public_interfaces)
-                # TPU
-                node_config["networkConfig"] = copy.deepcopy(public_interfaces)[0]
-                node_config["networkConfig"].pop("accessConfigs")
-        else:
-            # compute
-            node_config["networkInterfaces"] = copy.deepcopy(private_interfaces)
-            # TPU
-            node_config["networkConfig"] = copy.deepcopy(private_interfaces)[0]
-
-    return config
-
-
 def get_subnet(config, subnet_name, compute):
     cli_logger.verbose("Getting the existing subnet: {}.".format(subnet_name))
     try:
@@ -2647,49 +2089,8 @@ def _create_project_ssh_key_pair(project, public_key, ssh_user, compute):
     operation = compute.projects().setCommonInstanceMetadata(
         project=project["name"], body=common_instance_metadata).execute()
 
-    wait_for_compute_global_operation(project["name"], operation,
-                                                 compute)
-
-    return 
-
-
-def verify_gcs_storage(provider_config: Dict[str, Any]):
-    gcs_storage = get_gcp_cloud_storage_config(provider_config)
-    if gcs_storage is None:
-        return
-
-    try:
-        use_managed_cloud_storage = _is_use_managed_cloud_storage(provider_config)
-        if use_managed_cloud_storage:
-            storage_gcs = construct_storage(provider_config)
-        else:
-            private_key_id = gcs_storage.get("gcs.service.account.private.key.id")
-            if private_key_id is None:
-                # The bucket may be able to accessible from roles
-                # Verify through the client credential
-                storage_gcs = construct_storage(provider_config)
-            else:
-                private_key = gcs_storage.get("gcs.service.account.private.key")
-                private_key = unescape_private_key(private_key)
-
-                credentials_field = {
-                    "project_id": provider_config.get("project_id"),
-                    "private_key_id": private_key_id,
-                    "private_key": private_key,
-                    "client_email": gcs_storage.get("gcs.service.account.client.email"),
-                    "token_uri": "https://oauth2.googleapis.com/token"
-                }
-
-                credentials = service_account.Credentials.from_service_account_info(
-                    credentials_field)
-                storage_gcs = _create_storage(credentials)
-
-        storage_gcs.buckets().get(bucket=gcs_storage[GCP_GCS_BUCKET]).execute()
-    except Exception as e:
-        raise StorageTestingError("Error happens when verifying GCS storage configurations. "
-                                  "If you want to go without passing the verification, "
-                                  "set 'verify_cloud_storage' to False under provider config. "
-                                  "Error: {}.".format(str(e))) from None
+    wait_for_compute_global_operation(
+        project["name"], operation, compute)
 
 
 def get_cluster_name_from_head(head_node) -> Optional[str]:
@@ -2715,20 +2116,6 @@ def list_gcp_clusters(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             gcp_node = gcp_resource.from_instance(head_node)
             clusters[cluster_name] = _get_node_info(gcp_node)
     return clusters
-
-
-def with_gcp_environment_variables(
-        provider_config, node_type_config: Dict[str, Any], node_id: str):
-    config_dict = {}
-    export_gcp_cloud_storage_config(provider_config, config_dict)
-    export_gcp_cloud_database_config(provider_config, config_dict)
-
-    if "GCP_PROJECT_ID" not in config_dict:
-        project_id = provider_config.get("project_id")
-        if project_id:
-            config_dict["GCP_PROJECT_ID"] = project_id
-
-    return config_dict
 
 
 def _create_vpc_peering_connections(config, compute, vpc_id):
@@ -2896,3 +2283,623 @@ def get_workspace_vpc_peering_connections(config, compute, vpc_id):
             vpc_peerings["b"] = working_peering
 
     return vpc_peerings
+
+
+def _get_managed_database_address(database_instance):
+    if "ipAddresses" not in database_instance:
+        return None
+
+    ip_addresses = database_instance["ipAddresses"]
+    for ip_addr in ip_addresses:
+        addr_type = ip_addr.get("type")
+        if "PRIVATE" == addr_type or "PRIMARY" == addr_type:
+            return ip_addr["ipAddress"]
+
+    return None
+
+
+def _get_workspace_service_account(config, iam, service_account_id_template):
+    workspace_name = config["workspace_name"]
+    service_account_id = service_account_id_template.format(workspace_name)
+    email = get_service_account_email(
+        account_id=service_account_id,
+        project_id=config["provider"]["project_id"])
+    service_account = _get_service_account(config["provider"], email, iam)
+    return service_account
+
+
+######################
+# Clustering functions
+######################
+
+
+def key_pair_name(i, region, project_id, ssh_user):
+    """Returns the ith default gcp_key_pair_name."""
+    key_name = "{}_gcp_{}_{}_{}_{}".format(GCP_RESOURCE_NAME_PREFIX, region, project_id, ssh_user,
+                                           i)
+    return key_name
+
+
+def key_pair_paths(key_name):
+    """Returns public and private key paths for a given key_name."""
+    public_key_path = os.path.expanduser("~/.ssh/{}.pub".format(key_name))
+    private_key_path = os.path.expanduser("~/.ssh/{}.pem".format(key_name))
+    return public_key_path, private_key_path
+
+
+def generate_rsa_key_pair():
+    """Create public and private ssh-keys."""
+
+    key = rsa.generate_private_key(
+        backend=default_backend(), public_exponent=65537, key_size=2048)
+
+    public_key = key.public_key().public_bytes(
+        serialization.Encoding.OpenSSH,
+        serialization.PublicFormat.OpenSSH).decode("utf-8")
+
+    pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()).decode("utf-8")
+
+    return public_key, pem
+
+
+def post_prepare_gcp(config: Dict[str, Any]) -> Dict[str, Any]:
+    config = copy.deepcopy(config)
+    config = _configure_project_id(config)
+
+    try:
+        config = fill_available_node_types_resources(config)
+    except Exception as exc:
+        cli_logger.warning(
+            "Failed to detect node resources. Make sure you have properly configured the GCP credentials: {}.",
+            str(exc))
+        raise
+    return config
+
+
+def fill_available_node_types_resources(
+        cluster_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Fills out missing "resources" field for available_node_types."""
+    if "available_node_types" not in cluster_config:
+        return cluster_config
+
+    # Get instance information from cloud provider
+    provider_config = cluster_config["provider"]
+    _, _, compute, tpu = construct_clients_from_provider_config(
+        provider_config)
+
+    response = compute.machineTypes().list(
+        project=provider_config["project_id"],
+        zone=provider_config["availability_zone"],
+    ).execute()
+
+    instances_list = response.get("items", [])
+    instances_dict = {
+        instance["name"]: instance
+        for instance in instances_list
+    }
+
+    # Update the instance information to node type
+    available_node_types = cluster_config["available_node_types"]
+    for node_type in available_node_types:
+        instance_type = available_node_types[node_type]["node_config"][
+            "machineType"]
+        if instance_type in instances_dict:
+            cpus = instances_dict[instance_type]["guestCpus"]
+            detected_resources = {"CPU": cpus}
+
+            memory_total = instances_dict[instance_type]["memoryMb"]
+            memory_total_in_bytes = int(memory_total) * 1024 * 1024
+            detected_resources["memory"] = memory_total_in_bytes
+
+            gpus = instances_dict[instance_type].get("accelerators")
+            if gpus:
+                # Current we consider only one accelerator type
+                gpu_name = gpus[0]["guestAcceleratorType"]
+                detected_resources.update({
+                    "GPU": gpus[0]["guestAcceleratorCount"],
+                    f"accelerator_type:{gpu_name}": 1
+                })
+
+            detected_resources.update(
+                available_node_types[node_type].get("resources", {}))
+            if detected_resources != \
+                    available_node_types[node_type].get("resources", {}):
+                available_node_types[node_type][
+                    "resources"] = detected_resources
+                logger.debug("Updating the resources of {} to {}.".format(
+                    node_type, detected_resources))
+        else:
+            raise ValueError("Instance type " + instance_type +
+                             " is not available in GCP zone: " +
+                             provider_config["availability_zone"] + ".")
+    return cluster_config
+
+
+def _fix_disk_type_for_disk(zone, disk):
+    # fix disk type for all disks
+    initialize_params = disk.get("initializeParams")
+    if initialize_params is None:
+        return
+
+    disk_type = initialize_params.get("diskType")
+    if disk_type is None or "diskTypes" in disk_type:
+        return
+
+    # Fix to format: zones/zone/diskTypes/diskType
+    fix_disk_type = "zones/{}/diskTypes/{}".format(zone, disk_type)
+    initialize_params["diskType"] = fix_disk_type
+
+
+def _fix_disk_info_for_disk(zone, disk, boot, source_image):
+    if boot:
+        # Need to fix source image for only boot disk
+        if "initializeParams" not in disk:
+            disk["initializeParams"] = {"sourceImage": source_image}
+        else:
+            disk["initializeParams"]["sourceImage"] = source_image
+
+    _fix_disk_type_for_disk(zone, disk)
+
+
+def _fix_disk_info_for_node(node_config, zone):
+    source_image = node_config.get("sourceImage", None)
+    disks = node_config.get("disks", [])
+    for disk in disks:
+        boot = disk.get("boot", False)
+        _fix_disk_info_for_disk(zone, disk, boot, source_image)
+
+    # Remove the sourceImage from node config
+    node_config.pop("sourceImage", None)
+
+
+def _fix_disk_info(config):
+    zone = config["provider"]["availability_zone"]
+    for node_type in config["available_node_types"].values():
+        node_config = node_type["node_config"]
+        _fix_disk_info_for_node(node_config, zone)
+
+    return config
+
+
+def _configure_spot_for_node_type(node_type_config,
+                                  prefer_spot_node):
+    # To be improved if scheduling has other configurations
+    # scheduling:
+    #   - preemptible: true
+    node_config = node_type_config["node_config"]
+    if prefer_spot_node:
+        # Add spot instruction
+        node_config.pop("scheduling", None)
+        node_config["scheduling"] = [{"preemptible": True}]
+    else:
+        # Remove spot instruction
+        node_config.pop("scheduling", None)
+
+
+def _configure_prefer_spot_node(config):
+    prefer_spot_node = config["provider"].get("prefer_spot_node")
+
+    # if no such key, we consider user don't want to override
+    if prefer_spot_node is None:
+        return config
+
+    # User override, set or remove spot settings for worker node types
+    node_types = config["available_node_types"]
+    for node_type_name in node_types:
+        if node_type_name == config["head_node_type"]:
+            continue
+
+        # worker node type
+        node_type_data = node_types[node_type_name]
+        _configure_spot_for_node_type(
+            node_type_data, prefer_spot_node)
+
+    return config
+
+
+def _configure_image(config):
+    is_gpu = is_gpu_runtime(config)
+
+    default_image = None
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        source_image = node_config.get("sourceImage", "")
+        if source_image == "":
+            # Only set to default image if not specified by the user
+            default_image = _get_default_image(default_image, is_gpu)
+            node_config["sourceImage"] = default_image
+
+    return config
+
+
+def _get_default_image(default_image, is_gpu):
+    if default_image is not None:
+        return default_image
+
+    if is_gpu:
+        default_image = "projects/deeplearning-platform-release/global/images/family/common-cu110-ubuntu-2004"
+    else:
+        default_image = "projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts"
+    return default_image
+
+
+def bootstrap_gcp(config):
+    workspace_name = config.get("workspace_name")
+    if not workspace_name:
+        raise RuntimeError("Workspace name is not specified in cluster configuration.")
+
+    config = bootstrap_gcp_from_workspace(config)
+    return config
+
+
+def bootstrap_gcp_from_workspace(config):
+    if not check_gcp_workspace_integrity(config):
+        workspace_name = config["workspace_name"]
+        cli_logger.abort("GCP workspace {} doesn't exist or is in wrong state!", workspace_name)
+
+    config = copy.deepcopy(config)
+
+    # Used internally to store head IAM role.
+    config["head_node"] = {}
+
+    # Check if we have any TPUs defined, and if so,
+    # insert that information into the provider config
+    if _has_tpus_in_node_configs(config):
+        config["provider"][HAS_TPU_PROVIDER_FIELD] = True
+
+        # We can't run autoscaling through a serviceAccount on TPUs (atm)
+        if _is_head_node_a_tpu(config):
+            raise RuntimeError("TPUs are not supported as head nodes.")
+
+    crm, iam, compute, tpu = \
+        construct_clients_from_provider_config(config["provider"])
+
+    config = _configure_image(config)
+    config = _fix_disk_info(config)
+    config = _configure_iam_role_from_workspace(config, iam)
+    config = _configure_cloud_storage_from_workspace(config)
+    config = _configure_cloud_database_from_workspace(config)
+    config = _configure_key_pair(config, compute)
+    config = _configure_subnet_from_workspace(config, compute)
+    config = _configure_prefer_spot_node(config)
+    return config
+
+
+def bootstrap_gcp_workspace(config):
+    # create a copy of the input config to modify
+    config = copy.deepcopy(config)
+    _configure_allowed_ssh_sources(config)
+    return config
+
+
+def _configure_project_id(config):
+    project_id = config["provider"].get("project_id")
+    if project_id is None and "workspace_name" in config:
+        config["provider"]["project_id"] = config["workspace_name"]
+    return config
+
+
+def _configure_allowed_ssh_sources(config):
+    provider_config = config["provider"]
+    if "allowed_ssh_sources" not in provider_config:
+        return
+
+    allowed_ssh_sources = provider_config["allowed_ssh_sources"]
+    if len(allowed_ssh_sources) == 0:
+        return
+
+    if "firewalls" not in provider_config:
+        provider_config["firewalls"] = {}
+    fire_walls = provider_config["firewalls"]
+
+    if "firewall_rules" not in fire_walls:
+        fire_walls["firewall_rules"] = []
+    firewall_rules = fire_walls["firewall_rules"]
+
+    firewall_rule = {
+        "allowed": [
+            {
+              "IPProtocol": "tcp",
+              "ports": [
+                "22"
+              ]
+            }
+        ],
+        "sourceRanges": [allowed_ssh_source for allowed_ssh_source in allowed_ssh_sources]
+    }
+    firewall_rules.append(firewall_rule)
+
+
+def _configure_cloud_storage_from_workspace(config):
+    use_managed_cloud_storage = is_use_managed_cloud_storage(config)
+    if use_managed_cloud_storage:
+        _configure_managed_cloud_storage_from_workspace(config, config["provider"])
+
+    return config
+
+
+def _configure_managed_cloud_storage_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    gcs_bucket = get_managed_gcs_bucket(cloud_provider, workspace_name)
+    if gcs_bucket is None:
+        cli_logger.abort("No managed GCS bucket was found. If you want to use managed GCS bucket, "
+                         "you should set managed_cloud_storage equal to True when you creating workspace.")
+
+    cloud_storage = get_gcp_cloud_storage_config_for_update(config["provider"])
+    cloud_storage[GCP_GCS_BUCKET] = gcs_bucket.name
+
+
+def _configure_cloud_database_from_workspace(config):
+    use_managed_cloud_database = is_use_managed_cloud_database(config)
+    if use_managed_cloud_database:
+        _configure_managed_cloud_database_from_workspace(
+            config, config["provider"])
+
+    return config
+
+
+def _configure_managed_cloud_database_from_workspace(config, cloud_provider):
+    workspace_name = config["workspace_name"]
+    database_instance = get_managed_database_instance(cloud_provider, workspace_name)
+    if database_instance is None:
+        cli_logger.abort("No managed database was found. If you want to use managed database, "
+                         "you should set managed_cloud_database equal to True when you creating workspace.")
+
+    db_address = _get_managed_database_address(database_instance)
+    if not db_address:
+        raise RuntimeError("No IP address for managed database instance.")
+
+    database_config = get_gcp_database_config_for_update(config["provider"])
+    database_config[GCP_DATABASE_ENDPOINT] = db_address
+
+
+def _configure_iam_role_for_head(config, iam):
+    head_service_account = _get_workspace_service_account(
+        config, iam, GCP_HEAD_SERVICE_ACCOUNT_ID)
+    if head_service_account is None:
+        cli_logger.abort("Head service account not found for workspace.")
+
+    head_service_accounts = [{
+        "email": head_service_account["email"],
+        # NOTE: The amount of access is determined by the scope + IAM
+        # role of the service account. Even if the cloud-platform scope
+        # gives (scope) access to the whole cloud-platform, the service
+        # account is limited by the IAM rights specified below.
+        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+    }]
+    config["head_node"]["serviceAccounts"] = head_service_accounts
+
+
+def _configure_iam_role_for_worker(config, iam):
+    # worker service account
+    worker_service_account = _get_workspace_service_account(
+        config, iam, GCP_WORKER_SERVICE_ACCOUNT_ID)
+    if worker_service_account is None:
+        cli_logger.abort("Worker service account not found for workspace.")
+
+    worker_service_accounts = [{
+        "email": worker_service_account["email"],
+        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+    }]
+
+    for key, node_type in config["available_node_types"].items():
+        if key == config["head_node_type"]:
+            continue
+        node_config = node_type["node_config"]
+        node_config["serviceAccounts"] = worker_service_accounts
+
+
+def _configure_iam_role_from_workspace(config, iam):
+    config = copy.deepcopy(config)
+    _configure_iam_role_for_head(config, iam)
+
+    worker_role_for_cloud_storage = is_worker_role_for_cloud_storage(config)
+    if worker_role_for_cloud_storage:
+        _configure_iam_role_for_worker(config, iam)
+
+    return config
+
+
+def _configure_key_pair(config, compute):
+    """Configure SSH access, using an existing key pair if possible.
+
+    Creates a project-wide ssh key that can be used to access all the instances
+    unless explicitly prohibited by instance config.
+
+    The ssh-keys created are of format:
+
+      [USERNAME]:ssh-rsa [KEY_VALUE] [USERNAME]
+
+    where:
+
+      [USERNAME] is the user for the SSH key, specified in the config.
+      [KEY_VALUE] is the public SSH key value.
+    """
+    config = copy.deepcopy(config)
+
+    if "ssh_private_key" in config["auth"]:
+        return config
+
+    ssh_user = config["auth"]["ssh_user"]
+
+    project = compute.projects().get(
+        project=config["provider"]["project_id"]).execute()
+
+    # Key pairs associated with project meta data. The key pairs are general,
+    # and not just ssh keys.
+    ssh_keys_str = next(
+        (item for item in project["commonInstanceMetadata"].get("items", [])
+         if item["key"] == "ssh-keys"), {}).get("value", "")
+
+    ssh_keys = ssh_keys_str.split("\n") if ssh_keys_str else []
+
+    # Try a few times to get or create a good key pair.
+    key_found = False
+    for i in range(10):
+        key_name = key_pair_name(i, config["provider"]["region"],
+                                 config["provider"]["project_id"], ssh_user)
+        public_key_path, private_key_path = key_pair_paths(key_name)
+
+        for ssh_key in ssh_keys:
+            key_parts = ssh_key.split(" ")
+            if len(key_parts) != 3:
+                continue
+
+            if key_parts[2] == ssh_user and os.path.exists(private_key_path):
+                # Found a key
+                key_found = True
+                break
+
+        # Writing the new ssh key to the filesystem fails if the ~/.ssh
+        # directory doesn't already exist.
+        os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
+
+        # Create a key since it doesn't exist locally or in GCP
+        if not key_found and not os.path.exists(private_key_path):
+            cli_logger.print("Creating new key pair: {}".format(key_name))
+            public_key, private_key = generate_rsa_key_pair()
+
+            _create_project_ssh_key_pair(project, public_key, ssh_user,
+                                         compute)
+
+            # Create the directory if it doesn't exists
+            private_key_dir = os.path.dirname(private_key_path)
+            os.makedirs(private_key_dir, exist_ok=True)
+
+            # We need to make sure to _create_ the file with the right
+            # permissions. In order to do that we need to change the default
+            # os.open behavior to include the mode we want.
+            with open(
+                    private_key_path,
+                    "w",
+                    opener=partial(os.open, mode=0o600),
+            ) as f:
+                f.write(private_key)
+
+            with open(public_key_path, "w") as f:
+                f.write(public_key)
+
+            key_found = True
+
+            break
+
+        if key_found:
+            break
+
+    assert key_found, "SSH keypair for user {} not found for {}".format(
+        ssh_user, private_key_path)
+    assert os.path.exists(private_key_path), (
+        "Private key file {} not found for user {}"
+        "".format(private_key_path, ssh_user))
+
+    cli_logger.print("Private key not specified in config, using: {}",
+                     cf.bold(private_key_path))
+
+    config["auth"]["ssh_private_key"] = private_key_path
+
+    return config
+
+
+def _configure_subnet_from_workspace(config, compute):
+    workspace_name = config["workspace_name"]
+    use_internal_ips = is_use_internal_ip(config)
+
+    """Pick a reasonable subnet if not specified by the config."""
+    config = copy.deepcopy(config)
+
+    # Rationale: avoid subnet lookup if the network is already
+    # completely manually configured
+
+    # networkInterfaces is compute, networkConfig is TPU
+    public_subnet = get_subnet(config, "cloudtik-{}-public-subnet".format(workspace_name), compute)
+    private_subnet = get_subnet(config, "cloudtik-{}-private-subnet".format(workspace_name), compute)
+
+    public_interfaces = [{
+        "subnetwork": public_subnet["selfLink"],
+        "accessConfigs": [{
+            "name": "External NAT",
+            "type": "ONE_TO_ONE_NAT",
+        }],
+    }]
+
+    private_interfaces = [{
+        "subnetwork": private_subnet["selfLink"],
+    }]
+
+    for key, node_type in config["available_node_types"].items():
+        node_config = node_type["node_config"]
+        if key == config["head_node_type"]:
+            if use_internal_ips:
+                # compute
+                node_config["networkInterfaces"] = copy.deepcopy(private_interfaces)
+                # TPU
+                node_config["networkConfig"] = copy.deepcopy(private_interfaces)[0]
+            else:
+                # compute
+                node_config["networkInterfaces"] = copy.deepcopy(public_interfaces)
+                # TPU
+                node_config["networkConfig"] = copy.deepcopy(public_interfaces)[0]
+                node_config["networkConfig"].pop("accessConfigs")
+        else:
+            # compute
+            node_config["networkInterfaces"] = copy.deepcopy(private_interfaces)
+            # TPU
+            node_config["networkConfig"] = copy.deepcopy(private_interfaces)[0]
+
+    return config
+
+
+def verify_gcs_storage(provider_config: Dict[str, Any]):
+    gcs_storage = get_gcp_cloud_storage_config(provider_config)
+    if gcs_storage is None:
+        return
+
+    try:
+        use_managed_cloud_storage = _is_use_managed_cloud_storage(provider_config)
+        if use_managed_cloud_storage:
+            storage_gcs = construct_storage(provider_config)
+        else:
+            private_key_id = gcs_storage.get("gcs.service.account.private.key.id")
+            if private_key_id is None:
+                # The bucket may be able to accessible from roles
+                # Verify through the client credential
+                storage_gcs = construct_storage(provider_config)
+            else:
+                private_key = gcs_storage.get("gcs.service.account.private.key")
+                private_key = unescape_private_key(private_key)
+
+                credentials_field = {
+                    "project_id": provider_config.get("project_id"),
+                    "private_key_id": private_key_id,
+                    "private_key": private_key,
+                    "client_email": gcs_storage.get("gcs.service.account.client.email"),
+                    "token_uri": "https://oauth2.googleapis.com/token"
+                }
+
+                credentials = service_account.Credentials.from_service_account_info(
+                    credentials_field)
+                storage_gcs = _create_storage(credentials)
+
+        storage_gcs.buckets().get(bucket=gcs_storage[GCP_GCS_BUCKET]).execute()
+    except Exception as e:
+        raise StorageTestingError("Error happens when verifying GCS storage configurations. "
+                                  "If you want to go without passing the verification, "
+                                  "set 'verify_cloud_storage' to False under provider config. "
+                                  "Error: {}.".format(str(e))) from None
+
+
+def with_gcp_environment_variables(
+        provider_config, node_type_config: Dict[str, Any], node_id: str):
+    config_dict = {}
+    export_gcp_cloud_storage_config(provider_config, config_dict)
+    export_gcp_cloud_database_config(provider_config, config_dict)
+
+    if "GCP_PROJECT_ID" not in config_dict:
+        project_id = provider_config.get("project_id")
+        if project_id:
+            config_dict["GCP_PROJECT_ID"] = project_id
+
+    return config_dict

@@ -52,6 +52,11 @@ AWS_KUBERNETES_ASSOCIATE_DELETION_NUM_STEPS = 2
 AWS_KUBERNETES_TARGET_RESOURCES = 4
 
 
+######################
+# Workspace functions
+######################
+
+
 def _check_eks_cluster_name(cloud_provider):
     if "eks_cluster_name" not in cloud_provider:
         raise ValueError("Must specify 'eks_cluster_name' in cloud provider for AWS.")
@@ -291,29 +296,6 @@ def update_configurations_for_aws(
                 current_step += 1
                 _delete_managed_cloud_database_for_eks(
                     cloud_provider, workspace_name)
-
-
-def configure_kubernetes_for_aws(config: Dict[str, Any], namespace, cloud_provider):
-    # Optionally, if user choose to use managed cloud storage (s3 bucket)
-    # Configure the s3 bucket under cloud storage
-    _configure_cloud_storage_for_aws(config, cloud_provider)
-    _configure_cloud_database_for_aws(config, cloud_provider)
-
-
-def _configure_cloud_storage_for_aws(config: Dict[str, Any], cloud_provider):
-    use_managed_cloud_storage = _is_use_managed_cloud_storage(cloud_provider)
-    if use_managed_cloud_storage:
-        _configure_managed_cloud_storage_from_workspace(config, cloud_provider)
-
-    return config
-
-
-def _configure_cloud_database_for_aws(config: Dict[str, Any], cloud_provider):
-    use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
-    if use_managed_cloud_database:
-        _configure_managed_cloud_database_from_workspace(config, cloud_provider)
-
-    return config
 
 
 def _create_iam_based_access_for_kubernetes(config: Dict[str, Any], namespace, cloud_provider):
@@ -824,3 +806,31 @@ def get_default_kubernetes_cloud_storage_for_aws(provider_config):
 
 def get_default_kubernetes_cloud_database_for_aws(provider_config):
     return get_default_aws_cloud_database(provider_config)
+
+
+######################
+# Clustering functions
+######################
+
+
+def configure_kubernetes_for_aws(config: Dict[str, Any], namespace, cloud_provider):
+    # Optionally, if user choose to use managed cloud storage (s3 bucket)
+    # Configure the s3 bucket under cloud storage
+    _configure_cloud_storage_for_aws(config, cloud_provider)
+    _configure_cloud_database_for_aws(config, cloud_provider)
+
+
+def _configure_cloud_storage_for_aws(config: Dict[str, Any], cloud_provider):
+    use_managed_cloud_storage = _is_use_managed_cloud_storage(cloud_provider)
+    if use_managed_cloud_storage:
+        _configure_managed_cloud_storage_from_workspace(config, cloud_provider)
+
+    return config
+
+
+def _configure_cloud_database_for_aws(config: Dict[str, Any], cloud_provider):
+    use_managed_cloud_database = _is_use_managed_cloud_database(cloud_provider)
+    if use_managed_cloud_database:
+        _configure_managed_cloud_database_from_workspace(config, cloud_provider)
+
+    return config

@@ -78,23 +78,8 @@ def _publish_endpoints_to_workspace(cluster_config: Dict[str, Any], endpoints: s
 
 
 def _get_head_service_urls(runtime_config: Dict[str, Any], cluster_head_ip):
-    services = {
-        "etcd": {
-            "name": "Etcd",
-            "url": "http://{}:{}".format(cluster_head_ip, ETCD_SERVICE_PORT)
-        },
-    }
-    return services
-
-
-def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
-    service_ports = {
-        "etcd": {
-            "protocol": "TCP",
-            "port": ETCD_SERVICE_PORT,
-        },
-    }
-    return service_ports
+    # TODO: future to retrieve the endpoints from service discovery
+    return None
 
 
 def _get_runtime_services(

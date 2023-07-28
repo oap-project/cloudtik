@@ -43,10 +43,8 @@ def _get_runtime_logs():
 
 
 def _get_head_service_urls(cluster_head_ip):
-    # TODO: how to get the ZooKeeper service address which established after head node
+    # TODO: future to retrieve the endpoints from service discovery
     return None
-
-
 
 
 def _server_ensemble_from_nodes_info(nodes_info: Dict[str, Any]):

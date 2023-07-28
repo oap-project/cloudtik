@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.etcd.utils import _get_runtime_processes, \
-    _get_head_service_urls, _get_head_service_ports, _get_runtime_services, _with_runtime_environment_variables, \
+    _get_head_service_urls, _get_runtime_services, _with_runtime_environment_variables, \
     _get_runtime_logs, _handle_minimal_nodes_reached
 
 logger = logging.getLogger(__name__)
@@ -45,9 +45,6 @@ class EtcdRuntime(RuntimeBase):
 
     def get_head_service_urls(self, cluster_head_ip: str):
         return _get_head_service_urls(self.runtime_config, cluster_head_ip)
-
-    def get_head_service_ports(self) -> Dict[str, Any]:
-        return _get_head_service_ports(self.runtime_config)
 
     def get_runtime_services(self, cluster_name: str):
         return _get_runtime_services(self.runtime_config, cluster_name)

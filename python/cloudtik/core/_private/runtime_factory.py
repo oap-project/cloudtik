@@ -29,6 +29,7 @@ BUILT_IN_RUNTIME_RAY = "ray"
 BUILT_IN_RUNTIME_SSHSERVER = "sshserver"
 BUILT_IN_RUNTIME_CONSUL = "consul"
 BUILT_IN_RUNTIME_NGINX = "nginx"
+BUILT_IN_RUNTIME_HAPORXY = "haproxy"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -103,6 +104,11 @@ def _import_nginx():
     return NGINXRuntime
 
 
+def _import_haproxy():
+    from cloudtik.runtime.haproxy.runtime import HAProxyRuntime
+    return HAProxyRuntime
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -118,6 +124,7 @@ _RUNTIMES = {
     "sshserver": _import_ssh_server,
     "consul": _import_consul,
     "nginx": _import_nginx,
+    "haproxy": _import_haproxy,
 }
 
 

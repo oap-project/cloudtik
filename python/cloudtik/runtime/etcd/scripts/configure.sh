@@ -47,7 +47,8 @@ function configure_etcd() {
     prepare_base_conf
     cd $output_dir
 
-    mkdir -p ${ETCD_HOME}/logs
+    ETC_LOG_DIR=${ETCD_HOME}/logs
+    mkdir -p ${ETC_LOG_DIR}
 
     config_template_file=${output_dir}/etcd.yaml
     sed -i "s#{%node.ip%}#${NODE_IP_ADDRESS}#g" ${config_template_file}
@@ -57,6 +58,9 @@ function configure_etcd() {
 
     update_data_dir
 
+    ETC_LOG_FILE=${ETC_LOG_DIR}/etcd-server.log
+    sed -i "s#{%log.file%}#${ETC_LOG_FILE}#g" ${config_template_file}
+
     sed -i "s#{%initial.cluster.token%}#${ETCD_CLUSTER_NAME}#g" ${config_template_file}
 
     ETCD_CONFIG_DIR=${ETCD_HOME}/conf
@@ -65,9 +69,12 @@ function configure_etcd() {
 }
 
 set_head_option "$@"
-check_etcd_installed
-set_head_address
-set_node_ip_address
-configure_etcd
+
+if [ "$IS_HEAD_NODE" == "false" ]; then
+    check_etcd_installed
+    set_head_address
+    set_node_ip_address
+    configure_etcd
+fi
 
 exit 0

@@ -62,8 +62,8 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_head_service_urls(cluster_head_ip):
-    services = {
+def _get_runtime_endpoints(cluster_head_ip):
+    endpoints = {
         "ray": {
             "name": "Ray",
             "url": "{}:{}".format(
@@ -75,7 +75,7 @@ def _get_head_service_urls(cluster_head_ip):
                 cluster_head_ip, RAY_DASHBOARD_PORT)
         }
     }
-    return services
+    return endpoints
 
 
 def _with_memory_configurations(

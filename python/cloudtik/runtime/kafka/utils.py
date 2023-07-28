@@ -75,7 +75,7 @@ def _validate_config(config: Dict[str, Any]):
             raise ValueError("Zookeeper connect must be configured!")
 
 
-def _get_head_service_urls(cluster_head_ip):
+def _get_runtime_endpoints(cluster_head_ip):
     # TODO: how to get the Kafka service address which established after head node
     return None
 

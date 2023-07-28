@@ -77,7 +77,7 @@ def _publish_endpoints_to_workspace(cluster_config: Dict[str, Any], endpoints: s
     workspace_provider.publish_global_variables(cluster_config, service_endpoints)
 
 
-def _get_head_service_urls(runtime_config: Dict[str, Any], cluster_head_ip):
+def _get_runtime_endpoints(runtime_config: Dict[str, Any], cluster_head_ip):
     # TODO: future to retrieve the endpoints from service discovery
     return None
 

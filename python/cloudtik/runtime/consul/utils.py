@@ -194,19 +194,19 @@ def _get_runtime_logs():
     return {"consul": logs_dir}
 
 
-def _get_head_service_urls(server_mode, cluster_head_ip):
-    services = {
+def _get_runtime_endpoints(server_mode, cluster_head_ip):
+    endpoints = {
         "consul": {
             "name": "Consul RPC",
             "url": "{}:{}".format(cluster_head_ip, CONSUL_SERVER_RPC_PORT)
         },
     }
     if server_mode:
-        services["consul_ui"] = {
+        endpoints["consul_ui"] = {
             "name": "Consul UI",
             "url": "http://{}:{}".format(cluster_head_ip, CONSUL_SERVER_HTTP_PORT)
         }
-    return services
+    return endpoints
 
 
 def _get_head_service_ports(server_mode, runtime_config: Dict[str, Any]) -> Dict[str, Any]:

@@ -4,7 +4,7 @@ from typing import Union, Optional
 
 from cloudtik.core.api import Cluster, ThisCluster
 from cloudtik.runtime.flink.utils import request_rest_jobs, request_rest_yarn, get_runtime_default_storage, \
-    get_head_service_urls
+    get_runtime_endpoints
 
 
 class FlinkCluster(Cluster):
@@ -42,8 +42,8 @@ class FlinkCluster(Cluster):
     def get_default_storage(self):
         return get_runtime_default_storage(self.config)
 
-    def get_services(self):
-        return get_head_service_urls(self.config, "")
+    def get_endpoints(self):
+        return get_runtime_endpoints(self.config, "")
 
 
 class ThisFlinkCluster(ThisCluster):
@@ -70,5 +70,5 @@ class ThisFlinkCluster(ThisCluster):
     def get_default_storage(self):
         return get_runtime_default_storage(self.config)
 
-    def get_services(self):
-        return get_head_service_urls(self.config)
+    def get_endpoints(self):
+        return get_runtime_endpoints(self.config)

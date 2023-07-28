@@ -49,7 +49,7 @@ if __name__ == '__main__':
             args.num_proc = 1
 
     ai_cluster = ThisAICluster()
-    mlflow_url = ai_cluster.get_services()["mlflow"]["url"]
+    mlflow_url = ai_cluster.get_endpoints()["mlflow"]["url"]
 
     # Initialize SparkSession
     from pyspark import SparkConf

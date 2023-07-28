@@ -112,14 +112,14 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_head_service_urls(cluster_head_ip):
-    services = {
+def _get_runtime_endpoints(cluster_head_ip):
+    endpoints = {
         "trino": {
             "name": "Trino Web UI",
             "url": "http://{}:{}".format(cluster_head_ip, TRINO_SERVICE_PORT)
         },
     }
-    return services
+    return endpoints
 
 
 def _with_memory_configurations(

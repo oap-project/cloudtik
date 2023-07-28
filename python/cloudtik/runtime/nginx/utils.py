@@ -32,15 +32,15 @@ def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
-def _get_head_service_urls(runtime_config: Dict[str, Any], cluster_head_ip):
+def _get_runtime_endpoints(runtime_config: Dict[str, Any], cluster_head_ip):
     service_port = _get_service_port(runtime_config)
-    services = {
+    endpoints = {
         "nginx": {
             "name": "NGINX",
             "url": "http://{}:{}".format(cluster_head_ip, service_port)
         },
     }
-    return services
+    return endpoints
 
 
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:

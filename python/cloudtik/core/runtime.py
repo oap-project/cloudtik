@@ -81,9 +81,9 @@ class Runtime:
         """Returns a copy of runtime config"""
         return None
 
-    def get_head_service_urls(self, cluster_head_ip: str):
-        """Return the head service url information provided by this runtime
-        It's a map of dictionary of service url properties
+    def get_runtime_endpoints(self, cluster_head_ip: str):
+        """Return the runtime service endpoints information provided by this runtime
+        It's a map of dictionary of service endpoint properties
         For example:
         {
             "app-web": {

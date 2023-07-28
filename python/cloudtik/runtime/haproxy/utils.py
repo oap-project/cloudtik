@@ -82,17 +82,17 @@ def _with_runtime_envs_for_consul_dns(haproxy_config, runtime_envs):
         runtime_envs["HAPROXY_BACKEND_SERVICE_PROTOCOL"] = backend_service_protocol
 
 
-def _get_head_service_urls(runtime_config: Dict[str, Any], cluster_head_ip):
+def _get_runtime_endpoints(runtime_config: Dict[str, Any], cluster_head_ip):
     haproxy_config = _get_config(runtime_config)
     service_port = _get_service_port(haproxy_config)
     service_protocol = _get_service_protocol(haproxy_config)
-    services = {
+    endpoints = {
         "haproxy": {
             "name": "HAProxy",
             "url": "{}://{}:{}".format(service_protocol, cluster_head_ip, service_port)
         },
     }
-    return services
+    return endpoints
 
 
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:

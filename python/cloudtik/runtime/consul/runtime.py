@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.consul.utils import _with_runtime_environment_variables, \
-    _get_runtime_processes, _get_runtime_logs, _get_head_service_urls, _handle_minimal_nodes_reached, \
+    _get_runtime_processes, _get_runtime_logs, _get_runtime_endpoints, _handle_minimal_nodes_reached, \
     _is_agent_server_mode, _get_head_service_ports, _bootstrap_join_list, _bootstrap_runtime_services
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,8 @@ class ConsulRuntime(RuntimeBase):
             self.server_mode, self.runtime_config,
             config=config, provider=provider, node_id=node_id)
 
-    def get_head_service_urls(self, cluster_head_ip: str):
-        return _get_head_service_urls(
+    def get_runtime_endpoints(self, cluster_head_ip: str):
+        return _get_runtime_endpoints(
             self.server_mode, cluster_head_ip)
 
     def get_head_service_ports(self) -> Dict[str, Any]:

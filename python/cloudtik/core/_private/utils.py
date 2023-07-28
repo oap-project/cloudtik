@@ -2290,20 +2290,20 @@ def _get_runtime_config_object(config_home: str, provider_config, object_name: s
     return config_object
 
 
-def get_head_service_urls(runtime_config, head_cluster_ip):
-    head_service_urls = {}
+def get_runtime_endpoints(runtime_config, head_cluster_ip):
+    runtime_endpoints = {}
     if runtime_config is None:
-        return head_service_urls
+        return runtime_endpoints
 
     # Iterate through all the runtimes
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        service_urls = runtime.get_head_service_urls(head_cluster_ip)
-        if service_urls:
-            head_service_urls.update(service_urls)
+        endpoints = runtime.get_runtime_endpoints(head_cluster_ip)
+        if endpoints:
+            runtime_endpoints.update(endpoints)
 
-    return head_service_urls
+    return runtime_endpoints
 
 
 def get_enabled_runtimes(config):

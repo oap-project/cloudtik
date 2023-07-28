@@ -50,7 +50,7 @@ if __name__ == '__main__':
     worker_ips = cluster.get_worker_node_ips(node_status="up-to-date")
 
     ai_cluster = ThisAICluster()
-    mlflow_url = ai_cluster.get_services()["mlflow"]["url"]
+    mlflow_url = ai_cluster.get_endpoints()["mlflow"]["url"]
 
     # Serialize and deserialize keras model
     import io

@@ -7,7 +7,7 @@ from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PRO
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_AI
 from cloudtik.core._private.utils import export_runtime_flags
-from cloudtik.runtime.common.utils import get_head_service_urls_of
+from cloudtik.runtime.common.utils import get_runtime_endpoints_of
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -62,14 +62,14 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_head_service_urls(cluster_head_ip):
-    services = {
+def _get_runtime_endpoints(cluster_head_ip):
+    endpoints = {
         "mlflow": {
             "name": "MLflow",
             "url": "http://{}:{}".format(cluster_head_ip, MLFLOW_SERVICE_PORT)
         },
     }
-    return services
+    return endpoints
 
 
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -82,8 +82,8 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     return service_ports
 
 
-def get_head_service_urls(config: Dict[str, Any]):
-    return get_head_service_urls_of(config, BUILT_IN_RUNTIME_AI)
+def get_runtime_endpoints(config: Dict[str, Any]):
+    return get_runtime_endpoints_of(config, BUILT_IN_RUNTIME_AI)
 
 
 def _get_runtime_services(

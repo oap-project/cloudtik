@@ -42,7 +42,7 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_head_service_urls(cluster_head_ip):
+def _get_runtime_endpoints(cluster_head_ip):
     # TODO: future to retrieve the endpoints from service discovery
     return None
 

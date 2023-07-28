@@ -59,14 +59,14 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_head_service_urls(cluster_head_ip):
-    services = {
+def _get_runtime_endpoints(cluster_head_ip):
+    endpoints = {
         "metastore": {
             "name": "Metastore Uri",
             "url": "thrift://{}:{}".format(cluster_head_ip, METASTORE_SERVICE_PORT)
         },
     }
-    return services
+    return endpoints
 
 
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:

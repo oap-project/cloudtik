@@ -64,8 +64,8 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _get_head_service_urls(cluster_head_ip):
-    services = {
+def _get_runtime_endpoints(cluster_head_ip):
+    endpoints = {
         "hdfs-web": {
             "name": "HDFS Web UI",
             "url": "http://{}:{}".format(cluster_head_ip, HDFS_WEB_PORT)
@@ -75,7 +75,7 @@ def _get_head_service_urls(cluster_head_ip):
             "url": "hdfs://{}:{}".format(cluster_head_ip, HDFS_SERVICE_PORT)
         },
     }
-    return services
+    return endpoints
 
 
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:

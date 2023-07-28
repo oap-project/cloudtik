@@ -55,7 +55,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
     with_runtime_environment_variables, get_nodes_info, \
-    sum_worker_cpus, sum_worker_memory, get_head_service_urls, get_enabled_runtimes, \
+    sum_worker_cpus, sum_worker_memory, get_runtime_endpoints, get_enabled_runtimes, \
     with_node_ip_environment_variables, run_in_parallel_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
@@ -2075,7 +2075,7 @@ def show_useful_commands(call_context: CallContext,
                 cf.bold("cloudtik monitor {}{}"), config_file, modifiers)
 
     _cli_logger.newline()
-    with _cli_logger.group("Useful addresses:"):
+    with _cli_logger.group("Useful endpoints:"):
         proxy_process_file = get_proxy_process_file(cluster_name)
         pid, address, port = get_safe_proxy_process(proxy_process_file)
         if pid is not None:
@@ -2087,15 +2087,15 @@ def show_useful_commands(call_context: CallContext,
 
         head_node_cluster_ip = get_node_cluster_ip(provider, head_node)
 
-        head_service_urls = get_head_service_urls(config.get(RUNTIME_CONFIG_KEY), head_node_cluster_ip)
-        sorted_head_service_urls = sorted(head_service_urls.items(), key=lambda kv: kv[1]["name"])
-        for service_id, head_service_url in sorted_head_service_urls:
-            with _cli_logger.group(head_service_url["name"] + ":"):
-                if "info" in head_service_url:
-                    service_desc = "{}, {}".format(head_service_url["url"], head_service_url["info"])
+        runtime_endpoints = get_runtime_endpoints(config.get(RUNTIME_CONFIG_KEY), head_node_cluster_ip)
+        sorted_runtime_endpoints = sorted(runtime_endpoints.items(), key=lambda kv: kv[1]["name"])
+        for endpoint_id, runtime_endpoint in sorted_runtime_endpoints:
+            with _cli_logger.group(runtime_endpoint["name"] + ":"):
+                if "info" in runtime_endpoint:
+                    endpoint_desc = "{}, {}".format(runtime_endpoint["url"], runtime_endpoint["info"])
                 else:
-                    service_desc = head_service_url["url"]
-                _cli_logger.print(cf.bold(service_desc))
+                    endpoint_desc = runtime_endpoint["url"]
+                _cli_logger.print(cf.bold(endpoint_desc))
 
 
 def show_cluster_status(config_file: str,

@@ -17,14 +17,14 @@ def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
-def _get_head_service_urls(cluster_head_ip):
-    services = {
+def _get_runtime_endpoints(cluster_head_ip):
+    endpoints = {
         "ganglia-web": {
             "name": "Ganglia Web UI",
             "url": "http://{}/ganglia".format(cluster_head_ip)
         },
     }
-    return services
+    return endpoints
 
 
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:

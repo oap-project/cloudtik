@@ -3,7 +3,7 @@
 from typing import Union, Optional
 
 from cloudtik.core.api import Cluster, ThisCluster
-from cloudtik.runtime.ai.utils import get_head_service_urls
+from cloudtik.runtime.ai.utils import get_runtime_endpoints
 
 
 class AICluster(Cluster):
@@ -22,8 +22,8 @@ class AICluster(Cluster):
             cluster_config, should_bootstrap,
             no_config_cache, verbosity)
 
-    def get_services(self):
-        return get_head_service_urls(self.config)
+    def get_endpoints(self):
+        return get_runtime_endpoints(self.config)
 
 
 class ThisAICluster(ThisCluster):
@@ -31,5 +31,5 @@ class ThisAICluster(ThisCluster):
         """Create a Spark cluster object to operate on with this API on head."""
         super().__init__(verbosity)
 
-    def get_services(self):
-        return get_head_service_urls(self.config)
+    def get_endpoints(self):
+        return get_runtime_endpoints(self.config)

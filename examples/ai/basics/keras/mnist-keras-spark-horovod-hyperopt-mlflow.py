@@ -61,7 +61,7 @@ if __name__ == '__main__':
             sys.exit(1)
 
     ai_cluster = ThisAICluster()
-    mlflow_url = ai_cluster.get_services()["mlflow"]["url"]
+    mlflow_url = ai_cluster.get_endpoints()["mlflow"]["url"]
 
     # Serialize and deserialize keras model
     import io

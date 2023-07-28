@@ -5,7 +5,7 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.ray.utils import _with_runtime_environment_variables, \
-    _get_runtime_processes, _get_runtime_logs, _get_head_service_urls, _get_head_service_ports, \
+    _get_runtime_processes, _get_runtime_logs, _get_runtime_endpoints, _get_head_service_ports, \
     _get_runtime_shared_memory_ratio, _get_scaling_policy, _get_runtime_services
 
 logger = logging.getLogger(__name__)
@@ -33,8 +33,8 @@ class RayRuntime(RuntimeBase):
         return _get_runtime_shared_memory_ratio(
             self.runtime_config, config=config)
 
-    def get_head_service_urls(self, cluster_head_ip: str):
-        return _get_head_service_urls(cluster_head_ip)
+    def get_runtime_endpoints(self, cluster_head_ip: str):
+        return _get_runtime_endpoints(cluster_head_ip)
 
     def get_head_service_ports(self) -> Dict[str, Any]:
         return _get_head_service_ports(self.runtime_config)

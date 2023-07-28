@@ -72,5 +72,3 @@ set_node_ip_address
 configure_haproxy
 
 exit 0
-
-}

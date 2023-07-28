@@ -36,7 +36,7 @@ function update_data_dir() {
     if [ -z "$data_disk_dir" ]; then
         data_dir="${ETCD_HOME}/data"
     else
-        data_dir="$data_disk_dir/consul/data"
+        data_dir="$data_disk_dir/etcd/data"
     fi
 
     mkdir -p ${data_dir}

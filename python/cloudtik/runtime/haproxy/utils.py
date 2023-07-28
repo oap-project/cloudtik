@@ -8,24 +8,24 @@ RUNTIME_PROCESSES = [
     # The second element, if True, is to filter ps results by command name.
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["nginx", True, "NGINX", "node"],
+    ["haproxy", True, "HAProxy", "node"],
 ]
 
-NGINX_RUNTIME_CONFIG_KEY = "nginx"
-NGINX_SERVICE_PORT_CONFIG_KEY = "port"
+HAPROXY_RUNTIME_CONFIG_KEY = "haproxy"
+HAPROXY_SERVICE_PORT_CONFIG_KEY = "port"
 
-NGINX_SERVICE_NAME = "nginx"
-NGINX_SERVICE_PORT_DEFAULT = 80
+HAPROXY_SERVICE_NAME = "haproxy"
+HAPROXY_SERVICE_PORT_DEFAULT = 80
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(NGINX_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(HAPROXY_RUNTIME_CONFIG_KEY, {})
 
 
 def _get_service_port(runtime_config: Dict[str, Any]):
-    nginx_config = _get_config(runtime_config)
-    return nginx_config.get(
-        NGINX_SERVICE_PORT_CONFIG_KEY, NGINX_SERVICE_PORT_DEFAULT)
+    haproxy_config = _get_config(runtime_config)
+    return haproxy_config.get(
+        HAPROXY_SERVICE_PORT_CONFIG_KEY, HAPROXY_SERVICE_PORT_DEFAULT)
 
 
 def _get_runtime_processes():
@@ -35,8 +35,8 @@ def _get_runtime_processes():
 def _get_head_service_urls(runtime_config: Dict[str, Any], cluster_head_ip):
     service_port = _get_service_port(runtime_config)
     services = {
-        "nginx": {
-            "name": "NGINX",
+        "haproxy": {
+            "name": "HAProxy",
             "url": "http://{}:{}".format(cluster_head_ip, service_port)
         },
     }
@@ -46,7 +46,7 @@ def _get_head_service_urls(runtime_config: Dict[str, Any], cluster_head_ip):
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_port = _get_service_port(runtime_config)
     service_ports = {
-        "nginx": {
+        "haproxy": {
             "protocol": "TCP",
             "port": service_port,
         },
@@ -56,9 +56,9 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
-    nginx_config = _get_config(runtime_config)
+    haproxy_config = _get_config(runtime_config)
     service_name = get_canonical_service_name(
-        nginx_config, cluster_name, NGINX_SERVICE_NAME)
+        haproxy_config, cluster_name, HAPROXY_SERVICE_NAME)
     service_port = _get_service_port(runtime_config)
     services = {
         service_name: {

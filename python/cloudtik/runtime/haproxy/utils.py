@@ -72,7 +72,7 @@ def _with_runtime_envs_for_consul_dns(haproxy_config, runtime_envs):
         raise ValueError("Backend service name is not configured for load balancer.")
 
     runtime_envs["HAPROXY_BACKEND_SERVICE_NAME"] = service_name
-    runtime_envs["HAPROXY_BACKEND_MAX_SERVER_NUMBER"] = haproxy_config.get(
+    runtime_envs["HAPROXY_BACKEND_SERVICE_MAX_SERVERS"] = haproxy_config.get(
         HAPROXY_BACKEND_SERVICE_MAX_SERVERS_CONFIG_KEY,
         HAPROXY_BACKEND_SERVICE_MAX_SERVERS_DEFAULT)
 

@@ -16,8 +16,11 @@ listen-peer-urls: http://{%node.ip%}:2380
 # List of comma separated URLs to listen on for client traffic.
 listen-client-urls: http://{%node.ip%}:2379,http://127.0.0.1:2379
 
+# The logger type
+logger: zap
+
 # Specify 'stdout' or 'stderr' to skip journald logging even when running under systemd.
-log-outputs: ['{%log.file%}']
+log-outputs: ['stderr','{%log.file%}']
 
 # List of this member's peer URLs to advertise to the rest of the cluster.
 # The URLs needed to be a comma-separated list.

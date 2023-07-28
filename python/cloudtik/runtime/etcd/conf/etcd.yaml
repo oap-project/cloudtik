@@ -1,0 +1,34 @@
+# This is the configuration file for the etcd server.
+
+# Human-readable name for this member.
+name: '{%node.name%}'
+
+# Path to the data directory.
+data-dir: '{%data.dir%}'
+
+# List of this member's client URLs to advertise to the public.
+# The URLs needed to be a comma-separated list.
+advertise-client-urls: http://{%node.ip%}:2379
+
+# List of comma separated URLs to listen on for peer traffic.
+listen-peer-urls: http://{%node.ip%}:2380
+
+# List of comma separated URLs to listen on for client traffic.
+listen-client-urls: http://{%node.ip%}:2379,http://127.0.0.1:2379
+
+# Specify 'stdout' or 'stderr' to skip journald logging even when running under systemd.
+log-outputs: ['{%log.outputs%}']
+
+# List of this member's peer URLs to advertise to the rest of the cluster.
+# The URLs needed to be a comma-separated list.
+initial-advertise-peer-urls: http://{%node.ip%}:2380
+
+# Comma separated string of initial cluster configuration for bootstrapping.
+# Example: initial-cluster: "infra0=http://10.0.1.10:2380,infra1=http://10.0.1.11:2380,infra2=http://10.0.1.12:2380"
+initial-cluster: "{%initial.cluster%}"
+
+# Initial cluster token for the etcd cluster during bootstrap.
+initial-cluster-token: '{%initial.cluster.token%}'
+
+# Initial cluster state ('new' or 'existing').
+initial-cluster-state: 'new'

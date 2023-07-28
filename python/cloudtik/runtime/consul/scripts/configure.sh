@@ -15,7 +15,7 @@ CONSUL_HOME=$RUNTIME_PATH/consul
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function prepare_base_conf() {
-    source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
+    source_dir=$(dirname "${BIN_DIR}")/conf
     output_dir=/tmp/consul/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
@@ -73,9 +73,10 @@ function update_ui_config() {
 
 function configure_consul() {
     prepare_base_conf
-    mkdir -p ${CONSUL_HOME}/logs
     cd $output_dir
     consul_output_dir=$output_dir/consul
+
+    mkdir -p ${CONSUL_HOME}/logs
 
     # General agent configuration
     sed -i "s!{%bind.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.hcl

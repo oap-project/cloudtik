@@ -43,16 +43,8 @@ def _get_runtime_logs():
 
 
 def _get_head_service_urls(cluster_head_ip):
-    # TODO: how to get the ZooKeeper service address which established after head node
+    # TODO: future to retrieve the endpoints from service discovery
     return None
-
-
-def _configure_server_ensemble(nodes_info: Dict[str, Any]):
-    if nodes_info is None:
-        raise RuntimeError("Missing nodes info for configuring server ensemble.")
-
-    server_ensemble = _server_ensemble_from_nodes_info(nodes_info)
-    _write_server_ensemble(server_ensemble)
 
 
 def _server_ensemble_from_nodes_info(nodes_info: Dict[str, Any]):
@@ -69,17 +61,6 @@ def _server_ensemble_from_nodes_info(nodes_info: Dict[str, Any]):
 
     server_ensemble.sort(key=node_info_sort)
     return server_ensemble
-
-
-def _write_server_ensemble(server_ensemble: List[Dict[str, Any]]):
-    zoo_cfg_file = os.path.join(
-        os.getenv("ZOOKEEPER_HOME"), "conf", "zoo.cfg")
-
-    mode = 'a' if os.path.exists(zoo_cfg_file) else 'w'
-    with open(zoo_cfg_file, mode) as f:
-        for node_info in server_ensemble:
-            f.write("server.{}={}:2888:3888\n".format(
-                node_info["node_number"], node_info["node_ip"]))
 
 
 def _handle_minimal_nodes_reached(
@@ -122,6 +103,26 @@ def _get_server_config(runtime_config: Dict[str, Any]):
     return zookeeper_config.get("config")
 
 
+def _get_runtime_services(
+        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+    zookeeper_config = _get_config(runtime_config)
+    service_name = get_canonical_service_name(
+        zookeeper_config, cluster_name, ZOOKEEPER_SERVICE_NAME)
+    services = {
+        service_name: {
+            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+            SERVICE_DISCOVERY_PORT: ZOOKEEPER_SERVICE_PORT,
+            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_WORKER
+        },
+    }
+    return services
+
+
+###################################
+# Calls from node when configuring
+###################################
+
+
 def update_configurations():
     # Merge user specified configuration and default configuration
     runtime_config = subscribe_runtime_config()
@@ -140,16 +141,21 @@ def update_configurations():
     save_properties_file(server_properties_file, server_properties, comments=comments)
 
 
-def _get_runtime_services(
-        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
-    zookeeper_config = _get_config(runtime_config)
-    service_name = get_canonical_service_name(
-        zookeeper_config, cluster_name, ZOOKEEPER_SERVICE_NAME)
-    services = {
-        service_name: {
-            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
-            SERVICE_DISCOVERY_PORT: ZOOKEEPER_SERVICE_PORT,
-            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_WORKER
-        },
-    }
-    return services
+def configure_server_ensemble(nodes_info: Dict[str, Any]):
+    # This method calls from node when configuring
+    if nodes_info is None:
+        raise RuntimeError("Missing nodes info for configuring server ensemble.")
+
+    server_ensemble = _server_ensemble_from_nodes_info(nodes_info)
+    _write_server_ensemble(server_ensemble)
+
+
+def _write_server_ensemble(server_ensemble: List[Dict[str, Any]]):
+    zoo_cfg_file = os.path.join(
+        os.getenv("ZOOKEEPER_HOME"), "conf", "zoo.cfg")
+
+    mode = 'a' if os.path.exists(zoo_cfg_file) else 'w'
+    with open(zoo_cfg_file, mode) as f:
+        for node_info in server_ensemble:
+            f.write("server.{}={}:2888:3888\n".format(
+                node_info["node_number"], node_info["node_ip"]))

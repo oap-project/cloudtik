@@ -1,7 +1,7 @@
 import argparse
 
 from cloudtik.core._private.runtime_utils import subscribe_nodes_info
-from cloudtik.runtime.zookeeper.utils import update_configurations, configure_server_ensemble
+from cloudtik.runtime.etcd.utils import configure_initial_cluster
 
 
 def main():
@@ -11,13 +11,10 @@ def main():
                         help='Configuring for head node.')
     args = parser.parse_args()
 
-    # Configure the server ensemble
+    # Bootstrap the initial cluster
     if not args.head:
-        # Update configuration from runtime config
-        update_configurations()
-
         nodes_info = subscribe_nodes_info()
-        configure_server_ensemble(nodes_info)
+        configure_initial_cluster(nodes_info)
 
 
 if __name__ == "__main__":

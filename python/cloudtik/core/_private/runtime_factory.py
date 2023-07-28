@@ -30,6 +30,7 @@ BUILT_IN_RUNTIME_SSHSERVER = "sshserver"
 BUILT_IN_RUNTIME_CONSUL = "consul"
 BUILT_IN_RUNTIME_NGINX = "nginx"
 BUILT_IN_RUNTIME_HAPORXY = "haproxy"
+BUILT_IN_RUNTIME_ETCD = "etcd"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -109,6 +110,11 @@ def _import_haproxy():
     return HAProxyRuntime
 
 
+def _import_etcd():
+    from cloudtik.runtime.etcd.runtime import EtcdRuntime
+    return EtcdRuntime
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -125,6 +131,7 @@ _RUNTIMES = {
     "consul": _import_consul,
     "nginx": _import_nginx,
     "haproxy": _import_haproxy,
+    "etcd": _import_etcd,
 }
 
 

@@ -19,18 +19,22 @@ ETCD_HOME=$RUNTIME_PATH/etcd
 
 case "$SERVICE_COMMAND" in
 start)
-    ETCD_CONFIG_FILE=${ETCD_HOME}/conf/etcd.yaml
-    nohup etcd --config-file=${ETCD_CONFIG_FILE} >/dev/null 2>&1 &
+    if [ "$IS_HEAD_NODE" == "false" ]; then
+        # etcd run only on worker
+        ETCD_CONFIG_FILE=${ETCD_HOME}/conf/etcd.yaml
+        nohup etcd --config-file=${ETCD_CONFIG_FILE} >/dev/null 2>&1 &
+    fi
     ;;
 stop)
-    # We don't use the service
-    # sudo service etcd start
-    # Stop etcd
-    ETCD_PID=$(pgrep etcd)
-    if [ -n "${ETCD_PID}" ]; then
-      echo "Stopping etcd..."
-      # SIGTERM = 15
-      kill -15 ${ETCD_PID} >/dev/null 2>&1
+    if [ "$IS_HEAD_NODE" == "false" ]; then
+        # etcd run only on worker
+        # Stop etcd
+        ETCD_PID=$(pgrep etcd)
+        if [ -n "${ETCD_PID}" ]; then
+          echo "Stopping etcd..."
+          # SIGTERM = 15
+          kill -15 ${ETCD_PID} >/dev/null 2>&1
+        fi
     fi
     ;;
 -h|--help)

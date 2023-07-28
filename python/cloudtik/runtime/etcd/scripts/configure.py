@@ -11,8 +11,8 @@ def main():
                         help='Configuring for head node.')
     args = parser.parse_args()
 
-    # Bootstrap the initial cluster
     if not args.head:
+        # Bootstrap the initial cluster on each worker
         nodes_info = subscribe_nodes_info()
         configure_initial_cluster(nodes_info)
 

@@ -39,7 +39,11 @@ function setup_oneapi_repository() {
     && sudo apt-get update -y > /dev/null
 }
 
-function install_ml() {
+function cleanup_oneapi_repository() {
+    sudo rm -f /etc/apt/sources.list.d/oneAPI.list
+}
+
+function install_ai() {
     CLOUDTIK_ENV_ROOT=$(dirname $(dirname $(which cloudtik)))
 
     if ([ "$AI_WITH_ONEAPI" == "true" ] \
@@ -161,9 +165,11 @@ function install_ml() {
 
     echo "Installing Horovod..."
     export CXX=/usr/bin/g++-9 && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir -qq install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.27.0
+
+    cleanup_oneapi_repository
 }
 
 set_head_option "$@"
 install_tools
-install_ml
+install_ai
 clean_install_cache

@@ -13,38 +13,91 @@ RUNTIME_PROCESSES = [
 
 HAPROXY_RUNTIME_CONFIG_KEY = "haproxy"
 HAPROXY_SERVICE_PORT_CONFIG_KEY = "port"
+HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY = "protocol"
+
+HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY = "service_name"
+HAPROXY_BACKEND_SERVICE_MAX_SERVERS_CONFIG_KEY = "service_max_servers"
+HAPROXY_BACKEND_SERVICE_PROTOCOL_CONFIG_KEY = "service_protocol"
 
 HAPROXY_SERVICE_NAME = "haproxy"
 HAPROXY_SERVICE_PORT_DEFAULT = 80
+HAPROXY_SERVICE_PROTOCOL_DEFAULT = "tcp"
+HAPROXY_BACKEND_SERVICE_MAX_SERVERS_DEFAULT = 128
+
+HAPROXY_CONFIG_MODE_CONSUL_DNS = "CONSUL-DNS"
 
 
 def _get_config(runtime_config: Dict[str, Any]):
     return runtime_config.get(HAPROXY_RUNTIME_CONFIG_KEY, {})
 
 
-def _get_service_port(runtime_config: Dict[str, Any]):
-    haproxy_config = _get_config(runtime_config)
+def _get_service_port(haproxy_config: Dict[str, Any]):
     return haproxy_config.get(
         HAPROXY_SERVICE_PORT_CONFIG_KEY, HAPROXY_SERVICE_PORT_DEFAULT)
+
+
+def _get_service_protocol(haproxy_config):
+    return haproxy_config.get(
+        HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY, HAPROXY_SERVICE_PROTOCOL_DEFAULT)
 
 
 def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
+def _with_runtime_environment_variables(
+        runtime_config, config,
+        provider, node_id: str):
+    runtime_envs = {}
+
+    # export HAPROXY_LOAD_BALANCER_PORT, HAPROXY_LOAD_BALANCER_PROTOCOL
+    # HAPROXY_LOAD_BALANCER_MAX_SERVER_NUMBER, HAPROXY_LOAD_BALANCER_SERVICE_NAME
+    haproxy_config = _get_config(runtime_config)
+
+    runtime_envs["HAPROXY_FRONTEND_PORT"] = _get_service_port(haproxy_config)
+    runtime_envs["HAPROXY_FRONTEND_PROTOCOL"] = _get_service_protocol(haproxy_config)
+
+    # TODO: to support more mode for:
+    #  1. Consul with multiple static services or dynamic services
+    #  2. other service discovery
+    runtime_envs["HAPROXY_CONFIG_MODE"] = HAPROXY_CONFIG_MODE_CONSUL_DNS
+
+    _with_runtime_envs_for_consul_dns(haproxy_config, runtime_envs)
+    return runtime_envs
+
+
+def _with_runtime_envs_for_consul_dns(haproxy_config, runtime_envs):
+    service_name = haproxy_config.get(HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY)
+    if not service_name:
+        raise ValueError("Backend service name is not configured for load balancer.")
+
+    runtime_envs["HAPROXY_BACKEND_SERVICE_NAME"] = service_name
+    runtime_envs["HAPROXY_BACKEND_MAX_SERVER_NUMBER"] = haproxy_config.get(
+        HAPROXY_BACKEND_SERVICE_MAX_SERVERS_CONFIG_KEY,
+        HAPROXY_BACKEND_SERVICE_MAX_SERVERS_DEFAULT)
+
+    backend_service_protocol = haproxy_config.get(
+        HAPROXY_BACKEND_SERVICE_PROTOCOL_CONFIG_KEY)
+    if backend_service_protocol:
+        runtime_envs["HAPROXY_BACKEND_SERVICE_PROTOCOL"] = backend_service_protocol
+
+
 def _get_head_service_urls(runtime_config: Dict[str, Any], cluster_head_ip):
-    service_port = _get_service_port(runtime_config)
+    haproxy_config = _get_config(runtime_config)
+    service_port = _get_service_port(haproxy_config)
+    service_protocol = _get_service_protocol(haproxy_config)
     services = {
         "haproxy": {
             "name": "HAProxy",
-            "url": "http://{}:{}".format(cluster_head_ip, service_port)
+            "url": "{}://{}:{}".format(service_protocol, cluster_head_ip, service_port)
         },
     }
     return services
 
 
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
-    service_port = _get_service_port(runtime_config)
+    haproxy_config = _get_config(runtime_config)
+    service_port = _get_service_port(haproxy_config)
     service_ports = {
         "haproxy": {
             "protocol": "TCP",
@@ -59,7 +112,7 @@ def _get_runtime_services(
     haproxy_config = _get_config(runtime_config)
     service_name = get_canonical_service_name(
         haproxy_config, cluster_name, HAPROXY_SERVICE_NAME)
-    service_port = _get_service_port(runtime_config)
+    service_port = _get_service_port(haproxy_config)
     services = {
         service_name: {
             SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,

@@ -13,7 +13,8 @@ eval set -- "${args}"
 function install_haproxy() {
     if ! command -v haproxy &> /dev/null
     then
-        sudo apt-get install -qq --no-install-recommends software-properties-common -y > /dev/null
+        sudo apt-get -qq update -y > /dev/null
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --no-install-recommends software-properties-common -y > /dev/null
         sudo add-apt-repository ppa:vbernat/haproxy-2.8 -y > /dev/null
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq haproxy=2.8.\* -y > /dev/null
     fi

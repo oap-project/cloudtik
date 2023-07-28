@@ -190,9 +190,8 @@ def _get_home_dir():
 
 def _get_runtime_logs():
     home_dir = _get_home_dir()
-    consul_logs_dir = os.path.join(home_dir, "logs")
-    all_logs = {"consul": consul_logs_dir}
-    return all_logs
+    logs_dir = os.path.join(home_dir, "logs")
+    return {"consul": logs_dir}
 
 
 def _get_head_service_urls(server_mode, cluster_head_ip):

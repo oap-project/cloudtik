@@ -29,11 +29,40 @@ function check_haproxy_installed() {
     fi
 }
 
+function configure_haproxy_with_consul_dns() {
+    # configure a load balancer based on Consul DNS interface
+    local config_template_file=${haproxy_output_dir}/haproxy-consul-dns.cfg
+    # TODO: to support user specified external IP address
+    sed -i "s#{%frontend.ip%}#${NODE_IP_ADDRESS}#g" ${config_template_file}
+    sed -i "s#{%frontend.port%}#${HAPROXY_FRONTEND_PORT}#g" ${config_template_file}
+    sed -i "s#{%frontend.protocol%}#${HAPROXY_FRONTEND_PROTOCOL}#g" ${config_template_file}
+
+    # Consul DNS interface based service discovery
+    sed -i "s#{%backend.service.name%}#${HAPROXY_BACKEND_SERVICE_NAME}#g" ${config_template_file}
+    sed -i "s#{%backend.service.max.servers%}#${HAPROXY_BACKEND_SERVCE_MAX_SERVERS}#g" ${config_template_file}
+
+    if [ -z "${HAPROXY_BACKEND_SERVICE_PROTOCOL}" ]; then
+        BACKEND_SERVICE_PROTOCOL=${HAPROXY_FRONTEND_PROTOCOL}
+    else
+        BACKEND_SERVICE_PROTOCOL==${HAPROXY_BACKEND_SERVICE_PROTOCOL}
+    fi
+    sed -i "s#{%backend.service.protocol%}#${BACKEND_SERVICE_PROTOCOL}#g" ${config_template_file}
+
+    HAPROXY_CONFIG_DIR=/etc/haproxy
+    sudo mkdir -p ${HAPROXY_CONFIG_DIR}
+    cp -r ${config_template_file} ${HAPROXY_CONFIG_DIR}/haproxy.cfg
+}
+
 function configure_haproxy() {
     prepare_base_conf
+    cd $output_dir
+    haproxy_output_dir=$output_dir/haproxy
 
-    # TODO: configure a load balancer based on service discovery policies
-    # should implement the capability of dynamic list of servers
+    if [ "${HAPROXY_CONFIG_MODE}" == "CONSUL-DNS" ]; then
+        configure_haproxy_with_consul_dns
+    else
+        echo "WARNING: Unsupported configure mode: ${HAPROXY_CONFIG_MODE}"
+    fi
 }
 
 set_head_option "$@"
@@ -43,3 +72,5 @@ set_node_ip_address
 configure_haproxy
 
 exit 0
+
+}

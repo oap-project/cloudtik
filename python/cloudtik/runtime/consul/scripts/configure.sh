@@ -80,8 +80,13 @@ function configure_consul() {
     # General agent configuration
     sed -i "s!{%bind.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.hcl
 
-    # client address bind to both node ip and local host
-    CLIENT_ADDRESS="${NODE_IP_ADDRESS} 127.0.0.1"
+    if [ "${CONSUL_SERVER}" == "true" ]; then
+        # client address bind to both node ip and local host
+        CLIENT_ADDRESS="${NODE_IP_ADDRESS} 127.0.0.1"
+    else
+        # bind to local host for client
+        CLIENT_ADDRESS="127.0.0.1"
+    fi
     sed -i "s!{%client.address%}!${CLIENT_ADDRESS}!g" ${consul_output_dir}/consul.hcl
     update_join_list
     update_consul_data_dir

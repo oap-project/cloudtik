@@ -98,3 +98,12 @@ function get_any_data_disk_dir() {
     fi
     echo "${data_disk_dir}"
 }
+
+function get_deb_arch() {
+    local deb_arch="amd64"
+    arch=$(uname -m)
+    if [ "${arch}" == "aarch64" ]; then
+        deb_arch="arm64"
+    fi
+    echo "${deb_arch}"
+}

@@ -216,6 +216,7 @@ function install_gcs_fuse() {
         wget -O - -q https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
         sudo apt-get -qq update -y > /dev/null
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq gcsfuse -y > /dev/null
+        sudo rm -f /etc/apt/sources.list.d/gcsfuse.list
     fi
 }
 

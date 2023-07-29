@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL, _get_runtime
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
-    get_runtime_config_from_node
+    get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_NODE_KIND, \
     SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_NODE_KIND_WORKER, SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_META, SERVICE_DISCOVERY_META_RUNTIME, \
@@ -228,14 +228,14 @@ def _get_head_service_ports(server_mode, runtime_config: Dict[str, Any]) -> Dict
 def _server_ensemble_from_nodes_info(nodes_info: Dict[str, Any]):
     server_ensemble = []
     for node_id, node_info in nodes_info.items():
-        if "node_ip" not in node_info:
+        if RUNTIME_NODE_IP not in node_info:
             raise RuntimeError("Missing node ip for node {}.".format(node_id))
-        if "node_number" not in node_info:
-            raise RuntimeError("Missing node number for node {}.".format(node_id))
+        if RUNTIME_NODE_SEQ_ID not in node_info:
+            raise RuntimeError("Missing node sequence id for node {}.".format(node_id))
         server_ensemble += [node_info]
 
     def node_info_sort(node_info):
-        return node_info["node_number"]
+        return node_info[RUNTIME_NODE_SEQ_ID]
 
     server_ensemble.sort(key=node_info_sort)
     return server_ensemble
@@ -247,11 +247,11 @@ def _handle_minimal_nodes_reached(
     # We know this is called in the cluster scaler context
     server_ensemble = _server_ensemble_from_nodes_info(nodes_info)
     service_uri = "{}:{}".format(
-        head_info["node_ip"], CONSUL_SERVER_RPC_PORT)
+        head_info[RUNTIME_NODE_IP], CONSUL_SERVER_RPC_PORT)
 
     for node_info in server_ensemble:
         node_address = "{}:{}".format(
-            node_info["node_ip"], CONSUL_SERVER_RPC_PORT)
+            node_info[RUNTIME_NODE_IP], CONSUL_SERVER_RPC_PORT)
         if len(service_uri) > 0:
             service_uri += ","
         service_uri += node_address

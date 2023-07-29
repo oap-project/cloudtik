@@ -45,10 +45,10 @@ CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS = "cloudtik-file-mounts-contents"
 CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX = "cloudtik-global-"
 CLOUDTIK_GLOBAL_VARIABLE_KEY = CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX + "{}"
 
-# The cluster wide unique numeric id for the node
-CLOUDTIK_TAG_NODE_NUMBER = "cloudtik-node-number"
-# The head node will always be assigned with number 1
-CLOUDTIK_TAG_HEAD_NODE_NUMBER = 1
+# The cluster wide unique sequence id for the node
+CLOUDTIK_TAG_NODE_SEQ_ID = "cloudtik-node-seq-id"
+# The head node will always be assigned with sequence id 1
+CLOUDTIK_TAG_HEAD_NODE_SEQ_ID = 1
 
 # Quorum generation of the node when managing a Quorum of minimal nodes
 CLOUDTIK_TAG_QUORUM_ID = "cloudtik-quorum-id"

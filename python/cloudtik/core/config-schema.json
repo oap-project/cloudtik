@@ -60,9 +60,9 @@
             "type": "string",
             "description": "The CloudTik wheel URL from which to download and install when needed"
         },
-        "disable_node_number": {
+        "disable_node_seq_id": {
             "type": "boolean",
-            "description": "Whether disable the feature of assigning node number to each node",
+            "description": "Whether disable the feature of assigning node sequence id to each node",
             "default": false
         },
         "retry_setup_command": {

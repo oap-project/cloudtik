@@ -53,7 +53,7 @@ function configure_etcd() {
     config_template_file=${output_dir}/etcd.yaml
     sed -i "s#{%node.ip%}#${NODE_IP_ADDRESS}#g" ${config_template_file}
 
-    NODE_NAME="server${CLOUDTIK_NODE_NUMBER}"
+    NODE_NAME="server${CLOUDTIK_NODE_SEQ_ID}"
     sed -i "s#{%node.name%}#${NODE_NAME}#g" ${config_template_file}
 
     update_data_dir

@@ -4,6 +4,7 @@ from typing import Any, Dict
 import yaml
 
 from cloudtik.core._private.providers import _get_workspace_provider
+from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_PROTOCOL_TCP, get_canonical_service_name, SERVICE_DISCOVERY_NODE_KIND, \
     SERVICE_DISCOVERY_NODE_KIND_WORKER
@@ -53,7 +54,7 @@ def _with_runtime_environment_variables(
 def _get_endpoints(nodes):
     return ",".join(
         ["http://{}:{}".format(
-            node["node_number"], node["node_ip"], ETCD_PEER_PORT) for node in nodes])
+            node[RUNTIME_NODE_SEQ_ID], node[RUNTIME_NODE_IP], ETCD_PEER_PORT) for node in nodes])
 
 
 def _handle_minimal_nodes_reached(
@@ -100,14 +101,14 @@ def _get_runtime_services(
 def _initial_cluster_from_nodes_info(nodes_info: Dict[str, Any]):
     initial_cluster = []
     for node_id, node_info in nodes_info.items():
-        if "node_ip" not in node_info:
+        if RUNTIME_NODE_IP not in node_info:
             raise RuntimeError("Missing node ip for node {}.".format(node_id))
-        if "node_number" not in node_info:
-            raise RuntimeError("Missing node number for node {}.".format(node_id))
+        if RUNTIME_NODE_SEQ_ID not in node_info:
+            raise RuntimeError("Missing node sequence id for node {}.".format(node_id))
         initial_cluster += [node_info]
 
     def node_info_sort(node_info):
-        return node_info["node_number"]
+        return node_info[RUNTIME_NODE_SEQ_ID]
 
     initial_cluster.sort(key=node_info_sort)
     return initial_cluster
@@ -125,7 +126,7 @@ def configure_initial_cluster(nodes_info: Dict[str, Any]):
     initial_cluster = _initial_cluster_from_nodes_info(nodes_info)
     initial_cluster_str = ",".join(
         ["server{}=http://{}:{}".format(
-            node["node_number"], node["node_ip"], ETCD_PEER_PORT) for node in initial_cluster])
+            node[RUNTIME_NODE_SEQ_ID], node[RUNTIME_NODE_IP], ETCD_PEER_PORT) for node in initial_cluster])
 
     home_dir = _get_home_dir()
     config_file = os.path.join(home_dir, "conf", "etcd.yaml")

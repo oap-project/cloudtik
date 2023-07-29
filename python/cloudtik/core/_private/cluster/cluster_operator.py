@@ -74,8 +74,8 @@ from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
     CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_NAME,
     NODE_KIND_WORKER, NODE_KIND_HEAD, CLOUDTIK_TAG_USER_NODE_TYPE,
-    STATUS_UNINITIALIZED, STATUS_UP_TO_DATE, CLOUDTIK_TAG_NODE_STATUS, STATUS_UPDATE_FAILED, CLOUDTIK_TAG_NODE_NUMBER,
-    CLOUDTIK_TAG_HEAD_NODE_NUMBER)
+    STATUS_UNINITIALIZED, STATUS_UP_TO_DATE, CLOUDTIK_TAG_NODE_STATUS, STATUS_UPDATE_FAILED, CLOUDTIK_TAG_NODE_SEQ_ID,
+    CLOUDTIK_TAG_HEAD_NODE_SEQ_ID)
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.node.node_updater import NodeUpdaterThread
 from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
@@ -871,7 +871,7 @@ def get_or_create_head_node(config: Dict[str, Any],
             head_node_tags[CLOUDTIK_TAG_NODE_NAME] = "cloudtik-{}-head".format(
                 config["cluster_name"])
             head_node_tags[CLOUDTIK_TAG_NODE_STATUS] = STATUS_UNINITIALIZED
-            head_node_tags[CLOUDTIK_TAG_NODE_NUMBER] = str(CLOUDTIK_TAG_HEAD_NODE_NUMBER)
+            head_node_tags[CLOUDTIK_TAG_NODE_SEQ_ID] = str(CLOUDTIK_TAG_HEAD_NODE_SEQ_ID)
             provider.create_node(head_node_config, head_node_tags, 1)
             _cli_logger.print("Launched a new head node")
 
@@ -2117,12 +2117,12 @@ def _show_cluster_status(config: Dict[str, Any]) -> None:
                     node_info["instance_status"]
                     ])
 
-    nodes_ready = _get_node_number_in_status(nodes_info, STATUS_UP_TO_DATE)
+    nodes_ready = _get_number_of_node_in_status(nodes_info, STATUS_UP_TO_DATE)
     cli_logger.print(cf.bold("Total {} nodes. {} nodes are ready"), len(nodes_info), nodes_ready)
     cli_logger.print(tb)
 
 
-def _get_node_number_in_status(node_info_list, status):
+def _get_number_of_node_in_status(node_info_list, status):
     num_nodes = 0
     for node_info in node_info_list:
         if status == node_info.get(CLOUDTIK_TAG_NODE_STATUS):
@@ -2197,7 +2197,7 @@ def _get_cluster_info(config: Dict[str, Any],
     # get working nodes which are ready
     worker_nodes_ready = _get_nodes_info_in_status(workers_info, STATUS_UP_TO_DATE)
     workers_ready = len(worker_nodes_ready)
-    workers_failed = _get_node_number_in_status(workers_info, STATUS_UPDATE_FAILED)
+    workers_failed = _get_number_of_node_in_status(workers_info, STATUS_UPDATE_FAILED)
 
     cluster_info["total-workers"] = worker_count
     cluster_info["total-workers-ready"] = workers_ready
@@ -3931,7 +3931,7 @@ def _get_workers_ready(config: Dict[str, Any], provider):
     workers_info = get_nodes_info(provider, workers)
 
     # get working nodes which are ready
-    workers_ready = _get_node_number_in_status(workers_info, STATUS_UP_TO_DATE)
+    workers_ready = _get_number_of_node_in_status(workers_info, STATUS_UP_TO_DATE)
     return workers_ready
 
 

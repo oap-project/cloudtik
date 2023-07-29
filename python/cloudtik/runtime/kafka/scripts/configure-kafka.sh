@@ -70,12 +70,12 @@ function update_kafka_data_disks_config() {
 
 function update_broker_id() {
     # Configure my id file
-    if [ ! -n "${CLOUDTIK_NODE_NUMBER}" ]; then
-        echo "No node number allocated for current node!"
+    if [ ! -n "${CLOUDTIK_NODE_SEQ_ID}" ]; then
+        echo "No node sequence id allocated for current node!"
         exit 1
     fi
 
-    sed -i "s!{%kafka.broker.id%}!${CLOUDTIK_NODE_NUMBER}!g" $output_dir/kafka/server.properties
+    sed -i "s!{%kafka.broker.id%}!${CLOUDTIK_NODE_SEQ_ID}!g" $output_dir/kafka/server.properties
 }
 
 function update_zookeeper_connect() {

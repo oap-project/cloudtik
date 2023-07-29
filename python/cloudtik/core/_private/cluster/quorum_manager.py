@@ -2,13 +2,14 @@ import hashlib
 import json
 import logging
 
-from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, RUNTIME_NODE_ID
+from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, RUNTIME_NODE_ID, \
+    RUNTIME_NODE_QUORUM_JOIN
 from cloudtik.core._private.state.kv_store import kv_put
-from cloudtik.core._private.utils import _get_minimal_nodes_before_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, \
+from cloudtik.core._private.utils import _get_minimal_nodes_for_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, \
     _notify_minimal_nodes_reached
 from cloudtik.core.tags import (
     CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_NODE_SEQ_ID, CLOUDTIK_TAG_HEAD_NODE_SEQ_ID,
-    CLOUDTIK_TAG_QUORUM_ID)
+    CLOUDTIK_TAG_QUORUM_ID, CLOUDTIK_TAG_QUORUM_JOIN, QUORUM_JOIN_STATUS_INIT)
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +31,14 @@ class QuorumManager:
         self.published_nodes_info_hashes = {}
 
         # These are initialized for each config change with reset
-        self.minimal_nodes_before_update = {}
-        self.node_types_quorum_id_to_nodes = {}
+        self.minimal_nodes_for_update = {}
+        self.quorum_id_to_nodes_of_node_type = {}
 
         # Set at each update by calling update
         self.non_terminated_nodes = None
+
+        # Refresh at each wait for update
+        self.nodes_info_of_node_type = None
 
     def reset(self, config, provider):
         self.config = config
@@ -42,59 +46,83 @@ class QuorumManager:
         self.available_node_types = self.config["available_node_types"]
 
         # Collect the minimal nodes before update requirements
-        self._collect_minimal_nodes_before_update()
+        self._collect_minimal_nodes_for_update()
 
     def update(self, non_terminated_nodes):
         self.non_terminated_nodes = non_terminated_nodes
-        self.collect_quorum_minimal_nodes()
+        self._collect_quorum_minimal_nodes()
 
-    def _collect_minimal_nodes_before_update(self):
+    def _collect_minimal_nodes_for_update(self):
         # Push global runtime config
         minimal_nodes = {}
         for node_type in self.available_node_types:
-            minimal_nodes_for_node_type = _get_minimal_nodes_before_update(
+            minimal_nodes_for_node_type = _get_minimal_nodes_for_update(
                 self.config, node_type)
             if minimal_nodes_for_node_type:
                 minimal_nodes[node_type] = minimal_nodes_for_node_type
-        self.minimal_nodes_before_update = minimal_nodes
+        self.minimal_nodes_for_update = minimal_nodes
 
     def _collect_nodes_info(self):
-        nodes_info_map = {}
-        for node_id in self.non_terminated_nodes.all_node_ids:
+        # We only collect nodes of related node types
+        nodes_info_of_node_type = {}
+        for node_id in self.non_terminated_nodes.worker_ids:
             tags = self.provider.node_tags(node_id)
-            if CLOUDTIK_TAG_USER_NODE_TYPE in tags:
-                node_type = tags[CLOUDTIK_TAG_USER_NODE_TYPE]
-                if node_type not in nodes_info_map:
-                    nodes_info_map[node_type] = {}
-                nodes_info = nodes_info_map[node_type]
+            node_type = tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
+            if not node_type:
+                continue
+            if node_type not in self.minimal_nodes_for_update:
+                continue
 
-                node_info = {RUNTIME_NODE_IP: self.provider.internal_ip(node_id)}
-                if CLOUDTIK_TAG_NODE_SEQ_ID in tags:
-                    node_info[RUNTIME_NODE_SEQ_ID] = int(tags[CLOUDTIK_TAG_NODE_SEQ_ID])
-                nodes_info[node_id] = node_info
+            if node_type not in nodes_info_of_node_type:
+                nodes_info_of_node_type[node_type] = {}
+            nodes_info = nodes_info_of_node_type[node_type]
 
-        return nodes_info_map
+            node_info = {RUNTIME_NODE_IP: self.provider.internal_ip(node_id)}
+            if CLOUDTIK_TAG_NODE_SEQ_ID in tags:
+                node_info[RUNTIME_NODE_SEQ_ID] = int(tags[CLOUDTIK_TAG_NODE_SEQ_ID])
+            if CLOUDTIK_TAG_QUORUM_JOIN in tags:
+                node_info[RUNTIME_NODE_QUORUM_JOIN] = tags[CLOUDTIK_TAG_QUORUM_JOIN]
 
-    def wait_for_minimal_nodes_before_update(self):
-        if not self.minimal_nodes_before_update:
-            # No need to wait
+            nodes_info[node_id] = node_info
+
+        return nodes_info_of_node_type
+
+    def wait_for_update(self):
+        if not self.minimal_nodes_for_update:
+            # No need to wait for most cases, fast return
             return False
 
-        # Make sure only minimal requirement > 0 will appear in self.minimal_nodes_before_update
-        nodes_info_map = self._collect_nodes_info()
-        for node_type in self.minimal_nodes_before_update:
-            minimal_nodes_info = self.minimal_nodes_before_update[node_type]
-            if node_type not in nodes_info_map:
+        # Make sure only minimal requirement > 0 will appear in self.minimal_nodes_for_update
+        self.nodes_info_of_node_type = self._collect_nodes_info()
+        for node_type in self.minimal_nodes_for_update:
+            minimal_nodes_info = self.minimal_nodes_for_update[node_type]
+            if node_type not in self.nodes_info_of_node_type:
                 self._print_info_waiting_for(minimal_nodes_info, 0, "minimal")
                 return True
 
-            if minimal_nodes_info["quorum"] and self._exists_a_quorum(node_type):
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug("Cluster Controller: Quorum exists for operating {}. No waiting.".format(
-                        node_type))
-                continue
+            if minimal_nodes_info["quorum"]:
+                quorum_id = self._get_running_quorum(node_type)
+                if quorum_id:
+                    if not minimal_nodes_info["scalable"]:
+                        # not have dynamic join cases
+                        continue
+                    node_quorum_join = self._get_quorum_join_in_progress(node_type)
+                    if node_quorum_join is None:
+                        # There is running quorum and no join in progress, no need to wait
+                        continue
 
-            nodes_info = nodes_info_map[node_type]
+                    # quorum join in progress, make sure the node has ip ready,
+                    node_id, node_info = node_quorum_join
+                    if node_info.get(RUNTIME_NODE_IP) is None:
+                        logger.info("Cluster Controller: waiting for")
+                        return True
+
+                    # we publish the nodes info for quorum
+                    self._publish_nodes_for_quorum(
+                        node_type, quorum_id, minimal_nodes_info)
+                    continue
+
+            nodes_info = self.nodes_info_of_node_type[node_type]
             number_of_nodes = len(nodes_info)
             if minimal_nodes_info["minimal"] > number_of_nodes:
                 self._print_info_waiting_for(minimal_nodes_info, number_of_nodes, "minimal")
@@ -110,12 +138,13 @@ class QuorumManager:
                 "Cluster Controller: Minimal nodes requirement satisfied for {}: {}.".format(
                     node_type, minimal_nodes_info["minimal"]))
             # publish nodes will check whether it has changed since last publish
-            self._publish_nodes_info(node_type, nodes_info, minimal_nodes_info)
+            self._publish_nodes(node_type, nodes_info, minimal_nodes_info)
 
         # All satisfied if come to here
         return False
 
-    def _publish_nodes_info(self, node_type: str, nodes_info, minimal_nodes_info):
+    def _publish_nodes(
+            self, node_type: str, nodes_info, minimal_nodes_info, form_quorum=True):
         nodes_info_data = json.dumps(nodes_info, sort_keys=True)
 
         hasher = hashlib.sha1()
@@ -127,8 +156,9 @@ class QuorumManager:
             return False
         self.published_nodes_info_hashes[node_type] = new_nodes_info_hash
 
-        # Minimal number of the nodes reached, set the quorum id of the new joined nodes
-        self._form_a_quorum(node_type, new_nodes_info_hash)
+        if form_quorum:
+            # Minimal number of the nodes reached, set the quorum id of the new joined nodes
+            self._form_a_quorum(node_type, new_nodes_info_hash)
 
         logger.info(
             "Cluster Controller: Publish and notify nodes info for {}".format(
@@ -140,6 +170,39 @@ class QuorumManager:
         # Notify runtime of these
         self._notify_minimal_nodes_reached(node_type, nodes_info, minimal_nodes_info)
         return True
+
+    def _publish_nodes_for_quorum(
+            self, node_type: str, quorum_id: str, minimal_nodes_info):
+        nodes_info = self._get_nodes_info_for_quorum(node_type, quorum_id)
+        if not nodes_info:
+            # quorum has no nodes
+            logger.warning(
+                "The quorum {} based on node type has no nodes.".format(
+                    quorum_id, node_type))
+            return False
+
+        return self._publish_nodes(
+            node_type, nodes_info, minimal_nodes_info,
+            form_quorum=False)
+
+    def _get_nodes_info_for_quorum(self, node_type: str, quorum_id: str):
+        quorum_id_to_nodes = self.quorum_id_to_nodes_of_node_type.get(
+            node_type, {})
+        quorum_nodes = quorum_id_to_nodes.get(quorum_id)
+        if not quorum_nodes:
+            return None
+
+        nodes_info = self.nodes_info_of_node_type.get(node_type)
+        if not nodes_info:
+            return None
+
+        # get nodes info by node id from nodes_info_of_node_type
+        quorum_nodes_info = {}
+        for node_id in quorum_nodes:
+            node_info = nodes_info.get(node_id)
+            if node_info:
+                quorum_nodes_info[node_id] = node_info
+        return quorum_nodes_info
 
     def _notify_minimal_nodes_reached(
             self, node_type: str, nodes_info, minimal_nodes_info):
@@ -156,34 +219,40 @@ class QuorumManager:
 
     def is_launch_allowed(self, node_type: str):
         if self._is_minimal_nodes(node_type) and (
-                self._is_quorum_minimal_nodes(node_type)) and (
-                not self._is_quorum_minimal_nodes_in_launch(node_type)):
-            return False
-        return True
+                self._is_quorum_minimal_nodes(node_type)):
+            running_quorum = self._get_running_quorum(node_type)
+            if running_quorum:
+                # if there is a running quorum
+                if self._is_quorum_scalable(node_type):
+                    if self._is_quorum_join_in_progress(node_type):
+                        logger.info(
+                            "Cluster Controller: Node in progress of quorum join. "
+                            "Pause launching new nodes for type: {}.".format(
+                                node_type))
+                        return False, None
+                    else:
+                        return True, running_quorum
+                else:
+                    return False, None
+        return True, None
 
     def _is_minimal_nodes(self, node_type: str):
-        if not self.minimal_nodes_before_update:
+        if not self.minimal_nodes_for_update:
             return False
-        if node_type not in self.minimal_nodes_before_update:
+        if node_type not in self.minimal_nodes_for_update:
             return False
         return True
 
     def _is_quorum_minimal_nodes(self, node_type: str):
         # Usually, for the cases to control minimal nodes for update
         # We are targeting for fixed nodes once it started
-        minimal_nodes_info = self.minimal_nodes_before_update[node_type]
+        minimal_nodes_info = self.minimal_nodes_for_update[node_type]
         return minimal_nodes_info["quorum"]
 
-    def _exists_a_quorum(self, node_type: str):
-        quorum, minimal = self._get_quorum(node_type)
-        quorum_id_to_nodes = self.node_types_quorum_id_to_nodes.get(
-            node_type, {})
-        for node_quorum_id in quorum_id_to_nodes:
-            quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
-            remaining = len(quorum_id_nodes)
-            if remaining >= quorum:
-                return True
-        return False
+    def _is_quorum_scalable(self, node_type: str):
+        # Suggest to scale one node a time for a scalable quorum
+        minimal_nodes_info = self.minimal_nodes_for_update[node_type]
+        return minimal_nodes_info["scalable"]
 
     def _form_a_quorum(self, node_type: str, quorum_id):
         if not self._is_quorum_minimal_nodes(node_type):
@@ -205,7 +274,7 @@ class QuorumManager:
                 node_type, node_quorum_id, node_id)
 
     def _get_quorum(self, node_type: str):
-        minimal_nodes_info = self.minimal_nodes_before_update[node_type]
+        minimal_nodes_info = self.minimal_nodes_for_update[node_type]
         minimal = minimal_nodes_info["minimal"]
         quorum = int(minimal / 2) + 1
         return quorum, minimal
@@ -217,7 +286,7 @@ class QuorumManager:
 
         quorum, minimal = self._get_quorum(node_type)
         # Check whether the node is an invalid quorum member
-        quorum_id_to_nodes = self.node_types_quorum_id_to_nodes.get(
+        quorum_id_to_nodes = self.quorum_id_to_nodes_of_node_type.get(
             node_type, {})
         for node_quorum_id in quorum_id_to_nodes:
             quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
@@ -233,26 +302,26 @@ class QuorumManager:
 
     def _update_quorum_id_to_nodes(
             self, node_type: str, node_quorum_id: str, node_id: str):
-        if node_type not in self.node_types_quorum_id_to_nodes:
-            self.node_types_quorum_id_to_nodes[node_type] = {}
-        quorum_id_to_nodes = self.node_types_quorum_id_to_nodes[node_type]
+        if node_type not in self.quorum_id_to_nodes_of_node_type:
+            self.quorum_id_to_nodes_of_node_type[node_type] = {}
+        quorum_id_to_nodes = self.quorum_id_to_nodes_of_node_type[node_type]
         if node_quorum_id not in quorum_id_to_nodes:
             quorum_id_to_nodes[node_quorum_id] = set()
         quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
         quorum_id_nodes.add(node_id)
 
-    def collect_quorum_minimal_nodes(self):
-        if not self.minimal_nodes_before_update:
+    def _collect_quorum_minimal_nodes(self):
+        if not self.minimal_nodes_for_update:
             # No need
             return
 
-        self.node_types_quorum_id_to_nodes = {}
+        self.quorum_id_to_nodes_of_node_type = {}
         for node_id in self.non_terminated_nodes.worker_ids:
             tags = self.provider.node_tags(node_id)
             node_type = tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
             if not node_type:
                 continue
-            if node_type not in self.minimal_nodes_before_update:
+            if node_type not in self.minimal_nodes_for_update:
                 continue
             node_quorum_id = tags.get(CLOUDTIK_TAG_QUORUM_ID)
             if not node_quorum_id:
@@ -261,27 +330,46 @@ class QuorumManager:
             self._update_quorum_id_to_nodes(
                 node_type, node_quorum_id, node_id)
 
-    def _is_quorum_minimal_nodes_in_launch(self, node_type: str):
+    def _get_running_quorum(self, node_type: str):
         quorum, minimal = self._get_quorum(node_type)
         # Only when a quorum of the minimal nodes dead,
         # we can launch new nodes and form a new quorum
-        quorum_id_to_nodes = self.node_types_quorum_id_to_nodes.get(
+        quorum_id_to_nodes = self.quorum_id_to_nodes_of_node_type.get(
             node_type, {})
-        for node_quorum_id in quorum_id_to_nodes:
-            quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
+        for quorum_id in quorum_id_to_nodes:
+            quorum_id_nodes = quorum_id_to_nodes[quorum_id]
             remaining = len(quorum_id_nodes)
             if remaining >= quorum:
                 # One quorum id exceed the quorum
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug("No new node launch allowed with the existence of a valid quorum: {} ({}/{}).".format(
-                        node_quorum_id, remaining, minimal))
-                return False
+                        quorum_id, remaining, minimal))
+                return quorum_id
 
         # none of the quorum_id exceeding a quorum
-        logger.info(
-            "Cluster Controller: None of the quorum id of {} forms a quorum ({}/{})."
-            " Quorum launch.".format(node_type, quorum, minimal))
-        return True
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Cluster Controller: None of the quorum id of {} forms a quorum ({}/{})."
+                " Quorum launch.".format(node_type, quorum, minimal))
+        return None
+
+    def _is_quorum_join_in_progress(self, node_type):
+        node_quorum_join = self._get_quorum_join_in_progress(node_type)
+        return False if node_quorum_join is None else True
+
+    def _get_quorum_join_in_progress(self, node_type):
+        # Make sure this call are after wait_for_update
+        # because self.nodes_info_of_node_type is set at beginning
+        if node_type not in self.nodes_info_of_node_type:
+            return None
+
+        nodes_info = self.nodes_info_of_node_type[node_type]
+        # Check whether the node which is in progress
+        for node_id, node_info in nodes_info.items():
+            quorum_join = node_info.get(RUNTIME_NODE_QUORUM_JOIN)
+            if quorum_join and quorum_join == QUORUM_JOIN_STATUS_INIT:
+                return node_id, node_info
+        return None
 
     @staticmethod
     def _print_info_waiting_for(minimal_nodes_info, number_of_nodes, for_what):

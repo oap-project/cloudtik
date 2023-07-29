@@ -2601,7 +2601,7 @@ def get_runtime_config_key(node_type: str):
     return runtime_config_key
 
 
-def _get_minimal_nodes_before_update(config: Dict[str, Any], node_type: str):
+def _get_minimal_nodes_for_update(config: Dict[str, Any], node_type: str):
     # Check the runtimes of the node type whether it needs to wait minimal before update
     runtime_config = _get_node_type_specific_runtime_config(config, node_type)
     if not runtime_config:
@@ -2610,14 +2610,18 @@ def _get_minimal_nodes_before_update(config: Dict[str, Any], node_type: str):
     # For each
     runtimes_require_minimal_nodes = []
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
-    quorum_minimal_nodes = False
+    quorum = False
+    scalable = False
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        runtime_require_minimal_nodes, runtime_quorum_minimal_nodes = runtime.require_minimal_nodes(config)
+        runtime_require_minimal_nodes, runtime_quorum, runtime_quorum_scalable = \
+            runtime.require_minimal_nodes(config)
         if runtime_require_minimal_nodes:
             runtimes_require_minimal_nodes += [runtime_type]
-            if runtime_quorum_minimal_nodes:
-                quorum_minimal_nodes = runtime_quorum_minimal_nodes
+            if runtime_quorum:
+                quorum = runtime_quorum
+                if runtime_quorum_scalable:
+                    scalable = runtime_quorum_scalable
 
     if len(runtimes_require_minimal_nodes) > 0:
         node_type_config = config["available_node_types"][node_type]
@@ -2625,7 +2629,8 @@ def _get_minimal_nodes_before_update(config: Dict[str, Any], node_type: str):
         if min_workers > 0:
             return {
                 "minimal": min_workers,
-                "quorum": quorum_minimal_nodes,
+                "quorum": quorum,
+                "scalable": scalable,
                 "runtimes": runtimes_require_minimal_nodes}
     return None
 

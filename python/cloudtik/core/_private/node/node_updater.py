@@ -12,14 +12,15 @@ from cloudtik.core.command_executor import get_cmd_to_print
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
-    STATUS_SETTING_UP, STATUS_SYNCING_FILES, STATUS_BOOTSTRAPPING_DATA_DISKS, CLOUDTIK_TAG_NODE_SEQ_ID
+    STATUS_SETTING_UP, STATUS_SYNCING_FILES, STATUS_BOOTSTRAPPING_DATA_DISKS, CLOUDTIK_TAG_NODE_SEQ_ID, \
+    CLOUDTIK_TAG_QUORUM_JOIN, QUORUM_JOIN_STATUS_FAILED, QUORUM_JOIN_STATUS_SUCCESS
 from cloudtik.core._private.subprocess_output_util import ProcessRunnerError
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cf, CliLogger
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID, \
     CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE, CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION, \
-    CLOUDTIK_CLUSTER_PYTHON_VERSION, CLOUDTIK_NODE_START_WAIT_S
+    CLOUDTIK_CLUSTER_PYTHON_VERSION, CLOUDTIK_NODE_START_WAIT_S, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN
 from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
 
 logger = logging.getLogger(__name__)
@@ -154,8 +155,12 @@ class NodeUpdater:
                           "Applied config {}".format(self.runtime_hash)):
                 self.do_update()
         except Exception as e:
+            tags_to_set = {CLOUDTIK_TAG_NODE_STATUS: STATUS_UPDATE_FAILED}
+            node_tags = self.provider.node_tags(self.node_id)
+            if CLOUDTIK_TAG_QUORUM_JOIN in node_tags:
+                tags_to_set[CLOUDTIK_TAG_QUORUM_JOIN] = QUORUM_JOIN_STATUS_FAILED
             self.provider.set_node_tags(
-                self.node_id, {CLOUDTIK_TAG_NODE_STATUS: STATUS_UPDATE_FAILED})
+                self.node_id, tags_to_set)
             self.cli_logger.error("New status: {}", cf.bold(STATUS_UPDATE_FAILED))
 
             self.cli_logger.error("!!!")
@@ -180,6 +185,9 @@ class NodeUpdater:
             CLOUDTIK_TAG_NODE_STATUS: STATUS_UP_TO_DATE,
             CLOUDTIK_TAG_RUNTIME_CONFIG: self.runtime_hash,
         }
+        node_tags = self.provider.node_tags(self.node_id)
+        if CLOUDTIK_TAG_QUORUM_JOIN in node_tags:
+            tags_to_set[CLOUDTIK_TAG_QUORUM_JOIN] = QUORUM_JOIN_STATUS_SUCCESS
         if self.file_mounts_contents_hash is not None:
             tags_to_set[
                 CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS] = self.file_mounts_contents_hash
@@ -332,11 +340,17 @@ class NodeUpdater:
         if self.environment_variables is not None:
             node_envs.update(self.environment_variables)
 
+        node_tags = self.provider.node_tags(self.node_id)
+
         # Set node sequence id if there is one
-        node_seq_id = self.provider.node_tags(
-            self.node_id).get(CLOUDTIK_TAG_NODE_SEQ_ID)
+        node_seq_id = node_tags.get(CLOUDTIK_TAG_NODE_SEQ_ID)
         if node_seq_id is not None:
             node_envs[CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID] = node_seq_id
+
+        # Set node quorum join flag
+        quorum_join = node_tags.get(CLOUDTIK_TAG_QUORUM_JOIN)
+        if quorum_join is not None:
+            node_envs[CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN] = quorum_join
 
         # With node type in the environment variables
         if node_type is not None:

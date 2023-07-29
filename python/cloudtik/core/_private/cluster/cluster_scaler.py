@@ -41,7 +41,7 @@ from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.node.node_updater import NodeUpdaterThread
-from cloudtik.core._private.cluster.node_launcher import NodeLauncher
+from cloudtik.core._private.cluster.node_launcher import NodeLauncher, LAUNCH_ARGS_QUORUM_ID
 from cloudtik.core._private.cluster.node_tracker import NodeTracker
 from cloudtik.core._private.cluster.resource_demand_scheduler import \
     get_bin_pack_residual, ResourceDemandScheduler, NodeType, NodeID, NodeIP, \
@@ -424,7 +424,7 @@ class ClusterScaler:
             # Assign node sequence id to new nodes
             self.assign_node_seq_id_to_new_nodes()
 
-        wait_for_update = self.quorum_manager.wait_for_minimal_nodes_before_update()
+        wait_for_update = self.quorum_manager.wait_for_update()
         if not wait_for_update:
             if self.disable_node_updaters:
                 self.terminate_unhealthy_nodes(now)
@@ -609,10 +609,20 @@ class ClusterScaler:
         pass
 
     def launch_required_nodes(self, to_launch: Dict[NodeType, int]) -> None:
-        if to_launch:
-            for node_type, count in to_launch.items():
-                if self.quorum_manager.is_launch_allowed(node_type):
-                    self.launch_new_node(count, node_type=node_type)
+        if not to_launch:
+            return
+        for node_type, count in to_launch.items():
+            launch_allowed, quorum_id = self.quorum_manager.is_launch_allowed(node_type)
+            if not launch_allowed:
+                continue
+            launch_args = {}
+            if quorum_id:
+                # we should allow one node at a time
+                # and launch will not be allowed until it is done (success or failed)
+                count = 1
+                launch_args[LAUNCH_ARGS_QUORUM_ID] = quorum_id
+            self.launch_new_node(
+                count, node_type=node_type, launch_args=launch_args)
 
     def update_nodes(self):
         """Run NodeUpdaterThreads to run setup commands, sync files,
@@ -1318,7 +1328,8 @@ class ClusterScaler:
                      "passes config check (can_update=True).")
         return True
 
-    def launch_new_node(self, count: int, node_type: str) -> None:
+    def launch_new_node(
+            self, count: int, node_type: str, launch_args: Dict[str, Any]) -> None:
         logger.info(
             "Cluster Controller: Queue {} new nodes for launch".format(count))
         self.pending_launches.inc(node_type, count)
@@ -1326,7 +1337,7 @@ class ClusterScaler:
         # Split into individual launch requests of the max batch size.
         while count > 0:
             self.launch_queue.put((config, min(count, self.max_launch_batch),
-                                   node_type))
+                                   node_type, launch_args))
             count -= self.max_launch_batch
 
     def workers(self):

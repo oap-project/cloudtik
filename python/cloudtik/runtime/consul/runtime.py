@@ -44,14 +44,15 @@ class ConsulRuntime(RuntimeBase):
         return _get_head_service_ports(
             self.server_mode, self.runtime_config)
 
-    def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool]:
+    def require_minimal_nodes(
+            self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool, bool]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
         """
         if self.server_mode:
-            return True, True
+            return True, True, True
         else:
-            return False, False
+            return False, False, False
 
     def minimal_nodes_reached(
             self, cluster_config: Dict[str, Any], node_type: str,

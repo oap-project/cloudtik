@@ -95,15 +95,15 @@ class QuorumManager:
                 continue
 
             nodes_info = nodes_info_map[node_type]
-            nodes_number = len(nodes_info)
-            if minimal_nodes_info["minimal"] > nodes_number:
-                self._print_info_waiting_for(minimal_nodes_info, nodes_number, "minimal")
+            number_of_nodes = len(nodes_info)
+            if minimal_nodes_info["minimal"] > number_of_nodes:
+                self._print_info_waiting_for(minimal_nodes_info, number_of_nodes, "minimal")
                 return True
 
             # Check whether the internal ip are all available
             for node_id, node_info in nodes_info.items():
                 if node_info.get(RUNTIME_NODE_IP) is None:
-                    self._print_info_waiting_for(minimal_nodes_info, nodes_number, "IP available")
+                    self._print_info_waiting_for(minimal_nodes_info, number_of_nodes, "IP available")
                     return True
 
             logger.info(
@@ -284,6 +284,6 @@ class QuorumManager:
         return True
 
     @staticmethod
-    def _print_info_waiting_for(minimal_nodes_info, nodes_number, for_what):
+    def _print_info_waiting_for(minimal_nodes_info, number_of_nodes, for_what):
         logger.info("Cluster Controller: waiting for {} of {}/{} nodes required by runtimes: {}".format(
-            for_what, nodes_number, minimal_nodes_info["minimal"], minimal_nodes_info["runtimes"]))
+            for_what, number_of_nodes, minimal_nodes_info["minimal"], minimal_nodes_info["runtimes"]))

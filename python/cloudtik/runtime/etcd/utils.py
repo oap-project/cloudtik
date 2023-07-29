@@ -3,6 +3,8 @@ from typing import Any, Dict
 
 import yaml
 
+from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID
+from cloudtik.core._private.core_utils import exec_with_output, strip_quote
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
@@ -118,16 +120,24 @@ def _initial_cluster_from_nodes_info(nodes_info: Dict[str, Any]):
 # Calls from node when configuring
 ###################################
 
-def configure_initial_cluster(nodes_info: Dict[str, Any]):
 
+def _get_initial_cluster_from_nodes_info(initial_cluster):
+    return ",".join(
+        ["server{}=http://{}:{}".format(
+            node[RUNTIME_NODE_SEQ_ID], node[RUNTIME_NODE_IP], ETCD_PEER_PORT) for node in initial_cluster])
+
+
+def configure_initial_cluster(nodes_info: Dict[str, Any]):
     if nodes_info is None:
         raise RuntimeError("Missing nodes info for configuring server ensemble.")
 
     initial_cluster = _initial_cluster_from_nodes_info(nodes_info)
-    initial_cluster_str = ",".join(
-        ["server{}=http://{}:{}".format(
-            node[RUNTIME_NODE_SEQ_ID], node[RUNTIME_NODE_IP], ETCD_PEER_PORT) for node in initial_cluster])
+    initial_cluster_str = _get_initial_cluster_from_nodes_info(initial_cluster)
 
+    _update_initial_cluster_config(initial_cluster_str)
+
+
+def _update_initial_cluster_config(initial_cluster_str):
     home_dir = _get_home_dir()
     config_file = os.path.join(home_dir, "conf", "etcd.yaml")
     # load and save yaml
@@ -138,3 +148,51 @@ def configure_initial_cluster(nodes_info: Dict[str, Any]):
 
     with open(config_file, "w") as f:
         yaml.dump(config_object, f, default_flow_style=False)
+
+
+def request_to_join_cluster(nodes_info: Dict[str, Any]):
+    if nodes_info is None:
+        raise RuntimeError("Missing nodes info for configuring server ensemble.")
+
+    initial_cluster = _initial_cluster_from_nodes_info(nodes_info)
+
+    node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_IP)
+    if not node_ip:
+        raise RuntimeError("Missing node ip environment variable for this node.")
+
+    # exclude my own address from the initial cluster as endpoints
+    endpoints = [node for node in initial_cluster if node[RUNTIME_NODE_IP] != node_ip]
+    _request_member_add(endpoints, node_ip)
+
+
+def _get_initial_cluster_from_output(output):
+    output_lines = output.split('\n')
+    initial_cluster_mark = "ETCD_INITIAL_CLUSTER="
+    for output_line in output_lines:
+        if output_line.startswith(initial_cluster_mark):
+            return strip_quote(output_line[len(initial_cluster_mark):])
+
+
+def _request_member_add(endpoints, node_ip):
+    seq_id = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID)
+    if not seq_id:
+        raise RuntimeError("Missing sequence ip environment variable for this node.")
+
+    # etcdctl --endpoints=http://existing_node_ip:2379 member add server --peer-urls=http://node_ip:2380
+    cmd = ["etcdctl"]
+    endpoints_str = ",".join(
+        ["http://{}:{}".format(
+            node[RUNTIME_NODE_IP], ETCD_SERVICE_PORT) for node in endpoints])
+    cmd += ["--endpoints=" + endpoints_str]
+    cmd += ["member", "add"]
+    node_name = "server{}".format(seq_id)
+    cmd += [node_name]
+    peer_urls = "http://{}:{}".format(node_ip, ETCD_PEER_PORT)
+    cmd += [peer_urls]
+
+    cmd_str = " ".join(cmd)
+    output = exec_with_output(cmd_str).decode().strip()
+    initial_cluster_str = _get_initial_cluster_from_output(output)
+    if initial_cluster_str:
+        # succeed
+        _update_initial_cluster_config(initial_cluster_str)

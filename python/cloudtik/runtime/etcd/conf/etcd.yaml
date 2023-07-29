@@ -34,4 +34,4 @@ initial-cluster: "{%initial.cluster%}"
 initial-cluster-token: '{%initial.cluster.token%}'
 
 # Initial cluster state ('new' or 'existing').
-initial-cluster-state: 'new'
+initial-cluster-state: '{%initial.cluster.state%}'

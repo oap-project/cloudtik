@@ -806,3 +806,14 @@ def memory_to_gb(mem_bytes, precision=2):
 def memory_to_gb_string(mem_bytes, precision=2):
     mem_gb = memory_to_gb(mem_bytes, precision)
     return "{}GB".format(mem_gb)
+
+
+def strip_quote(value):
+    # strip has problem because it will remove all front and tailing quotes
+    if not value:
+        return value
+    if value.startswith('"') or value.startswith("'"):
+        value = value[1:]
+    if value.endswith('"') or value.endswith("'"):
+        value = value[:-1]
+    return value

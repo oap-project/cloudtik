@@ -1070,7 +1070,7 @@ def get_cloudtik_setup_command(config) -> str:
     provider_type = config["provider"]["type"]
     wheel_url = config.get("cloudtik_wheel_url")
 
-    setup_command = "which cloudtik > /dev/null 2>&1 || "
+    setup_command = "which cloudtik >/dev/null 2>&1 || "
     setup_command += get_pip_install_command(provider_type, wheel_url)
     if not wheel_url:
         default_wheel_url = get_default_cloudtik_wheel_url()

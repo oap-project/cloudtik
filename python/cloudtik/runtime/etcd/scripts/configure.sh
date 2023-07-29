@@ -63,6 +63,13 @@ function configure_etcd() {
 
     sed -i "s#{%initial.cluster.token%}#${ETCD_CLUSTER_NAME}#g" ${config_template_file}
 
+    if [ "${CLOUDTIK_NODE_QUORUM_JOIN}" == "init" ]; then
+        INITIAL_CLUSTER_STATE=existing
+    else
+        INITIAL_CLUSTER_STATE=new
+    fi
+    sed -i "s#{%initial.cluster.state%}#${INITIAL_CLUSTER_STATE}#g" ${config_template_file}
+
     ETCD_CONFIG_DIR=${ETCD_HOME}/conf
     mkdir -p ${ETCD_CONFIG_DIR}
     cp -r ${config_template_file} ${ETCD_CONFIG_DIR}/etcd.yaml
@@ -70,7 +77,7 @@ function configure_etcd() {
 
 set_head_option "$@"
 
-if [ "$IS_HEAD_NODE" == "false" ]; then
+if [ "${IS_HEAD_NODE}" == "false" ]; then
     check_etcd_installed
     set_head_address
     set_node_ip_address

@@ -20,14 +20,14 @@ ETCD_HOME=$RUNTIME_PATH/etcd
 case "$SERVICE_COMMAND" in
 start)
     if [ "$IS_HEAD_NODE" == "false" ]; then
-        # etcd run only on worker
+        # etcd run only on workers
         ETCD_CONFIG_FILE=${ETCD_HOME}/conf/etcd.yaml
         nohup etcd --config-file=${ETCD_CONFIG_FILE} >/dev/null 2>&1 &
     fi
     ;;
 stop)
     if [ "$IS_HEAD_NODE" == "false" ]; then
-        # etcd run only on worker
+        # etcd run only on workers
         # Stop etcd
         ETCD_PID=$(pgrep etcd)
         if [ -n "${ETCD_PID}" ]; then

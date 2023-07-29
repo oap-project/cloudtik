@@ -48,7 +48,7 @@ from cloudtik.core._private.providers import _NODE_PROVIDERS, _get_node_provider
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_USER_NODE_TYPE, \
     CLOUDTIK_TAG_CLUSTER_NAME, STATUS_UNINITIALIZED, STATUS_UPDATE_FAILED, NODE_KIND_HEAD, CLOUDTIK_TAG_LAUNCH_CONFIG, \
-    CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_NODE_NUMBER, CLOUDTIK_TAG_HEAD_NODE_NUMBER, NODE_KIND_WORKER, STATUS_UP_TO_DATE
+    CLOUDTIK_TAG_NODE_NAME, CLOUDTIK_TAG_NODE_SEQ_ID, CLOUDTIK_TAG_HEAD_NODE_SEQ_ID, NODE_KIND_WORKER, STATUS_UP_TO_DATE
 
 
 def mock_node_id() -> bytes:
@@ -748,7 +748,7 @@ class CloudTikTest(unittest.TestCase):
                 head_node_tags[CLOUDTIK_TAG_NODE_NAME] = "cloudtik-{}-head".format(
                     config["cluster_name"])
                 head_node_tags[CLOUDTIK_TAG_NODE_STATUS] = STATUS_UNINITIALIZED
-                head_node_tags[CLOUDTIK_TAG_NODE_NUMBER] = str(CLOUDTIK_TAG_HEAD_NODE_NUMBER)
+                head_node_tags[CLOUDTIK_TAG_NODE_SEQ_ID] = str(CLOUDTIK_TAG_HEAD_NODE_SEQ_ID)
                 provider.create_node(head_node_config, head_node_tags, 1)
                 cli_logger.print("Launched a new head node")
 

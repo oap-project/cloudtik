@@ -497,7 +497,7 @@ class ScalingWithTime(ScalingWithResources):
                 remaining = self._expand_time_table(scaling_time_table)
                 if remaining > 0:
                     raise ValueError("Invalid node specification. For math based on previous time, "
-                                     "at least one time needs specific node number. "
+                                     "at least one time needs specific the number of nodes. "
                                      "Use 0 to refer the minimum workers from cluster configuration.")
             return scaling_time_table
         except Exception as e:

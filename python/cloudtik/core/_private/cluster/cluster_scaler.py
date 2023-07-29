@@ -23,6 +23,7 @@ from cloudtik.core._private.cluster.node_availability_tracker import NodeAvailab
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
 from cloudtik.core._private.core_utils import ConcurrentCounter
 from cloudtik.core._private.crypto import AESCipher
+from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP
 from cloudtik.core._private.state.kv_store import kv_put, kv_del, kv_initialized
 try:
     from urllib3.exceptions import MaxRetryError
@@ -34,7 +35,7 @@ from cloudtik.core.tags import (
     CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_RUNTIME_CONFIG,
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_NODE_KIND,
     CLOUDTIK_TAG_USER_NODE_TYPE, STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED,
-    NODE_KIND_WORKER, NODE_KIND_UNMANAGED, NODE_KIND_HEAD, CLOUDTIK_TAG_NODE_NUMBER, CLOUDTIK_TAG_HEAD_NODE_NUMBER,
+    NODE_KIND_WORKER, NODE_KIND_UNMANAGED, NODE_KIND_HEAD, CLOUDTIK_TAG_NODE_SEQ_ID, CLOUDTIK_TAG_HEAD_NODE_SEQ_ID,
     CLOUDTIK_TAG_QUORUM_ID)
 from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.cluster.cluster_metrics import ClusterMetrics
@@ -225,8 +226,8 @@ class ClusterScaler:
         self.node_types_quorum_id_to_nodes = {}
         self.available_node_types = None
 
-        # The next node number to assign
-        # will be initialized by the max node number from the existing nodes
+        # The next node sequence id to assign
+        # will be initialized by the max node sequence id from the existing nodes
         self.next_node_number = None
 
         self.cluster_metrics = cluster_metrics
@@ -421,7 +422,7 @@ class ClusterScaler:
         self.terminate_nodes_to_enforce_config_constraints(now)
 
         if not self.disable_node_number:
-            # Assign node number to new nodes
+            # Assign node sequence id to new nodes
             self.assign_node_number_to_new_nodes()
 
         wait_for_update = self.wait_for_minimal_nodes_before_update()
@@ -1429,9 +1430,9 @@ class ClusterScaler:
             cluster_metrics_summary, cluster_scaler_summary)
 
     def _init_next_node_number(self):
-        self.next_node_number = CLOUDTIK_TAG_HEAD_NODE_NUMBER + 1
+        self.next_node_number = CLOUDTIK_TAG_HEAD_NODE_SEQ_ID + 1
         for node_id in self.non_terminated_nodes.worker_ids:
-            node_number_tag = self.provider.node_tags(node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
+            node_number_tag = self.provider.node_tags(node_id).get(CLOUDTIK_TAG_NODE_SEQ_ID)
             if node_number_tag is None:
                 continue
 
@@ -1445,11 +1446,11 @@ class ClusterScaler:
 
         for node_id in self.non_terminated_nodes.worker_ids:
             node_number_tag = self.provider.node_tags(
-                node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
+                node_id).get(CLOUDTIK_TAG_NODE_SEQ_ID)
             if node_number_tag is None:
-                # New node, assign the node number
+                # New node, assign the node sequence id
                 self.provider.set_node_tags(
-                    node_id, {CLOUDTIK_TAG_NODE_NUMBER: str(self.next_node_number)})
+                    node_id, {CLOUDTIK_TAG_NODE_SEQ_ID: str(self.next_node_number)})
                 self.next_node_number += 1
 
     def _collect_nodes_info(self):
@@ -1462,9 +1463,9 @@ class ClusterScaler:
                     nodes_info_map[node_type] = {}
                 nodes_info = nodes_info_map[node_type]
 
-                node_info = {"node_ip": self.provider.internal_ip(node_id)}
-                if CLOUDTIK_TAG_NODE_NUMBER in tags:
-                    node_info["node_number"] = int(tags[CLOUDTIK_TAG_NODE_NUMBER])
+                node_info = {RUNTIME_NODE_IP: self.provider.internal_ip(node_id)}
+                if CLOUDTIK_TAG_NODE_SEQ_ID in tags:
+                    node_info[RUNTIME_NODE_SEQ_ID] = int(tags[CLOUDTIK_TAG_NODE_SEQ_ID])
                 nodes_info[node_id] = node_info
 
         return nodes_info_map
@@ -1496,7 +1497,7 @@ class ClusterScaler:
 
             # Check whether the internal ip are all available
             for node_id, node_info in nodes_info.items():
-                if node_info.get("node_ip") is None:
+                if node_info.get(RUNTIME_NODE_IP) is None:
                     self._print_info_waiting_for(minimal_nodes_info, nodes_number, "IP available")
                     return True
 
@@ -1541,8 +1542,8 @@ class ClusterScaler:
         head_node_ip = self.provider.internal_ip(head_id)
         head_info = {
             "node_id": head_id,
-            "node_ip": head_node_ip,
-            "node_number": 1
+            RUNTIME_NODE_IP: head_node_ip,
+            RUNTIME_NODE_SEQ_ID: CLOUDTIK_TAG_HEAD_NODE_SEQ_ID
         }
         _notify_minimal_nodes_reached(
             self.config, node_type, head_info,

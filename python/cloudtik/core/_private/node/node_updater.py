@@ -12,12 +12,12 @@ from cloudtik.core.command_executor import get_cmd_to_print
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
-    STATUS_SETTING_UP, STATUS_SYNCING_FILES, STATUS_BOOTSTRAPPING_DATA_DISKS, CLOUDTIK_TAG_NODE_NUMBER
+    STATUS_SETTING_UP, STATUS_SYNCING_FILES, STATUS_BOOTSTRAPPING_DATA_DISKS, CLOUDTIK_TAG_NODE_SEQ_ID
 from cloudtik.core._private.subprocess_output_util import ProcessRunnerError
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cf, CliLogger
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
-from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_NUMBER, \
+from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID, \
     CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE, CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION, \
     CLOUDTIK_CLUSTER_PYTHON_VERSION, CLOUDTIK_NODE_START_WAIT_S
 from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
@@ -332,11 +332,11 @@ class NodeUpdater:
         if self.environment_variables is not None:
             node_envs.update(self.environment_variables)
 
-        # Set node number if there is one
+        # Set node sequence id if there is one
         node_number = self.provider.node_tags(
-            self.node_id).get(CLOUDTIK_TAG_NODE_NUMBER)
+            self.node_id).get(CLOUDTIK_TAG_NODE_SEQ_ID)
         if node_number is not None:
-            node_envs[CLOUDTIK_RUNTIME_ENV_NODE_NUMBER] = node_number
+            node_envs[CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID] = node_number
 
         # With node type in the environment variables
         if node_type is not None:

@@ -114,11 +114,12 @@ PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "pr
 NODE_INFO_NODE_IP = "private_ip"
 NODE_INFO_PUBLIC_IP = "public_ip"
 
-logger = logging.getLogger(__name__)
-
 # Prefix for the node id resource that is automatically added to each node.
 # For example, a node may have id `node-172.23.42.1`.
 NODE_ID_PREFIX = "node-"
+
+
+logger = logging.getLogger(__name__)
 
 
 class HeadNotRunningError(RuntimeError):

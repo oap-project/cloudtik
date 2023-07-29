@@ -62,7 +62,7 @@
         },
         "disable_node_number": {
             "type": "boolean",
-            "description": "Whether disable the feature of assigning node number to each node",
+            "description": "Whether disable the feature of assigning node sequence id to each node",
             "default": false
         },
         "retry_setup_command": {

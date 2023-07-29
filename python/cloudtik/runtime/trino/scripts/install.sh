@@ -11,7 +11,6 @@ export TRINO_VERSION=389
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
-mkdir -p $RUNTIME_PATH
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
@@ -31,6 +30,7 @@ function install_trino() {
     export TRINO_HOME=$RUNTIME_PATH/trino
 
     if [ ! -d "${TRINO_HOME}" ]; then
+        mkdir -p $RUNTIME_PATH
         (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/io/trino/trino-server/${TRINO_VERSION}/trino-server-${TRINO_VERSION}.tar.gz -O trino-server.tar.gz && \
             mkdir -p "$TRINO_HOME" && \
             tar --extract --file trino-server.tar.gz --directory "$TRINO_HOME" --strip-components 1 --no-same-owner && \

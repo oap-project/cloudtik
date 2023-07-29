@@ -17,7 +17,6 @@ export HADOOP_VERSION=3.3.1
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
-mkdir -p $RUNTIME_PATH
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
@@ -33,7 +32,8 @@ function install_flink() {
     export FLINK_HOME=$RUNTIME_PATH/flink
 
     if [ ! -d "${FLINK_HOME}" ]; then
-     (cd $RUNTIME_PATH && wget -q --show-progress https://dlcdn.apache.org/flink/flink-${FLINK_VERSION}/flink-${FLINK_VERSION}-bin-scala_2.12.tgz -O flink.tgz && \
+        mkdir -p $RUNTIME_PATH
+        (cd $RUNTIME_PATH && wget -q --show-progress https://dlcdn.apache.org/flink/flink-${FLINK_VERSION}/flink-${FLINK_VERSION}-bin-scala_2.12.tgz -O flink.tgz && \
         mkdir -p "$FLINK_HOME" && \
         tar --extract --file flink.tgz --directory "$FLINK_HOME" --strip-components 1 --no-same-owner && \
         rm flink.tgz)
@@ -53,7 +53,8 @@ function install_flink() {
         export HIVE_HOME=$RUNTIME_PATH/hive
         export HIVE_VERSION=3.1.2
         if [ ! -d "${HIVE_HOME}" ]; then
-         (cd $RUNTIME_PATH && wget -q --show-progress https://downloads.apache.org/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz -O hive.tar.gz && \
+            mkdir -p $RUNTIME_PATH
+            (cd $RUNTIME_PATH && wget -q --show-progress https://downloads.apache.org/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz -O hive.tar.gz && \
             mkdir -p "$HIVE_HOME" && \
             tar --extract --file hive.tar.gz --directory "$HIVE_HOME" --strip-components 1 --no-same-owner && \
             rm hive.tar.gz)

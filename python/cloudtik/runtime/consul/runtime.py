@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
@@ -56,7 +56,8 @@ class ConsulRuntime(RuntimeBase):
 
     def minimal_nodes_reached(
             self, cluster_config: Dict[str, Any], node_type: str,
-            head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
+            head_info: Dict[str, Any], nodes_info: Dict[str, Any],
+            quorum_id: Optional[str] = None):
         """If the require_minimal_nodes method returns True and runtime will be notified on head
         When the minimal nodes are reached. Please note this may call multiple times (for example server down and up)
         """

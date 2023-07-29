@@ -2637,7 +2637,8 @@ def _get_minimal_nodes_for_update(config: Dict[str, Any], node_type: str):
 
 def _notify_minimal_nodes_reached(
         config: Dict[str, Any], node_type: str,
-        head_info, nodes_info, minimal_nodes_info):
+        head_info, nodes_info, minimal_nodes_info,
+        quorum_id: Optional[str] = None):
     runtime_config = _get_node_type_specific_runtime_config(config, node_type)
     if not runtime_config:
         return
@@ -2646,7 +2647,8 @@ def _notify_minimal_nodes_reached(
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
         runtime.minimal_nodes_reached(
-            config, node_type, head_info, nodes_info)
+            config, node_type, head_info, nodes_info,
+            quorum_id=quorum_id)
 
 
 def get_running_head_node(

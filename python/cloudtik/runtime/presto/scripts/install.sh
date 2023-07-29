@@ -11,7 +11,6 @@ export PRESTO_VERSION=0.276
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
-mkdir -p $RUNTIME_PATH
 
 # JDK install function
 . "$ROOT_DIR"/common/scripts/jdk-install.sh
@@ -28,6 +27,7 @@ function install_presto() {
     export PRESTO_HOME=$RUNTIME_PATH/presto
 
     if [ ! -d "${PRESTO_HOME}" ]; then
+        mkdir -p $RUNTIME_PATH
         (cd $RUNTIME_PATH && wget -q --show-progress https://repo1.maven.org/maven2/com/facebook/presto/presto-server/${PRESTO_VERSION}/presto-server-${PRESTO_VERSION}.tar.gz -O presto-server.tar.gz && \
             mkdir -p "$PRESTO_HOME" && \
             tar --extract --file presto-server.tar.gz --directory "$PRESTO_HOME" --strip-components 1 --no-same-owner && \

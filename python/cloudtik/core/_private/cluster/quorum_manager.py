@@ -9,7 +9,7 @@ from cloudtik.core._private.utils import _get_minimal_nodes_for_update, CLOUDTIK
     _notify_minimal_nodes_reached
 from cloudtik.core.tags import (
     CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_NODE_SEQ_ID, CLOUDTIK_TAG_HEAD_NODE_SEQ_ID,
-    CLOUDTIK_TAG_QUORUM_ID, CLOUDTIK_TAG_QUORUM_JOIN, CLOUDTIK_QUORUM_JOIN_STATUS_INIT)
+    CLOUDTIK_TAG_QUORUM_ID, CLOUDTIK_TAG_QUORUM_JOIN, QUORUM_JOIN_STATUS_INIT)
 
 logger = logging.getLogger(__name__)
 
@@ -367,7 +367,7 @@ class QuorumManager:
         # Check whether the node which is in progress
         for node_id, node_info in nodes_info.items():
             quorum_join = node_info.get(RUNTIME_NODE_QUORUM_JOIN)
-            if quorum_join and quorum_join == CLOUDTIK_QUORUM_JOIN_STATUS_INIT:
+            if quorum_join and quorum_join == QUORUM_JOIN_STATUS_INIT:
                 return node_id, node_info
         return None
 

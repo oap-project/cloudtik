@@ -12,7 +12,7 @@ from cloudtik.core.tags import (CLOUDTIK_TAG_LAUNCH_CONFIG, CLOUDTIK_TAG_NODE_ST
                                 CLOUDTIK_TAG_NODE_KIND, CLOUDTIK_TAG_NODE_NAME,
                                 CLOUDTIK_TAG_USER_NODE_TYPE, STATUS_UNINITIALIZED,
                                 NODE_KIND_WORKER, CLOUDTIK_TAG_QUORUM_ID, CLOUDTIK_TAG_QUORUM_JOIN,
-                                CLOUDTIK_QUORUM_JOIN_STATUS_INIT)
+                                QUORUM_JOIN_STATUS_INIT)
 from cloudtik.core._private.prometheus_metrics import ClusterPrometheusMetrics
 from cloudtik.core._private.utils import hash_launch_conf
 
@@ -69,7 +69,7 @@ class BaseNodeLauncher:
         quorum_id = launch_args.get(LAUNCH_ARGS_QUORUM_ID)
         if quorum_id:
             node_tags[CLOUDTIK_TAG_QUORUM_ID] = quorum_id
-            node_tags[CLOUDTIK_TAG_QUORUM_JOIN] = CLOUDTIK_QUORUM_JOIN_STATUS_INIT
+            node_tags[CLOUDTIK_TAG_QUORUM_JOIN] = QUORUM_JOIN_STATUS_INIT
 
         # A custom node type is specified; set the tag in this case, and also
         # merge the configs. We merge the configs instead of overriding, so

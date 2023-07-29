@@ -13,7 +13,7 @@ from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CO
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
     STATUS_UP_TO_DATE, STATUS_UPDATE_FAILED, STATUS_WAITING_FOR_SSH, \
     STATUS_SETTING_UP, STATUS_SYNCING_FILES, STATUS_BOOTSTRAPPING_DATA_DISKS, CLOUDTIK_TAG_NODE_SEQ_ID, \
-    CLOUDTIK_TAG_QUORUM_JOIN, CLOUDTIK_QUORUM_JOIN_STATUS_FAILED, CLOUDTIK_QUORUM_JOIN_STATUS_SUCCESS
+    CLOUDTIK_TAG_QUORUM_JOIN, QUORUM_JOIN_STATUS_FAILED, QUORUM_JOIN_STATUS_SUCCESS
 from cloudtik.core._private.subprocess_output_util import ProcessRunnerError
 from cloudtik.core._private.log_timer import LogTimer
 from cloudtik.core._private.cli_logger import cf, CliLogger
@@ -158,7 +158,7 @@ class NodeUpdater:
             tags_to_set = {CLOUDTIK_TAG_NODE_STATUS: STATUS_UPDATE_FAILED}
             node_tags = self.provider.node_tags(self.node_id)
             if CLOUDTIK_TAG_QUORUM_JOIN in node_tags:
-                tags_to_set[CLOUDTIK_TAG_QUORUM_JOIN] = CLOUDTIK_QUORUM_JOIN_STATUS_FAILED
+                tags_to_set[CLOUDTIK_TAG_QUORUM_JOIN] = QUORUM_JOIN_STATUS_FAILED
             self.provider.set_node_tags(
                 self.node_id, tags_to_set)
             self.cli_logger.error("New status: {}", cf.bold(STATUS_UPDATE_FAILED))
@@ -187,7 +187,7 @@ class NodeUpdater:
         }
         node_tags = self.provider.node_tags(self.node_id)
         if CLOUDTIK_TAG_QUORUM_JOIN in node_tags:
-            tags_to_set[CLOUDTIK_TAG_QUORUM_JOIN] = CLOUDTIK_QUORUM_JOIN_STATUS_SUCCESS
+            tags_to_set[CLOUDTIK_TAG_QUORUM_JOIN] = QUORUM_JOIN_STATUS_SUCCESS
         if self.file_mounts_contents_hash is not None:
             tags_to_set[
                 CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS] = self.file_mounts_contents_hash

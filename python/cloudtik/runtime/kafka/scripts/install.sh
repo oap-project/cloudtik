@@ -12,7 +12,6 @@ export KAFKA_SCALA_VERSION=2.13
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
-mkdir -p $RUNTIME_PATH
 
 # JDK install function
 . "$ROOT_DIR"/common/scripts/jdk-install.sh
@@ -25,6 +24,7 @@ function install_kafka() {
     export KAFKA_HOME=$RUNTIME_PATH/kafka
 
     if [ ! -d "${KAFKA_HOME}" ]; then
+      mkdir -p $RUNTIME_PATH
       (cd $RUNTIME_PATH && wget -q --show-progress https://downloads.apache.org/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz -O kafka.tgz && \
           mkdir -p "$KAFKA_HOME" && \
           tar --extract --file kafka.tgz --directory "$KAFKA_HOME" --strip-components 1 --no-same-owner && \

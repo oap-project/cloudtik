@@ -187,7 +187,7 @@ def _request_member_add(endpoints, node_ip):
     cmd += ["member", "add"]
     node_name = "server{}".format(seq_id)
     cmd += [node_name]
-    peer_urls = "http://{}:{}".format(node_ip, ETCD_PEER_PORT)
+    peer_urls = "--peer-urls=http://{}:{}".format(node_ip, ETCD_PEER_PORT)
     cmd += [peer_urls]
 
     cmd_str = " ".join(cmd)

@@ -11,7 +11,6 @@ export HADOOP_VERSION=3.3.1
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
-mkdir -p $RUNTIME_PATH
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh

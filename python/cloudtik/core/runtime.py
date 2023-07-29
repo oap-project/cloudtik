@@ -141,8 +141,9 @@ class Runtime:
 
     def minimal_nodes_reached(
             self, cluster_config: Dict[str, Any], node_type: str,
-            head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
-        """If the require_minimal_nodes_before_setup method returns True and runtime will be notified on head
+            head_info: Dict[str, Any], nodes_info: Dict[str, Any],
+            quorum_id: Optional[str] = None):
+        """If the require_minimal_nodes method returns True and runtime will be notified on head
         When the minimal nodes are reached. Please note this may call multiple times (for example server down and up)
         """
         pass

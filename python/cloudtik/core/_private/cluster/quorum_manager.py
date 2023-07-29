@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+from typing import Optional
 
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, RUNTIME_NODE_ID, \
     RUNTIME_NODE_QUORUM_JOIN
@@ -144,7 +145,8 @@ class QuorumManager:
         return False
 
     def _publish_nodes(
-            self, node_type: str, nodes_info, minimal_nodes_info, form_quorum=True):
+            self, node_type: str, nodes_info, minimal_nodes_info,
+            form_quorum=True, quorum_id=None):
         nodes_info_data = json.dumps(nodes_info, sort_keys=True)
 
         hasher = hashlib.sha1()
@@ -158,17 +160,24 @@ class QuorumManager:
 
         if form_quorum:
             # Minimal number of the nodes reached, set the quorum id of the new joined nodes
-            self._form_a_quorum(node_type, new_nodes_info_hash)
+            quorum_id = self._form_a_quorum(node_type, new_nodes_info_hash)
 
-        logger.info(
-            "Cluster Controller: Publish and notify nodes info for {}".format(
-                node_type))
+        if quorum_id:
+            logger.info(
+                "Cluster Controller: Publish and notify nodes for {} with quorum {}".format(
+                    node_type, quorum_id))
+        else:
+            logger.info(
+                "Cluster Controller: Publish and notify nodes for {}".format(
+                    node_type))
 
         nodes_info_key = CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE.format(node_type)
         kv_put(nodes_info_key, nodes_info_data, overwrite=True)
 
         # Notify runtime of these
-        self._notify_minimal_nodes_reached(node_type, nodes_info, minimal_nodes_info)
+        self._notify_minimal_nodes_reached(
+            node_type, nodes_info, minimal_nodes_info,
+            quorum_id=quorum_id)
         return True
 
     def _publish_nodes_for_quorum(
@@ -183,7 +192,7 @@ class QuorumManager:
 
         return self._publish_nodes(
             node_type, nodes_info, minimal_nodes_info,
-            form_quorum=False)
+            form_quorum=False, quorum_id=quorum_id)
 
     def _get_nodes_info_for_quorum(self, node_type: str, quorum_id: str):
         quorum_id_to_nodes = self.quorum_id_to_nodes_of_node_type.get(
@@ -205,7 +214,8 @@ class QuorumManager:
         return quorum_nodes_info
 
     def _notify_minimal_nodes_reached(
-            self, node_type: str, nodes_info, minimal_nodes_info):
+            self, node_type: str, nodes_info, minimal_nodes_info,
+            quorum_id: Optional[str] = None):
         head_id = self.non_terminated_nodes.head_id
         head_node_ip = self.provider.internal_ip(head_id)
         head_info = {
@@ -215,7 +225,8 @@ class QuorumManager:
         }
         _notify_minimal_nodes_reached(
             self.config, node_type, head_info,
-            nodes_info, minimal_nodes_info)
+            nodes_info, minimal_nodes_info,
+            quorum_id=quorum_id)
 
     def is_launch_allowed(self, node_type: str):
         if self._is_minimal_nodes(node_type) and (
@@ -256,7 +267,7 @@ class QuorumManager:
 
     def _form_a_quorum(self, node_type: str, quorum_id):
         if not self._is_quorum_minimal_nodes(node_type):
-            return
+            return None
 
         for node_id in self.non_terminated_nodes.worker_ids:
             tags = self.provider.node_tags(node_id)
@@ -272,6 +283,14 @@ class QuorumManager:
                 node_id, {CLOUDTIK_TAG_QUORUM_ID: quorum_id})
             self._update_quorum_id_to_nodes(
                 node_type, node_quorum_id, node_id)
+
+        # get the running quorum
+        running_quorum_id = self._get_running_quorum(node_type)
+        if quorum_id != running_quorum_id:
+            logger.warning(
+                "The {} running quorum {} doesn't match to the target quorum {}.".format(
+                    node_type, running_quorum_id, quorum_id))
+        return running_quorum_id
 
     def _get_quorum(self, node_type: str):
         minimal_nodes_info = self.minimal_nodes_for_update[node_type]

@@ -54,22 +54,48 @@ def _run_runtime_python_script(script_path, command, head, script_args):
     run_system_command(final_cmd)
 
 
-def _run_runtime_script(
-        runtime_type, command, head, script_args, script_name):
-    # search for either bash script or python script with the name to run
+def _run_runtime_bash_script_by_name(
+        runtime_type, command, head,
+        script_args, script_name):
     bash_script_name = script_name + ".sh"
-    install_script_path = _get_runtime_script_path(
+    script_path = _get_runtime_script_path(
         runtime_type, bash_script_name)
-    if os.path.exists(install_script_path):
+    if os.path.exists(script_path):
         _run_runtime_bash_script(
-            install_script_path, command, head, script_args)
+            script_path, command, head, script_args)
 
+
+def _run_runtime_python_script_by_name(
+        runtime_type, command, head,
+        script_args, script_name):
     python_script_name = script_name + ".py"
-    install_script_path = _get_runtime_script_path(
+    script_path = _get_runtime_script_path(
         runtime_type, python_script_name)
-    if os.path.exists(install_script_path):
+    if os.path.exists(script_path):
         _run_runtime_python_script(
-            install_script_path, command, head, script_args)
+            script_path, command, head, script_args)
+
+
+def _run_runtime_script(
+        runtime_type, command, head, reverse,
+        script_args, script_name):
+    # search for either bash script or python script with the name to run
+    # by default, runs bash script first and then python script
+    # if reverse flag specified, runs python script first
+    if not reverse:
+        _run_runtime_bash_script_by_name(
+            runtime_type, command, head,
+            script_args, script_name)
+        _run_runtime_python_script_by_name(
+            runtime_type, command, head,
+            script_args, script_name)
+    else:
+        _run_runtime_python_script_by_name(
+            runtime_type, command, head,
+            script_args, script_name)
+        _run_runtime_bash_script_by_name(
+            runtime_type, command, head,
+            script_args, script_name)
 
 
 @click.group(cls=NaturalOrderGroup)
@@ -209,11 +235,17 @@ def stop(cluster_config_file, cluster_name, no_config_cache,
     is_flag=True,
     default=False,
     help="provide this argument for the head node")
+@click.option(
+    "--reverse",
+    is_flag=True,
+    default=False,
+    help="If there both bash and python scripts, by default bash script run first. "
+         "This flag reverse the order.")
 @click.argument("script_args", nargs=-1)
-def install(runtime, head, script_args):
+def install(runtime, head, reverse, script_args):
     _run_runtime_script(
-        runtime, None, head, script_args,
-        RUNTIME_INSTALL_SCRIPT_NAME)
+        runtime, None, head, reverse,
+        script_args, RUNTIME_INSTALL_SCRIPT_NAME)
 
 
 @click.command(context_settings={"ignore_unknown_options": True})
@@ -223,11 +255,17 @@ def install(runtime, head, script_args):
     is_flag=True,
     default=False,
     help="provide this argument for the head node")
+@click.option(
+    "--reverse",
+    is_flag=True,
+    default=False,
+    help="If there both bash and python scripts, by default bash script run first. "
+         "This flag reverse the order.")
 @click.argument("script_args", nargs=-1)
-def configure(runtime, head, script_args):
+def configure(runtime, head, reverse, script_args):
     _run_runtime_script(
-        runtime, None, head, script_args,
-        RUNTIME_CONFIGURE_SCRIPT_NAME)
+        runtime, None, head, reverse,
+        script_args, RUNTIME_CONFIGURE_SCRIPT_NAME)
 
 
 @click.command(context_settings={"ignore_unknown_options": True})
@@ -238,11 +276,17 @@ def configure(runtime, head, script_args):
     is_flag=True,
     default=False,
     help="provide this argument for the head node")
+@click.option(
+    "--reverse",
+    is_flag=True,
+    default=False,
+    help="If there both bash and python scripts, by default bash script run first. "
+         "This flag reverse the order.")
 @click.argument("script_args", nargs=-1)
-def services(runtime, command, head, script_args):
+def services(runtime, command, head, reverse, script_args):
     _run_runtime_script(
-        runtime, command, head, script_args,
-        RUNTIME_SERVICES_SCRIPT_NAME)
+        runtime, command, head, reverse,
+        script_args, RUNTIME_SERVICES_SCRIPT_NAME)
 
 
 def runtime_add_command_alias(command, name, hidden):

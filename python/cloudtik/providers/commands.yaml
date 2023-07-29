@@ -8,9 +8,9 @@ docker:
     # Initialization commands running on host for only docker enabled
     initialization_commands:
         - which docker >/dev/null 2>&1 || (curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && sed -i "s/set -x/set +x/g" /tmp/get-docker.sh &&
-          ((export VERSION=20.10 && sudo --preserve-env=VERSION bash /tmp/get-docker.sh > /dev/null) || sudo bash /tmp/get-docker.sh > /dev/null) && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
+          ((export VERSION=20.10 && sudo --preserve-env=VERSION bash /tmp/get-docker.sh >/dev/null) || sudo bash /tmp/get-docker.sh >/dev/null) && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
         - docker ps -a >/dev/null 2>&1 || (sudo addgroup --system docker && sudo usermod -aG docker $USER && sudo systemctl restart docker -f)
-        - which jq >/dev/null 2>&1 || (sudo apt-get -qq update -y && sudo apt-get -qq install -y jq > /dev/null)
+        - which jq >/dev/null 2>&1 || (sudo apt-get -qq update -y && sudo apt-get -qq install -y jq >/dev/null)
     head_initialization_commands:
         - docker pull registry:2
         - "(stat /etc/docker/daemon.json >/dev/null 2>&1 && jq '. + { \"registry-mirrors\": [$address] }' --arg address \"http://${CLOUDTIK_NODE_IP}:5000\" /etc/docker/daemon.json > /tmp/tmp.$$.json && sudo mv /tmp/tmp.$$.json /etc/docker/daemon.json) || (sudo mkdir -p /etc/docker && printf \"{\n  \\\"registry-mirrors\\\": [\\\"http://${CLOUDTIK_NODE_IP}:5000\\\"]\n}\" | sudo tee -a /etc/docker/daemon.json >/dev/null 2>&1) && sudo systemctl restart docker -f"
@@ -21,7 +21,7 @@ docker:
 
 # List of shell commands to run to set up nodes.
 setup_commands:
-    - (arch=$(uname -m) && [ "${arch}" == "aarch64" ] && (which gcc > /dev/null || (sudo apt-get -qq update -y && sudo apt-get -qq install -y gcc > /dev/null))) || true
+    - (arch=$(uname -m) && [ "${arch}" == "aarch64" ] && (which gcc >/dev/null || (sudo apt-get -qq update -y && sudo apt-get -qq install -y gcc >/dev/null))) || true
     - >-
         which conda >/dev/null 2>&1 || (arch=$(uname -m) && wget -q --show-progress "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-${arch}.sh" -O /tmp/miniconda.sh &&
         /bin/bash /tmp/miniconda.sh -b -u -p ~/anaconda3 && ~/anaconda3/bin/conda init && rm -rf /tmp/miniconda.sh)

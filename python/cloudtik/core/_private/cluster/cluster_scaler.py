@@ -23,7 +23,7 @@ from cloudtik.core._private.cluster.node_availability_tracker import NodeAvailab
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
 from cloudtik.core._private.core_utils import ConcurrentCounter
 from cloudtik.core._private.crypto import AESCipher
-from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP
+from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, RUNTIME_NODE_ID
 from cloudtik.core._private.state.kv_store import kv_put, kv_del, kv_initialized
 try:
     from urllib3.exceptions import MaxRetryError
@@ -1541,7 +1541,7 @@ class ClusterScaler:
         head_id = self.non_terminated_nodes.head_id
         head_node_ip = self.provider.internal_ip(head_id)
         head_info = {
-            "node_id": head_id,
+            RUNTIME_NODE_ID: head_id,
             RUNTIME_NODE_IP: head_node_ip,
             RUNTIME_NODE_SEQ_ID: CLOUDTIK_TAG_HEAD_NODE_SEQ_ID
         }

@@ -8,8 +8,9 @@ from cloudtik.core._private.utils import load_head_cluster_config, _get_node_typ
     get_runtime_config_key, _get_key_from_kv, decode_cluster_secrets, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE
 
 
-RUNTIME_NODE_SEQ_ID = "node_seq_id"
+RUNTIME_NODE_ID = "node_id"
 RUNTIME_NODE_IP = "node_ip"
+RUNTIME_NODE_SEQ_ID = "node_seq_id"
 
 
 def get_runtime_node_type():

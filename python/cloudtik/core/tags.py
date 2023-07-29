@@ -52,3 +52,7 @@ CLOUDTIK_TAG_HEAD_NODE_SEQ_ID = 1
 
 # Quorum generation of the node when managing a Quorum of minimal nodes
 CLOUDTIK_TAG_QUORUM_ID = "cloudtik-quorum-id"
+CLOUDTIK_TAG_QUORUM_JOIN = "cloudtik-quorum-join"
+CLOUDTIK_QUORUM_JOIN_STATUS_INIT = "init"
+CLOUDTIK_QUORUM_JOIN_STATUS_SUCCESS = "success"
+CLOUDTIK_QUORUM_JOIN_STATUS_FAILED = "failed"

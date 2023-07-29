@@ -127,12 +127,17 @@ class Runtime:
         """
         return None
 
-    def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool]:
+    def require_minimal_nodes(
+            self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool, bool]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
-        Return a tuple (whether to require minimal nodes, whether to manage a quorum of the minimal nodes)
+        Return a tuple (
+        whether to require minimal nodes,
+        whether to manage a quorum of the minimal nodes,
+        whether the quorum is scalable at runtime (a new member can join to existing quorum)
+        )
         """
-        return False, False
+        return False, False, False
 
     def minimal_nodes_reached(
             self, cluster_config: Dict[str, Any], node_type: str,

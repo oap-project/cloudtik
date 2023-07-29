@@ -31,11 +31,12 @@ class ZooKeeperRuntime(RuntimeBase):
     def get_runtime_services(self, cluster_name: str):
         return _get_runtime_services(self.runtime_config, cluster_name)
 
-    def require_minimal_nodes(self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool]:
+    def require_minimal_nodes(
+            self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool, bool]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
         """
-        return True, True
+        return True, True, False
 
     def minimal_nodes_reached(
             self, cluster_config: Dict[str, Any], node_type: str,

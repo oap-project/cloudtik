@@ -11,6 +11,7 @@ from cloudtik.core._private.utils import load_head_cluster_config, _get_node_typ
 RUNTIME_NODE_ID = "node_id"
 RUNTIME_NODE_IP = "node_ip"
 RUNTIME_NODE_SEQ_ID = "node_seq_id"
+RUNTIME_NODE_QUORUM_JOIN = "quorum_join"
 
 
 def get_runtime_node_type():

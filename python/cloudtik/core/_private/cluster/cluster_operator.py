@@ -2117,12 +2117,12 @@ def _show_cluster_status(config: Dict[str, Any]) -> None:
                     node_info["instance_status"]
                     ])
 
-    nodes_ready = _get_node_number_in_status(nodes_info, STATUS_UP_TO_DATE)
+    nodes_ready = _get_number_of_node_in_status(nodes_info, STATUS_UP_TO_DATE)
     cli_logger.print(cf.bold("Total {} nodes. {} nodes are ready"), len(nodes_info), nodes_ready)
     cli_logger.print(tb)
 
 
-def _get_node_number_in_status(node_info_list, status):
+def _get_number_of_node_in_status(node_info_list, status):
     num_nodes = 0
     for node_info in node_info_list:
         if status == node_info.get(CLOUDTIK_TAG_NODE_STATUS):
@@ -2197,7 +2197,7 @@ def _get_cluster_info(config: Dict[str, Any],
     # get working nodes which are ready
     worker_nodes_ready = _get_nodes_info_in_status(workers_info, STATUS_UP_TO_DATE)
     workers_ready = len(worker_nodes_ready)
-    workers_failed = _get_node_number_in_status(workers_info, STATUS_UPDATE_FAILED)
+    workers_failed = _get_number_of_node_in_status(workers_info, STATUS_UPDATE_FAILED)
 
     cluster_info["total-workers"] = worker_count
     cluster_info["total-workers-ready"] = workers_ready
@@ -3931,7 +3931,7 @@ def _get_workers_ready(config: Dict[str, Any], provider):
     workers_info = get_nodes_info(provider, workers)
 
     # get working nodes which are ready
-    workers_ready = _get_node_number_in_status(workers_info, STATUS_UP_TO_DATE)
+    workers_ready = _get_number_of_node_in_status(workers_info, STATUS_UP_TO_DATE)
     return workers_ready
 
 

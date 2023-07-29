@@ -333,10 +333,10 @@ class NodeUpdater:
             node_envs.update(self.environment_variables)
 
         # Set node sequence id if there is one
-        node_number = self.provider.node_tags(
+        node_seq_id = self.provider.node_tags(
             self.node_id).get(CLOUDTIK_TAG_NODE_SEQ_ID)
-        if node_number is not None:
-            node_envs[CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID] = node_number
+        if node_seq_id is not None:
+            node_envs[CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID] = node_seq_id
 
         # With node type in the environment variables
         if node_type is not None:

@@ -228,7 +228,7 @@ class ClusterScaler:
 
         # The next node sequence id to assign
         # will be initialized by the max node sequence id from the existing nodes
-        self.next_node_number = None
+        self.next_node_seq_id = None
 
         self.cluster_metrics = cluster_metrics
         self.cluster_metrics_updater = cluster_metrics_updater
@@ -269,8 +269,8 @@ class ClusterScaler:
             "disable_launch_config_check", False)
 
         # Disable the feature to assign each node with a unique number
-        self.disable_node_number = self.config.get(
-            "disable_node_number", False)
+        self.disable_node_seq_id = self.config.get(
+            "disable_node_seq_id", False)
 
         # Node launchers
         self.launch_queue = queue.Queue()
@@ -421,9 +421,9 @@ class ClusterScaler:
         self.collect_quorum_minimal_nodes()
         self.terminate_nodes_to_enforce_config_constraints(now)
 
-        if not self.disable_node_number:
+        if not self.disable_node_seq_id:
             # Assign node sequence id to new nodes
-            self.assign_node_number_to_new_nodes()
+            self.assign_node_seq_id_to_new_nodes()
 
         wait_for_update = self.wait_for_minimal_nodes_before_update()
         if not wait_for_update:
@@ -1429,29 +1429,32 @@ class ClusterScaler:
         return "\n" + format_info_string(
             cluster_metrics_summary, cluster_scaler_summary)
 
-    def _init_next_node_number(self):
-        self.next_node_number = CLOUDTIK_TAG_HEAD_NODE_SEQ_ID + 1
+    def _init_next_node_seq_id(self):
+        # get the maximum sequence id from the existing node
+        # Only when the case the last node terminated, and controller restarted at the same time
+        # The maximum sequence id lost (rare cases)
+        self.next_node_seq_id = CLOUDTIK_TAG_HEAD_NODE_SEQ_ID + 1
         for node_id in self.non_terminated_nodes.worker_ids:
-            node_number_tag = self.provider.node_tags(node_id).get(CLOUDTIK_TAG_NODE_SEQ_ID)
-            if node_number_tag is None:
+            node_seq_id_tag = self.provider.node_tags(node_id).get(CLOUDTIK_TAG_NODE_SEQ_ID)
+            if node_seq_id_tag is None:
                 continue
 
-            node_number = int(node_number_tag)
-            if node_number > self.next_node_number:
-                self.next_node_number = node_number
+            node_seq_id = int(node_seq_id_tag)
+            if node_seq_id > self.next_node_seq_id:
+                self.next_node_seq_id = node_seq_id
 
-    def assign_node_number_to_new_nodes(self):
-        if self.next_node_number is None:
-            self._init_next_node_number()
+    def assign_node_seq_id_to_new_nodes(self):
+        if self.next_node_seq_id is None:
+            self._init_next_node_seq_id()
 
         for node_id in self.non_terminated_nodes.worker_ids:
-            node_number_tag = self.provider.node_tags(
+            node_seq_id_tag = self.provider.node_tags(
                 node_id).get(CLOUDTIK_TAG_NODE_SEQ_ID)
-            if node_number_tag is None:
+            if node_seq_id_tag is None:
                 # New node, assign the node sequence id
                 self.provider.set_node_tags(
-                    node_id, {CLOUDTIK_TAG_NODE_SEQ_ID: str(self.next_node_number)})
-                self.next_node_number += 1
+                    node_id, {CLOUDTIK_TAG_NODE_SEQ_ID: str(self.next_node_seq_id)})
+                self.next_node_seq_id += 1
 
     def _collect_nodes_info(self):
         nodes_info_map = {}

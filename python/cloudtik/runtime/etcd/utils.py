@@ -132,7 +132,7 @@ def _update_initial_cluster_config(initial_cluster_str):
 
 def request_to_join_cluster(nodes_info: Dict[str, Any]):
     if nodes_info is None:
-        raise RuntimeError("Missing nodes info for configuring server ensemble.")
+        raise RuntimeError("Missing nodes info for join to the cluster.")
 
     initial_cluster = sort_nodes_by_seq_id(nodes_info)
 
@@ -142,7 +142,14 @@ def request_to_join_cluster(nodes_info: Dict[str, Any]):
 
     # exclude my own address from the initial cluster as endpoints
     endpoints = [node for node in initial_cluster if node[RUNTIME_NODE_IP] != node_ip]
-    _request_member_add(endpoints, node_ip)
+    if not endpoints:
+        raise RuntimeError("No exiting nodes found for contacting to join the cluster.")
+
+    seq_id = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID)
+    if not seq_id:
+        raise RuntimeError("Missing sequence ip environment variable for this node.")
+
+    _request_member_add(endpoints, node_ip, seq_id)
 
 
 def _get_initial_cluster_from_output(output):
@@ -153,11 +160,7 @@ def _get_initial_cluster_from_output(output):
             return strip_quote(output_line[len(initial_cluster_mark):])
 
 
-def _request_member_add(endpoints, node_ip):
-    seq_id = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID)
-    if not seq_id:
-        raise RuntimeError("Missing sequence ip environment variable for this node.")
-
+def _request_member_add(endpoints, node_ip, seq_id):
     # etcdctl --endpoints=http://existing_node_ip:2379 member add server --peer-urls=http://node_ip:2380
     cmd = ["etcdctl"]
     endpoints_str = ",".join(

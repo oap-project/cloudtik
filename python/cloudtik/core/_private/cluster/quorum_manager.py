@@ -43,10 +43,11 @@ class QuorumManager:
 
         # These are initialized for each config change with reset
         self.node_constraints_by_node_type = {}
-        self.quorum_id_to_nodes_by_node_type = {}
 
         # Set at each update by calling update
         self.non_terminated_nodes = None
+        self.pending_launches = None
+        self.quorum_id_to_nodes_by_node_type = {}
 
         # Refresh at each wait for update
         self.nodes_info_by_node_type = None
@@ -59,8 +60,10 @@ class QuorumManager:
         # Collect the nodes constraints
         self._collect_node_constraints()
 
-    def update(self, non_terminated_nodes):
+    def update(self, non_terminated_nodes, pending_launches):
         self.non_terminated_nodes = non_terminated_nodes
+        self.pending_launches = pending_launches
+
         if not self.node_constraints_by_node_type:
             # No need
             return
@@ -279,7 +282,9 @@ class QuorumManager:
             if running_quorum:
                 # if there is a running quorum
                 if self._is_quorum_scalable(node_type):
-                    if self._is_quorum_join_in_progress(node_type):
+                    # check the pending launches and in progress quorum joins
+                    pending_launchers = self.pending_launches.breakdown()
+                    if pending_launchers.get(node_type, 0) > 0 or self._is_quorum_join_in_progress(node_type):
                         logger.info(
                             "Cluster Controller: Node in progress of quorum join. "
                             "Pause launching new nodes for type: {}.".format(

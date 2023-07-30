@@ -417,7 +417,7 @@ class ClusterScaler:
             logger.info(self.info_string())
 
         self.quorum_manager.update(
-            self.non_terminated_nodes)
+            self.non_terminated_nodes, self.pending_launches)
         self.terminate_nodes_to_enforce_config_constraints(now)
 
         if not self.disable_node_seq_id:

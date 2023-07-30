@@ -5,7 +5,7 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.etcd.utils import _get_runtime_processes, \
     _get_runtime_endpoints, _get_runtime_services, _with_runtime_environment_variables, \
-    _get_runtime_logs, _handle_minimal_nodes_reached
+    _get_runtime_logs, _handle_node_constraints_reached
 
 logger = logging.getLogger(__name__)
 
@@ -26,22 +26,22 @@ class EtcdRuntime(RuntimeBase):
             self.runtime_config, config=config,
             provider=provider, node_id=node_id)
 
-    def require_minimal_nodes(
+    def get_node_constraints(
             self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool, bool]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
         """
         return True, True, True
 
-    def minimal_nodes_reached(
+    def node_constraints_reached(
             self, cluster_config: Dict[str, Any], node_type: str,
             head_info: Dict[str, Any], nodes_info: Dict[str, Any],
             quorum_id: Optional[str] = None):
-        """If the require_minimal_nodes method returns True and runtime will be notified on head
+        """If the get_node_constraints method returns True and runtime will be notified on head
         When the minimal nodes are reached. Please note this may call multiple times
         (for example server down and up)
         """
-        _handle_minimal_nodes_reached(
+        _handle_node_constraints_reached(
             self.runtime_config, cluster_config,
             node_type, head_info, nodes_info)
 

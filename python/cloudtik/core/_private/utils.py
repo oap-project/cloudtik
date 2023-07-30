@@ -2601,52 +2601,47 @@ def get_runtime_config_key(node_type: str):
     return runtime_config_key
 
 
-def _get_minimal_nodes_for_update(config: Dict[str, Any], node_type: str):
+def _get_node_constraints_for_node_type(config: Dict[str, Any], node_type: str):
     # Check the runtimes of the node type whether it needs to wait minimal before update
     runtime_config = _get_node_type_specific_runtime_config(config, node_type)
     if not runtime_config:
         return None
 
     # For each
-    runtimes_require_minimal_nodes = []
+    runtimes_with_node_constraints = []
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     quorum = False
     scalable = False
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        runtime_require_minimal_nodes, runtime_quorum, runtime_quorum_scalable = \
-            runtime.require_minimal_nodes(config)
-        if runtime_require_minimal_nodes:
-            runtimes_require_minimal_nodes += [runtime_type]
+        runtime_minimal, runtime_quorum, runtime_scalable = \
+            runtime.get_node_constraints(config)
+        if runtime_minimal:
+            runtimes_with_node_constraints += [runtime_type]
             if runtime_quorum:
                 quorum = runtime_quorum
-                if runtime_quorum_scalable:
-                    scalable = runtime_quorum_scalable
+                if runtime_scalable:
+                    scalable = runtime_scalable
 
-    if len(runtimes_require_minimal_nodes) > 0:
+    if len(runtimes_with_node_constraints) > 0:
         node_type_config = config["available_node_types"][node_type]
         min_workers = node_type_config.get("min_workers", 0)
         if min_workers > 0:
-            return {
-                "minimal": min_workers,
-                "quorum": quorum,
-                "scalable": scalable,
-                "runtimes": runtimes_require_minimal_nodes}
+            return min_workers, quorum, scalable, runtimes_with_node_constraints
     return None
 
 
-def _notify_minimal_nodes_reached(
+def _notify_node_constraints_reached(
         config: Dict[str, Any], node_type: str,
-        head_info, nodes_info, minimal_nodes_info,
+        head_info, nodes_info, runtimes_to_notify,
         quorum_id: Optional[str] = None):
     runtime_config = _get_node_type_specific_runtime_config(config, node_type)
     if not runtime_config:
         return
 
-    runtime_types = minimal_nodes_info["runtimes"]
-    for runtime_type in runtime_types:
+    for runtime_type in runtimes_to_notify:
         runtime = _get_runtime(runtime_type, runtime_config)
-        runtime.minimal_nodes_reached(
+        runtime.node_constraints_reached(
             config, node_type, head_info, nodes_info,
             quorum_id=quorum_id)
 

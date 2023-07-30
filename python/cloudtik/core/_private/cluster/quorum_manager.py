@@ -1,18 +1,28 @@
 import hashlib
 import json
 import logging
-from typing import Optional
+from typing import Optional, List
 
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, RUNTIME_NODE_ID, \
     RUNTIME_NODE_QUORUM_JOIN
 from cloudtik.core._private.state.kv_store import kv_put
-from cloudtik.core._private.utils import _get_minimal_nodes_for_update, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, \
-    _notify_minimal_nodes_reached
+from cloudtik.core._private.utils import _get_node_constraints_for_node_type, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, \
+    _notify_node_constraints_reached
 from cloudtik.core.tags import (
     CLOUDTIK_TAG_USER_NODE_TYPE, CLOUDTIK_TAG_NODE_SEQ_ID, CLOUDTIK_TAG_HEAD_NODE_SEQ_ID,
     CLOUDTIK_TAG_QUORUM_ID, CLOUDTIK_TAG_QUORUM_JOIN, QUORUM_JOIN_STATUS_INIT)
 
 logger = logging.getLogger(__name__)
+
+
+class NodeConstraints:
+    def __init__(
+            self, minimal: int, quorum: bool, scalable: bool, runtimes: List[str]
+    ):
+        self.minimal = minimal
+        self.quorum = quorum
+        self.scalable = scalable
+        self.runtimes = runtimes
 
 
 class QuorumManager:
@@ -32,36 +42,38 @@ class QuorumManager:
         self.published_nodes_info_hashes = {}
 
         # These are initialized for each config change with reset
-        self.minimal_nodes_for_update = {}
-        self.quorum_id_to_nodes_of_node_type = {}
+        self.node_constraints_by_node_type = {}
+        self.quorum_id_to_nodes_by_node_type = {}
 
         # Set at each update by calling update
         self.non_terminated_nodes = None
 
         # Refresh at each wait for update
-        self.nodes_info_of_node_type = None
+        self.nodes_info_by_node_type = None
 
     def reset(self, config, provider):
         self.config = config
         self.provider = provider
         self.available_node_types = self.config["available_node_types"]
 
-        # Collect the minimal nodes before update requirements
-        self._collect_minimal_nodes_for_update()
+        # Collect the nodes constraints
+        self._collect_node_constraints()
 
     def update(self, non_terminated_nodes):
         self.non_terminated_nodes = non_terminated_nodes
-        self._collect_quorum_minimal_nodes()
+        self._collect_quorum_nodes()
 
-    def _collect_minimal_nodes_for_update(self):
+    def _collect_node_constraints(self):
         # Push global runtime config
-        minimal_nodes = {}
+        node_constraints_by_type = {}
         for node_type in self.available_node_types:
-            minimal_nodes_for_node_type = _get_minimal_nodes_for_update(
+            node_constraints_of_node_type = _get_node_constraints_for_node_type(
                 self.config, node_type)
-            if minimal_nodes_for_node_type:
-                minimal_nodes[node_type] = minimal_nodes_for_node_type
-        self.minimal_nodes_for_update = minimal_nodes
+            if node_constraints_of_node_type is not None:
+                minimal, quorum, scalable, runtimes = node_constraints_of_node_type
+                node_constraints_by_type[node_type] = NodeConstraints(
+                    minimal, quorum, scalable, runtimes)
+        self.node_constraints_by_node_type = node_constraints_by_type
 
     def _collect_nodes_info(self):
         # We only collect nodes of related node types
@@ -71,7 +83,7 @@ class QuorumManager:
             node_type = tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
             if not node_type:
                 continue
-            if node_type not in self.minimal_nodes_for_update:
+            if node_type not in self.node_constraints_by_node_type:
                 continue
 
             if node_type not in nodes_info_of_node_type:
@@ -89,22 +101,22 @@ class QuorumManager:
         return nodes_info_of_node_type
 
     def wait_for_update(self):
-        if not self.minimal_nodes_for_update:
+        if not self.node_constraints_by_node_type:
             # No need to wait for most cases, fast return
             return False
 
-        # Make sure only minimal requirement > 0 will appear in self.minimal_nodes_for_update
-        self.nodes_info_of_node_type = self._collect_nodes_info()
-        for node_type in self.minimal_nodes_for_update:
-            minimal_nodes_info = self.minimal_nodes_for_update[node_type]
-            if node_type not in self.nodes_info_of_node_type:
-                self._print_info_waiting_for(minimal_nodes_info, 0, "minimal")
+        # Make sure only minimal requirement > 0 will appear in self.node_constraints_by_node_type
+        self.nodes_info_by_node_type = self._collect_nodes_info()
+        for node_type in self.node_constraints_by_node_type:
+            node_constraints = self.node_constraints_by_node_type[node_type]
+            if node_type not in self.nodes_info_by_node_type:
+                self._print_info_waiting_for(node_constraints, 0, "minimal")
                 return True
 
-            if minimal_nodes_info["quorum"]:
+            if node_constraints.quorum:
                 quorum_id = self._get_running_quorum(node_type)
                 if quorum_id:
-                    if not minimal_nodes_info["scalable"]:
+                    if not node_constraints.scalable:
                         # not have dynamic join cases
                         continue
                     node_quorum_join = self._get_quorum_join_in_progress(node_type)
@@ -120,32 +132,32 @@ class QuorumManager:
 
                     # we publish the nodes info for quorum
                     self._publish_nodes_for_quorum(
-                        node_type, quorum_id, minimal_nodes_info)
+                        node_type, quorum_id, node_constraints)
                     continue
 
-            nodes_info = self.nodes_info_of_node_type[node_type]
+            nodes_info = self.nodes_info_by_node_type[node_type]
             number_of_nodes = len(nodes_info)
-            if minimal_nodes_info["minimal"] > number_of_nodes:
-                self._print_info_waiting_for(minimal_nodes_info, number_of_nodes, "minimal")
+            if node_constraints.minimal > number_of_nodes:
+                self._print_info_waiting_for(node_constraints, number_of_nodes, "minimal")
                 return True
 
             # Check whether the internal ip are all available
             for node_id, node_info in nodes_info.items():
                 if node_info.get(RUNTIME_NODE_IP) is None:
-                    self._print_info_waiting_for(minimal_nodes_info, number_of_nodes, "IP available")
+                    self._print_info_waiting_for(node_constraints, number_of_nodes, "IP available")
                     return True
 
             logger.info(
-                "Cluster Controller: Minimal nodes requirement satisfied for {}: {}.".format(
-                    node_type, minimal_nodes_info["minimal"]))
+                "Cluster Controller: Node constraints satisfied for {}: minimal nodes = {}.".format(
+                    node_type, node_constraints.minimal))
             # publish nodes will check whether it has changed since last publish
-            self._publish_nodes(node_type, nodes_info, minimal_nodes_info)
+            self._publish_nodes(node_type, nodes_info, node_constraints)
 
         # All satisfied if come to here
         return False
 
     def _publish_nodes(
-            self, node_type: str, nodes_info, minimal_nodes_info,
+            self, node_type: str, nodes_info, node_constraints,
             form_quorum=True, quorum_id=None):
         nodes_info_data = json.dumps(nodes_info, sort_keys=True)
 
@@ -175,13 +187,13 @@ class QuorumManager:
         kv_put(nodes_info_key, nodes_info_data, overwrite=True)
 
         # Notify runtime of these
-        self._notify_minimal_nodes_reached(
-            node_type, nodes_info, minimal_nodes_info,
+        self._notify_node_constraints_reached(
+            node_type, nodes_info, node_constraints,
             quorum_id=quorum_id)
         return True
 
     def _publish_nodes_for_quorum(
-            self, node_type: str, quorum_id: str, minimal_nodes_info):
+            self, node_type: str, quorum_id: str, node_constraints):
         nodes_info = self._get_nodes_info_for_quorum(node_type, quorum_id)
         if not nodes_info:
             # quorum has no nodes
@@ -191,17 +203,17 @@ class QuorumManager:
             return False
 
         return self._publish_nodes(
-            node_type, nodes_info, minimal_nodes_info,
+            node_type, nodes_info, node_constraints,
             form_quorum=False, quorum_id=quorum_id)
 
     def _get_nodes_info_for_quorum(self, node_type: str, quorum_id: str):
-        quorum_id_to_nodes = self.quorum_id_to_nodes_of_node_type.get(
+        quorum_id_to_nodes = self.quorum_id_to_nodes_by_node_type.get(
             node_type, {})
         quorum_nodes = quorum_id_to_nodes.get(quorum_id)
         if not quorum_nodes:
             return None
 
-        nodes_info = self.nodes_info_of_node_type.get(node_type)
+        nodes_info = self.nodes_info_by_node_type.get(node_type)
         if not nodes_info:
             return None
 
@@ -213,8 +225,8 @@ class QuorumManager:
                 quorum_nodes_info[node_id] = node_info
         return quorum_nodes_info
 
-    def _notify_minimal_nodes_reached(
-            self, node_type: str, nodes_info, minimal_nodes_info,
+    def _notify_node_constraints_reached(
+            self, node_type: str, nodes_info, node_constraints,
             quorum_id: Optional[str] = None):
         head_id = self.non_terminated_nodes.head_id
         head_node_ip = self.provider.internal_ip(head_id)
@@ -223,14 +235,14 @@ class QuorumManager:
             RUNTIME_NODE_IP: head_node_ip,
             RUNTIME_NODE_SEQ_ID: CLOUDTIK_TAG_HEAD_NODE_SEQ_ID
         }
-        _notify_minimal_nodes_reached(
-            self.config, node_type, head_info,
-            nodes_info, minimal_nodes_info,
+        _notify_node_constraints_reached(
+            self.config, node_type, head_info, nodes_info,
+            runtimes_to_notify=node_constraints.runtimes,
             quorum_id=quorum_id)
 
     def is_launch_allowed(self, node_type: str):
-        if self._is_minimal_nodes(node_type) and (
-                self._is_quorum_minimal_nodes(node_type)):
+        if self._has_node_constraints(node_type) and (
+                self._has_quorum_node_constraints(node_type)):
             running_quorum = self._get_running_quorum(node_type)
             if running_quorum:
                 # if there is a running quorum
@@ -247,26 +259,24 @@ class QuorumManager:
                     return False, None
         return True, None
 
-    def _is_minimal_nodes(self, node_type: str):
-        if not self.minimal_nodes_for_update:
+    def _has_node_constraints(self, node_type: str):
+        if not self.node_constraints_by_node_type:
             return False
-        if node_type not in self.minimal_nodes_for_update:
+        if node_type not in self.node_constraints_by_node_type:
             return False
         return True
 
-    def _is_quorum_minimal_nodes(self, node_type: str):
-        # Usually, for the cases to control minimal nodes for update
-        # We are targeting for fixed nodes once it started
-        minimal_nodes_info = self.minimal_nodes_for_update[node_type]
-        return minimal_nodes_info["quorum"]
+    def _has_quorum_node_constraints(self, node_type: str):
+        node_constraints = self.node_constraints_by_node_type[node_type]
+        return node_constraints.quorum
 
     def _is_quorum_scalable(self, node_type: str):
         # Suggest to scale one node a time for a scalable quorum
-        minimal_nodes_info = self.minimal_nodes_for_update[node_type]
-        return minimal_nodes_info["scalable"]
+        node_constraints = self.node_constraints_by_node_type[node_type]
+        return node_constraints.scalable
 
     def _form_a_quorum(self, node_type: str, quorum_id):
-        if not self._is_quorum_minimal_nodes(node_type):
+        if not self._has_quorum_node_constraints(node_type):
             return None
 
         for node_id in self.non_terminated_nodes.worker_ids:
@@ -293,19 +303,19 @@ class QuorumManager:
         return running_quorum_id
 
     def _get_quorum(self, node_type: str):
-        minimal_nodes_info = self.minimal_nodes_for_update[node_type]
-        minimal = minimal_nodes_info["minimal"]
+        node_constraints = self.node_constraints_by_node_type[node_type]
+        minimal = node_constraints.minimal
         quorum = int(minimal / 2) + 1
         return quorum, minimal
 
     def terminate_for_quorum(self, node_type: str, node_id):
-        if (not self._is_minimal_nodes(node_type)) or (
-                not self._is_quorum_minimal_nodes(node_type)):
+        if (not self._has_node_constraints(node_type)) or (
+                not self._has_quorum_node_constraints(node_type)):
             return False
 
         quorum, minimal = self._get_quorum(node_type)
         # Check whether the node is an invalid quorum member
-        quorum_id_to_nodes = self.quorum_id_to_nodes_of_node_type.get(
+        quorum_id_to_nodes = self.quorum_id_to_nodes_by_node_type.get(
             node_type, {})
         for node_quorum_id in quorum_id_to_nodes:
             quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
@@ -321,26 +331,26 @@ class QuorumManager:
 
     def _update_quorum_id_to_nodes(
             self, node_type: str, node_quorum_id: str, node_id: str):
-        if node_type not in self.quorum_id_to_nodes_of_node_type:
-            self.quorum_id_to_nodes_of_node_type[node_type] = {}
-        quorum_id_to_nodes = self.quorum_id_to_nodes_of_node_type[node_type]
+        if node_type not in self.quorum_id_to_nodes_by_node_type:
+            self.quorum_id_to_nodes_by_node_type[node_type] = {}
+        quorum_id_to_nodes = self.quorum_id_to_nodes_by_node_type[node_type]
         if node_quorum_id not in quorum_id_to_nodes:
             quorum_id_to_nodes[node_quorum_id] = set()
         quorum_id_nodes = quorum_id_to_nodes[node_quorum_id]
         quorum_id_nodes.add(node_id)
 
-    def _collect_quorum_minimal_nodes(self):
-        if not self.minimal_nodes_for_update:
+    def _collect_quorum_nodes(self):
+        if not self.node_constraints_by_node_type:
             # No need
             return
 
-        self.quorum_id_to_nodes_of_node_type = {}
+        self.quorum_id_to_nodes_by_node_type = {}
         for node_id in self.non_terminated_nodes.worker_ids:
             tags = self.provider.node_tags(node_id)
             node_type = tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
             if not node_type:
                 continue
-            if node_type not in self.minimal_nodes_for_update:
+            if node_type not in self.node_constraints_by_node_type:
                 continue
             node_quorum_id = tags.get(CLOUDTIK_TAG_QUORUM_ID)
             if not node_quorum_id:
@@ -353,7 +363,7 @@ class QuorumManager:
         quorum, minimal = self._get_quorum(node_type)
         # Only when a quorum of the minimal nodes dead,
         # we can launch new nodes and form a new quorum
-        quorum_id_to_nodes = self.quorum_id_to_nodes_of_node_type.get(
+        quorum_id_to_nodes = self.quorum_id_to_nodes_by_node_type.get(
             node_type, {})
         for quorum_id in quorum_id_to_nodes:
             quorum_id_nodes = quorum_id_to_nodes[quorum_id]
@@ -379,10 +389,10 @@ class QuorumManager:
     def _get_quorum_join_in_progress(self, node_type):
         # Make sure this call are after wait_for_update
         # because self.nodes_info_of_node_type is set at beginning
-        if node_type not in self.nodes_info_of_node_type:
+        if node_type not in self.nodes_info_by_node_type:
             return None
 
-        nodes_info = self.nodes_info_of_node_type[node_type]
+        nodes_info = self.nodes_info_by_node_type[node_type]
         # Check whether the node which is in progress
         for node_id, node_info in nodes_info.items():
             quorum_join = node_info.get(RUNTIME_NODE_QUORUM_JOIN)
@@ -391,6 +401,6 @@ class QuorumManager:
         return None
 
     @staticmethod
-    def _print_info_waiting_for(minimal_nodes_info, number_of_nodes, for_what):
+    def _print_info_waiting_for(node_constraints, number_of_nodes, for_what):
         logger.info("Cluster Controller: waiting for {} of {}/{} nodes required by runtimes: {}".format(
-            for_what, number_of_nodes, minimal_nodes_info["minimal"], minimal_nodes_info["runtimes"]))
+            for_what, number_of_nodes, node_constraints.minimal, node_constraints.runtimes))

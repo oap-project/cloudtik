@@ -127,7 +127,7 @@ class Runtime:
         """
         return None
 
-    def require_minimal_nodes(
+    def get_node_constraints(
             self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool, bool]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
@@ -139,11 +139,11 @@ class Runtime:
         """
         return False, False, False
 
-    def minimal_nodes_reached(
+    def node_constraints_reached(
             self, cluster_config: Dict[str, Any], node_type: str,
             head_info: Dict[str, Any], nodes_info: Dict[str, Any],
             quorum_id: Optional[str] = None):
-        """If the require_minimal_nodes method returns True and runtime will be notified on head
+        """If the get_node_constraints method returns True and runtime will be notified on head
         When the minimal nodes are reached. Please note this may call multiple times (for example server down and up)
         """
         pass

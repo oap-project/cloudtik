@@ -59,7 +59,7 @@ def _get_endpoints(nodes):
             node[RUNTIME_NODE_SEQ_ID], node[RUNTIME_NODE_IP], ETCD_PEER_PORT) for node in nodes])
 
 
-def _handle_minimal_nodes_reached(
+def _handle_node_constraints_reached(
         runtime_config: Dict[str, Any], cluster_config: Dict[str, Any],
         node_type: str, head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
     # We know this is called in the cluster scaler context

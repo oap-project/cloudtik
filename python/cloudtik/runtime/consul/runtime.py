@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple, Optional
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.consul.utils import _with_runtime_environment_variables, \
-    _get_runtime_processes, _get_runtime_logs, _get_runtime_endpoints, _handle_minimal_nodes_reached, \
+    _get_runtime_processes, _get_runtime_logs, _get_runtime_endpoints, _handle_node_constraints_reached, \
     _is_agent_server_mode, _get_head_service_ports, _bootstrap_join_list, _bootstrap_runtime_services
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class ConsulRuntime(RuntimeBase):
         return _get_head_service_ports(
             self.server_mode, self.runtime_config)
 
-    def require_minimal_nodes(
+    def get_node_constraints(
             self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool, bool]:
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
@@ -54,15 +54,15 @@ class ConsulRuntime(RuntimeBase):
         else:
             return False, False, False
 
-    def minimal_nodes_reached(
+    def node_constraints_reached(
             self, cluster_config: Dict[str, Any], node_type: str,
             head_info: Dict[str, Any], nodes_info: Dict[str, Any],
             quorum_id: Optional[str] = None):
-        """If the require_minimal_nodes method returns True and runtime will be notified on head
+        """If the get_node_constraints method returns True and runtime will be notified on head
         When the minimal nodes are reached. Please note this may call multiple times (for example server down and up)
         """
         if self.server_mode:
-            _handle_minimal_nodes_reached(
+            _handle_node_constraints_reached(
                 self.runtime_config, cluster_config,
                 node_type, head_info, nodes_info)
 

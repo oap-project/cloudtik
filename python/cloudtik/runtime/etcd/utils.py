@@ -1,12 +1,11 @@
 import os
 from typing import Any, Dict
 
-import yaml
-
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID
 from cloudtik.core._private.core_utils import exec_with_output, strip_quote
 from cloudtik.core._private.providers import _get_workspace_provider
-from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP
+from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, sort_nodes_by_seq_id, \
+    load_and_save_yaml
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_PROTOCOL_TCP, get_canonical_service_name, SERVICE_DISCOVERY_NODE_KIND, \
     SERVICE_DISCOVERY_NODE_KIND_WORKER
@@ -63,7 +62,7 @@ def _handle_node_constraints_reached(
         runtime_config: Dict[str, Any], cluster_config: Dict[str, Any],
         node_type: str, head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
     # We know this is called in the cluster scaler context
-    initial_cluster = _initial_cluster_from_nodes_info(nodes_info)
+    initial_cluster = sort_nodes_by_seq_id(nodes_info)
     endpoints = _get_endpoints(initial_cluster)
 
     # public the endpoint to workspace
@@ -100,22 +99,6 @@ def _get_runtime_services(
     return services
 
 
-def _initial_cluster_from_nodes_info(nodes_info: Dict[str, Any]):
-    initial_cluster = []
-    for node_id, node_info in nodes_info.items():
-        if RUNTIME_NODE_IP not in node_info:
-            raise RuntimeError("Missing node ip for node {}.".format(node_id))
-        if RUNTIME_NODE_SEQ_ID not in node_info:
-            raise RuntimeError("Missing node sequence id for node {}.".format(node_id))
-        initial_cluster += [node_info]
-
-    def node_info_sort(node_info):
-        return node_info[RUNTIME_NODE_SEQ_ID]
-
-    initial_cluster.sort(key=node_info_sort)
-    return initial_cluster
-
-
 ###################################
 # Calls from node when configuring
 ###################################
@@ -131,7 +114,7 @@ def configure_initial_cluster(nodes_info: Dict[str, Any]):
     if nodes_info is None:
         raise RuntimeError("Missing nodes info for configuring server ensemble.")
 
-    initial_cluster = _initial_cluster_from_nodes_info(nodes_info)
+    initial_cluster = sort_nodes_by_seq_id(nodes_info)
     initial_cluster_str = _get_initial_cluster_from_nodes_info(initial_cluster)
 
     _update_initial_cluster_config(initial_cluster_str)
@@ -140,21 +123,18 @@ def configure_initial_cluster(nodes_info: Dict[str, Any]):
 def _update_initial_cluster_config(initial_cluster_str):
     home_dir = _get_home_dir()
     config_file = os.path.join(home_dir, "conf", "etcd.yaml")
-    # load and save yaml
-    with open(config_file) as f:
-        config_object = yaml.safe_load(f)
 
-    config_object["initial-cluster"] = initial_cluster_str
+    def update_initial_cluster(config_object):
+        config_object["initial-cluster"] = initial_cluster_str
 
-    with open(config_file, "w") as f:
-        yaml.dump(config_object, f, default_flow_style=False)
+    load_and_save_yaml(config_file, update_initial_cluster)
 
 
 def request_to_join_cluster(nodes_info: Dict[str, Any]):
     if nodes_info is None:
         raise RuntimeError("Missing nodes info for configuring server ensemble.")
 
-    initial_cluster = _initial_cluster_from_nodes_info(nodes_info)
+    initial_cluster = sort_nodes_by_seq_id(nodes_info)
 
     node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_IP)
     if not node_ip:

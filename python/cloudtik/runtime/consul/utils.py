@@ -246,32 +246,32 @@ def _handle_node_constraints_reached(
         node_type: str, head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
     # We know this is called in the cluster scaler context
     server_ensemble = _server_ensemble_from_nodes_info(nodes_info)
-    service_uri = "{}:{}".format(
+    endpoint_uri = "{}:{}".format(
         head_info[RUNTIME_NODE_IP], CONSUL_SERVER_RPC_PORT)
 
     for node_info in server_ensemble:
         node_address = "{}:{}".format(
             node_info[RUNTIME_NODE_IP], CONSUL_SERVER_RPC_PORT)
-        if len(service_uri) > 0:
-            service_uri += ","
-        service_uri += node_address
+        if len(endpoint_uri) > 0:
+            endpoint_uri += ","
+        endpoint_uri += node_address
 
-    _publish_service_uri_to_cluster(service_uri)
-    _publish_service_uri_to_workspace(cluster_config, service_uri)
-
-
-def _publish_service_uri_to_cluster(service_uri: str) -> None:
-    publish_cluster_variable("consul-uri", service_uri)
+    _publish_service_endpoint_to_cluster(endpoint_uri)
+    _publish_service_endpoint_to_workspace(cluster_config, endpoint_uri)
 
 
-def _publish_service_uri_to_workspace(cluster_config: Dict[str, Any], service_uri: str) -> None:
+def _publish_service_endpoint_to_cluster(endpoint_uri: str) -> None:
+    publish_cluster_variable("consul-uri", endpoint_uri)
+
+
+def _publish_service_endpoint_to_workspace(cluster_config: Dict[str, Any], endpoint_uri: str) -> None:
     workspace_name = cluster_config["workspace_name"]
     if workspace_name is None:
         return
 
-    service_uris = {"consul-uri": service_uri}
+    service_endpoints = {"consul-uri": endpoint_uri}
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    workspace_provider.publish_global_variables(cluster_config, service_uris)
+    workspace_provider.publish_global_variables(cluster_config, service_endpoints)
 
 
 def _get_consul_minimal_workers(config: Dict[str, Any]):

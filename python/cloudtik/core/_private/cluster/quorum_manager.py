@@ -4,7 +4,7 @@ import logging
 from typing import Optional, List
 
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, RUNTIME_NODE_ID, \
-    RUNTIME_NODE_QUORUM_JOIN
+    RUNTIME_NODE_QUORUM_JOIN, RUNTIME_NODE_QUORUM_ID
 from cloudtik.core._private.state.kv_store import kv_put
 from cloudtik.core._private.utils import _get_node_constraints_for_node_type, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE, \
     _notify_node_constraints_reached
@@ -61,7 +61,20 @@ class QuorumManager:
 
     def update(self, non_terminated_nodes):
         self.non_terminated_nodes = non_terminated_nodes
+        if not self.node_constraints_by_node_type:
+            # No need
+            return
         self._collect_quorum_nodes()
+
+    def remove_terminating_nodes(self, terminating_nodes: List[str]):
+        # called when there are nodes removed for termination
+        if not self.node_constraints_by_node_type:
+            # No need
+            return
+
+        # update the collected quorum nodes and nodes info
+        self._update_quorum_nodes(terminating_nodes)
+        self._update_nodes_info(terminating_nodes)
 
     def _collect_node_constraints(self):
         # Push global runtime config
@@ -93,12 +106,21 @@ class QuorumManager:
             node_info = {RUNTIME_NODE_IP: self.provider.internal_ip(node_id)}
             if CLOUDTIK_TAG_NODE_SEQ_ID in tags:
                 node_info[RUNTIME_NODE_SEQ_ID] = int(tags[CLOUDTIK_TAG_NODE_SEQ_ID])
+            if CLOUDTIK_TAG_QUORUM_ID in tags:
+                node_info[RUNTIME_NODE_QUORUM_ID] = tags[CLOUDTIK_TAG_QUORUM_ID]
             if CLOUDTIK_TAG_QUORUM_JOIN in tags:
                 node_info[RUNTIME_NODE_QUORUM_JOIN] = tags[CLOUDTIK_TAG_QUORUM_JOIN]
 
             nodes_info[node_id] = node_info
 
-        return nodes_info_of_node_type
+        self.nodes_info_by_node_type = nodes_info_of_node_type
+
+    def _update_nodes_info(self, removed_nodes: List[str]):
+        # for each node type look into the map and remove it if there is one
+        for node_id in removed_nodes:
+            for nodes_info in self.nodes_info_by_node_type.values():
+                # this is dict
+                nodes_info.pop(node_id, None)
 
     def wait_for_update(self):
         if not self.node_constraints_by_node_type:
@@ -106,7 +128,8 @@ class QuorumManager:
             return False
 
         # Make sure only minimal requirement > 0 will appear in self.node_constraints_by_node_type
-        self.nodes_info_by_node_type = self._collect_nodes_info()
+        self._collect_nodes_info()
+
         for node_type in self.node_constraints_by_node_type:
             node_constraints = self.node_constraints_by_node_type[node_type]
             if node_type not in self.nodes_info_by_node_type:
@@ -158,21 +181,30 @@ class QuorumManager:
 
     def _publish_nodes(
             self, node_type: str, nodes_info, node_constraints,
-            form_quorum=True, quorum_id=None):
-        nodes_info_data = json.dumps(nodes_info, sort_keys=True)
+            quorum_id=None):
+        nodes_info_to_publish = nodes_info
+        quorum_nodes = None
+        if not quorum_id and self._is_quorum_node_constraints(node_type):
+            # Try using the new nodes form a new quorum
+            quorum_nodes = self._form_new_quorum(node_type, nodes_info)
+            if quorum_nodes:
+                nodes_info_to_publish = quorum_nodes
+
+        nodes_info_data = json.dumps(nodes_info_to_publish, sort_keys=True)
 
         hasher = hashlib.sha1()
         hasher.update(nodes_info_data.encode("utf-8"))
         new_nodes_info_hash = hasher.hexdigest()
 
+        if quorum_nodes:
+            # Commit the new quorum with the quorum id from quorum nodes info digest
+            quorum_id = self._commit_quorum(
+                node_type, quorum_nodes, new_nodes_info_hash)
+
         published_nodes_info_hash = self.published_nodes_info_hashes.get(node_type)
         if published_nodes_info_hash and new_nodes_info_hash == published_nodes_info_hash:
             return False
         self.published_nodes_info_hashes[node_type] = new_nodes_info_hash
-
-        if form_quorum:
-            # Minimal number of the nodes reached, set the quorum id of the new joined nodes
-            quorum_id = self._form_quorum(node_type, new_nodes_info_hash)
 
         if quorum_id:
             logger.info(
@@ -204,7 +236,7 @@ class QuorumManager:
 
         return self._publish_nodes(
             node_type, nodes_info, node_constraints,
-            form_quorum=False, quorum_id=quorum_id)
+            quorum_id=quorum_id)
 
     def _get_nodes_info_for_quorum(self, node_type: str, quorum_id: str):
         quorum_id_to_nodes = self.quorum_id_to_nodes_by_node_type.get(
@@ -275,32 +307,41 @@ class QuorumManager:
         node_constraints = self.node_constraints_by_node_type[node_type]
         return node_constraints.scalable
 
-    def _form_quorum(self, node_type: str, quorum_id):
-        if not self._is_quorum_node_constraints(node_type):
-            return None
-
-        for node_id in self.non_terminated_nodes.worker_ids:
-            tags = self.provider.node_tags(node_id)
-            this_node_type = tags.get(CLOUDTIK_TAG_USER_NODE_TYPE)
-            if node_type != this_node_type:
-                continue
-            node_quorum_id = tags.get(CLOUDTIK_TAG_QUORUM_ID)
+    def _form_new_quorum(self, node_type, nodes_info):
+        quorum_nodes = {}
+        # form a quorum using the nodes doesn't belong to any existing quorum
+        for node_id, node_info in nodes_info.items():
+            node_quorum_id = node_info.get(RUNTIME_NODE_QUORUM_ID)
             if node_quorum_id:
                 continue
+            quorum_nodes[node_id] = node_info
 
+        quorum, minimal = self._get_quorum_info(node_type)
+        available = len(quorum_nodes)
+        if available >= quorum:
+            # get a new quorum
+            return quorum_nodes
+        else:
+            logger.warning(
+                "Failed to form a new quorum for {}. Nodes available {} while a quorum needs {}.".format(
+                    node_type, available, quorum))
+            return None
+
+    def _commit_quorum(self, node_type: str, quorum_nodes, quorum_id):
+        # For each quorum node, set quorum id
+        for node_id, node_info in quorum_nodes.items():
             # New node, assign the quorum_id
             self.provider.set_node_tags(
                 node_id, {CLOUDTIK_TAG_QUORUM_ID: quorum_id})
-            self._update_quorum_id_to_nodes(
-                node_type, node_quorum_id, node_id)
 
-        # get the running quorum
-        running_quorum_id = self._get_running_quorum(node_type)
-        if quorum_id != running_quorum_id:
-            logger.warning(
-                "The {} running quorum {} doesn't match to the target quorum {}.".format(
-                    node_type, running_quorum_id, quorum_id))
-        return running_quorum_id
+            # Update collected info (nodes info and quorum nodes)
+            node_info[RUNTIME_NODE_QUORUM_ID] = quorum_id
+            self._update_quorum_id_to_nodes(
+                node_type, quorum_id, node_id)
+        logger.info(
+            "Commit a new quorum for node type {} with {} nodes. Quorum id: {}".format(
+                node_type, len(quorum_nodes), quorum_id))
+        return quorum_id
 
     def _get_quorum_info(self, node_type: str):
         node_constraints = self.node_constraints_by_node_type[node_type]
@@ -340,10 +381,6 @@ class QuorumManager:
         quorum_id_nodes.add(node_id)
 
     def _collect_quorum_nodes(self):
-        if not self.node_constraints_by_node_type:
-            # No need
-            return
-
         self.quorum_id_to_nodes_by_node_type = {}
         for node_id in self.non_terminated_nodes.worker_ids:
             tags = self.provider.node_tags(node_id)
@@ -358,6 +395,16 @@ class QuorumManager:
 
             self._update_quorum_id_to_nodes(
                 node_type, node_quorum_id, node_id)
+
+    def _update_quorum_nodes(self, removed_nodes: List[str]):
+        # for each node type and quorum id
+        # look into the map and remove it if there is one
+        for node_id in removed_nodes:
+            # we assume this two for loop below is short
+            for quorum_id_to_nodes in self.quorum_id_to_nodes_by_node_type.values():
+                for quorum_nodes in quorum_id_to_nodes.values():
+                    # this is a set
+                    quorum_nodes.discard(node_id)
 
     def _get_running_quorum(self, node_type: str):
         quorum, minimal = self._get_quorum_info(node_type)

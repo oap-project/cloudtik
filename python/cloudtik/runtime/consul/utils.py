@@ -3,9 +3,11 @@ import json
 import os
 from typing import Any, Dict
 
+from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL, _get_runtime
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
-    get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP
+    get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, subscribe_nodes_info, sort_nodes_by_seq_id, \
+    load_and_save_json
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_NODE_KIND, \
     SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_NODE_KIND_WORKER, SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_META, SERVICE_DISCOVERY_META_RUNTIME, \
@@ -14,6 +16,7 @@ from cloudtik.core._private.utils import \
     publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
     RUNTIME_CONFIG_KEY, get_config_for_update
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
+from cloudtik.core.tags import QUORUM_JOIN_STATUS_INIT
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -54,10 +57,10 @@ def _get_consul_config_for_update(cluster_config):
     return get_config_for_update(runtime_config, CONSUL_RUNTIME_CONFIG_KEY)
 
 
-def _to_joint_list(sever_uri):
+def _to_joint_list(endpoint_uri):
     hosts = []
     port = CONSUL_SERVER_RPC_PORT
-    host_port_list = [x.strip() for x in sever_uri.split(",")]
+    host_port_list = [x.strip() for x in endpoint_uri.split(",")]
     for host_port in host_port_list:
         parts = [x.strip() for x in host_port.split(":")]
         n = len(parts)
@@ -68,10 +71,10 @@ def _to_joint_list(sever_uri):
             port = int(parts[1])
         else:
             raise ValueError(
-                "Invalid Consul server uri: {}".format(sever_uri))
+                "Invalid Consul endpoint uri: {}".format(endpoint_uri))
         hosts.append(host)
 
-    join_list = ",".join(['"{}"'.format(host) for host in hosts])
+    join_list = ",".join(hosts)
     return join_list, port
 
 
@@ -264,7 +267,8 @@ def _publish_service_endpoint_to_cluster(endpoint_uri: str) -> None:
     publish_cluster_variable("consul-uri", endpoint_uri)
 
 
-def _publish_service_endpoint_to_workspace(cluster_config: Dict[str, Any], endpoint_uri: str) -> None:
+def _publish_service_endpoint_to_workspace(
+        cluster_config: Dict[str, Any], endpoint_uri: str) -> None:
     workspace_name = cluster_config["workspace_name"]
     if workspace_name is None:
         return
@@ -300,6 +304,72 @@ def _get_services_of_node_type(runtime_config, node_type):
     if not services_map:
         return None
     return services_map.get(node_type)
+
+
+###################################
+# Calls from node when configuring
+###################################
+
+
+def configure_join(head):
+    consul_server = os.environ.get("CONSUL_SERVER")
+    server_mode = True if consul_server == "true" else False
+    _configure_join_list(server_mode, head)
+
+    if server_mode:
+        quorum_join = os.environ.get(CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN)
+        if quorum_join == QUORUM_JOIN_STATUS_INIT:
+            _update_server_config_for_join()
+
+
+def _configure_join_list(server_mode, head):
+    # Configure the retry join list for all the cases
+
+    if server_mode:
+        # join list for servers, we use the head
+        if head:
+            # for head, use its own address
+            node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_IP)
+            if not node_ip:
+                raise RuntimeError("Missing node ip environment variable for the running node.")
+            join_list = [node_ip]
+        else:
+            # getting from the quorum nodes info
+            join_list = _get_join_list_from_nodes_info()
+    else:
+        # client mode, get from the CONSUL_JOIN_LIST environments
+        join_list_str = os.environ.get("CONSUL_JOIN_LIST")
+        if not join_list_str:
+            raise RuntimeError("Missing join list environment variable for the running node.")
+        join_list = join_list_str.split(',')
+
+    _update_join_list_config(join_list)
+
+
+def _get_join_list_from_nodes_info():
+    nodes_info = subscribe_nodes_info()
+    join_nodes = sort_nodes_by_seq_id(nodes_info)
+    return [node[RUNTIME_NODE_IP] for node in join_nodes]
+
+
+def _update_join_list_config(join_list):
+    home_dir = _get_home_dir()
+    config_file = os.path.join(home_dir, "consul.d", "consul.json")
+
+    def update_retry_join(config_object):
+        config_object["retry_join"] = join_list
+
+    load_and_save_json(config_file, update_retry_join)
+
+
+def _update_server_config_for_join():
+    home_dir = _get_home_dir()
+    config_file = os.path.join(home_dir, "consul.d", "server.json")
+
+    def update_server_config(config_object):
+        config_object.pop("bootstrap_expect", None)
+
+    load_and_save_json(config_file, update_server_config)
 
 
 def configure_services(head):

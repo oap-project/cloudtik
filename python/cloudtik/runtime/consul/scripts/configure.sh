@@ -30,26 +30,6 @@ function check_consul_installed() {
     fi
 }
 
-function update_join_list() {
-    if [ "${CONSUL_SERVER}" == "true" ]; then
-        # join list for servers, we use the head
-        if [ $IS_HEAD_NODE == "true" ]; then
-            # for head, use its own address
-            JOIN_LIST="\"${NODE_IP_ADDRESS}\""
-        else
-            JOIN_LIST="\"${HEAD_ADDRESS}\""
-        fi
-    else
-        # for client mode cluster, CONSUL_JOIN_LIST will be set by runtime
-        if [ -z  "${CONSUL_JOIN_LIST}" ]; then
-            echo "WARNING: CONSUL_JOIN_LIST is empty. It should be set."
-        fi
-
-        JOIN_LIST=${CONSUL_JOIN_LIST}
-    fi
-    sed -i "s#{%join.list%}#${JOIN_LIST}#g" ${consul_output_dir}/consul.hcl
-}
-
 function update_consul_data_dir() {
     data_disk_dir=$(get_any_data_disk_dir)
     if [ -z "$data_disk_dir" ]; then
@@ -59,7 +39,7 @@ function update_consul_data_dir() {
     fi
 
     mkdir -p ${consul_data_dir}
-    sed -i "s!{%data.dir%}!${consul_data_dir}!g" ${consul_output_dir}/consul.hcl
+    sed -i "s!{%data.dir%}!${consul_data_dir}!g" ${consul_output_dir}/consul.json
 }
 
 function update_ui_config() {
@@ -68,7 +48,7 @@ function update_ui_config() {
     else
         UI_ENABLED=false
     fi
-    sed -i "s!{%ui.config.enabled%}!${UI_ENABLED}!g" ${consul_output_dir}/server.hcl
+    sed -i "s!{%ui.enabled%}!${UI_ENABLED}!g" ${consul_output_dir}/server.json
 }
 
 function configure_consul() {
@@ -78,8 +58,8 @@ function configure_consul() {
 
     mkdir -p ${CONSUL_HOME}/logs
 
-    # General agent configuration
-    sed -i "s!{%bind.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.hcl
+    # General agent configuration. retry_join will be set in python script
+    sed -i "s!{%bind.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.json
 
     if [ "${CONSUL_SERVER}" == "true" ]; then
         # client address bind to both node ip and local host
@@ -88,28 +68,28 @@ function configure_consul() {
         # bind to local host for client
         CLIENT_ADDRESS="127.0.0.1"
     fi
-    sed -i "s!{%client.address%}!${CLIENT_ADDRESS}!g" ${consul_output_dir}/consul.hcl
-    update_join_list
+    sed -i "s!{%client.address%}!${CLIENT_ADDRESS}!g" ${consul_output_dir}/consul.json
+
     update_consul_data_dir
 
     if [ "${CONSUL_SERVER}" == "true" ]; then
         # Server agent configuration
-        sed -i "s!{%server.number%}!${CONSUL_NUM_SERVERS}!g" ${consul_output_dir}/server.hcl
+        sed -i "s!{%number.servers%}!${CONSUL_NUM_SERVERS}!g" ${consul_output_dir}/server.json
         update_ui_config
     fi
 
     CONSUL_CONFIG_DIR=${CONSUL_HOME}/consul.d
     mkdir -p ${CONSUL_CONFIG_DIR}
-    cp -r ${consul_output_dir}/consul.hcl ${CONSUL_CONFIG_DIR}/consul.hcl
+    cp -r ${consul_output_dir}/consul.json ${CONSUL_CONFIG_DIR}/consul.json
 
     if [ "${CONSUL_SERVER}" == "true" ]; then
-        cp -r ${consul_output_dir}/server.hcl ${CONSUL_CONFIG_DIR}/server.hcl
+        cp -r ${consul_output_dir}/server.json ${CONSUL_CONFIG_DIR}/server.json
     fi
 
-    chmod 640 ${CONSUL_CONFIG_DIR}/consul.hcl
+    chmod 640 ${CONSUL_CONFIG_DIR}/consul.json
 
     if [ "${CONSUL_SERVER}" == "true" ]; then
-        chmod 640 ${CONSUL_CONFIG_DIR}/server.hcl
+        chmod 640 ${CONSUL_CONFIG_DIR}/server.json
     fi
 }
 

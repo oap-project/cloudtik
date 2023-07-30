@@ -1,0 +1,7 @@
+{
+    "server": true,
+    "bootstrap_expect": {%number.servers%},
+    "ui_config": {
+      "enabled": {%ui.enabled%}
+    }
+}

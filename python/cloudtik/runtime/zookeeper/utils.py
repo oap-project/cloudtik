@@ -1,7 +1,8 @@
 import os
 from typing import Any, Dict, List
 
-from cloudtik.core._private.runtime_utils import subscribe_runtime_config, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP
+from cloudtik.core._private.runtime_utils import subscribe_runtime_config, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, \
+    sort_nodes_by_seq_id
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_PROTOCOL_TCP, SERVICE_DISCOVERY_NODE_KIND_WORKER, \
     get_canonical_service_name
@@ -47,27 +48,11 @@ def _get_runtime_endpoints(cluster_head_ip):
     return None
 
 
-def _server_ensemble_from_nodes_info(nodes_info: Dict[str, Any]):
-    server_ensemble = []
-    for node_id, node_info in nodes_info.items():
-        if RUNTIME_NODE_IP not in node_info:
-            raise RuntimeError("Missing node ip for node {}.".format(node_id))
-        if RUNTIME_NODE_SEQ_ID not in node_info:
-            raise RuntimeError("Missing node sequence id for node {}.".format(node_id))
-        server_ensemble += [node_info]
-
-    def node_info_sort(node_info):
-        return node_info[RUNTIME_NODE_SEQ_ID]
-
-    server_ensemble.sort(key=node_info_sort)
-    return server_ensemble
-
-
 def _handle_node_constraints_reached(
         runtime_config: Dict[str, Any], cluster_config: Dict[str, Any],
         node_type: str, head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
     # We know this is called in the cluster scaler context
-    server_ensemble = _server_ensemble_from_nodes_info(nodes_info)
+    server_ensemble = sort_nodes_by_seq_id(nodes_info)
     endpoint_uri = ""
 
     for node_info in server_ensemble:
@@ -146,7 +131,7 @@ def configure_server_ensemble(nodes_info: Dict[str, Any]):
     if nodes_info is None:
         raise RuntimeError("Missing nodes info for configuring server ensemble.")
 
-    server_ensemble = _server_ensemble_from_nodes_info(nodes_info)
+    server_ensemble = sort_nodes_by_seq_id(nodes_info)
     _write_server_ensemble(server_ensemble)
 
 

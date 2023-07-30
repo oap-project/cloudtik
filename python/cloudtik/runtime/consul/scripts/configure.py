@@ -1,6 +1,6 @@
 import argparse
 
-from cloudtik.runtime.consul.utils import configure_services
+from cloudtik.runtime.consul.utils import configure_join, configure_services
 
 
 def main():
@@ -10,7 +10,10 @@ def main():
                         help='Configuring for head node.')
     args = parser.parse_args()
 
-    # Configure the Consul services for head
+    # configure join
+    configure_join(args.head)
+
+    # Configure the Consul services
     configure_services(args.head)
 
 

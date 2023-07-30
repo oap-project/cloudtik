@@ -283,8 +283,8 @@ class QuorumManager:
                 # if there is a running quorum
                 if self._is_quorum_scalable(node_type):
                     # check the pending launches and in progress quorum joins
-                    pending_launchers = self.pending_launches.breakdown()
-                    if pending_launchers.get(node_type, 0) > 0 or self._is_quorum_join_in_progress(node_type):
+                    if (self.pending_launches and self.pending_launches.get(
+                            node_type, 0) > 0) or self._is_quorum_join_in_progress(node_type):
                         logger.info(
                             "Cluster Controller: Node in progress of quorum join. "
                             "Pause launching new nodes for type: {}.".format(

@@ -3566,6 +3566,8 @@ def _scale_cluster_on_head(
         bundles=bundles,
         config=config)
 
+    cli_logger.print("Scale request submitted successfully.")
+
 
 def _get_resource_requests():
     data = kv_get(CLOUDTIK_RESOURCE_REQUESTS)

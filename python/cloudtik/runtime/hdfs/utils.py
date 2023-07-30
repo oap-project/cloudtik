@@ -29,18 +29,18 @@ def _get_config(runtime_config: Dict[str, Any]):
     return runtime_config.get(HDFS_RUNTIME_CONFIG_KEY, {})
 
 
-def publish_service_uri(cluster_config: Dict[str, Any], head_node_id: str) -> None:
+def publish_service_endpoint(cluster_config: Dict[str, Any], head_node_id: str) -> None:
     workspace_name = cluster_config.get("workspace_name")
     if workspace_name is None:
         return
 
     provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
     head_internal_ip = provider.internal_ip(head_node_id)
-    service_uris = {"hdfs-namenode-uri": "hdfs://{}:{}".format(
+    service_endpoints = {"hdfs-namenode-uri": "hdfs://{}:{}".format(
         head_internal_ip, HDFS_SERVICE_PORT)}
 
     workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    workspace_provider.publish_global_variables(cluster_config, service_uris)
+    workspace_provider.publish_global_variables(cluster_config, service_endpoints)
 
 
 def _get_runtime_processes():

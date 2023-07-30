@@ -3,7 +3,8 @@ import json
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN
+from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN, \
+    CLOUDTIK_RUNTIME_ENV_HEAD_IP
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL, _get_runtime
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
     get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, subscribe_nodes_info, sort_nodes_by_seq_id, \
@@ -349,7 +350,13 @@ def _configure_join_list(server_mode, head):
 def _get_join_list_from_nodes_info():
     nodes_info = subscribe_nodes_info()
     join_nodes = sort_nodes_by_seq_id(nodes_info)
-    return [node[RUNTIME_NODE_IP] for node in join_nodes]
+    head_node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_HEAD_IP)
+    if not head_node_ip:
+        raise RuntimeError("Missing head node ip environment variable for the running node.")
+
+    join_list = [head_node_ip]
+    join_list += [node[RUNTIME_NODE_IP] for node in join_nodes]
+    return join_list
 
 
 def _update_join_list_config(join_list):

@@ -326,7 +326,7 @@ def _configure_join_list(server_mode, head):
     # Configure the retry join list for all the cases
 
     if server_mode:
-        # join list for servers, we use the head
+        # join list for servers
         if head:
             # for head, use its own address
             node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_IP)

@@ -598,6 +598,8 @@ class ClusterScaler:
         # Update internal node lists
         self.non_terminated_nodes.remove_terminating_nodes(
             self.nodes_to_terminate)
+        self.quorum_manager.remove_terminating_nodes(
+            self.nodes_to_terminate)
 
         self.nodes_to_terminate = []
 

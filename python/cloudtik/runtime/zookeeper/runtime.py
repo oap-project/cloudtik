@@ -36,7 +36,7 @@ class ZooKeeperRuntime(RuntimeBase):
         """Whether the runtime nodes need minimal nodes launch before going to setup.
         Usually this is because the setup of the nodes need to know each other.
         """
-        return True, True, False
+        return True, True, True
 
     def node_constraints_reached(
             self, cluster_config: Dict[str, Any], node_type: str,

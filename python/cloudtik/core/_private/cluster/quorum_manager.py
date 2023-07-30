@@ -172,7 +172,7 @@ class QuorumManager:
 
         if form_quorum:
             # Minimal number of the nodes reached, set the quorum id of the new joined nodes
-            quorum_id = self._form_a_quorum(node_type, new_nodes_info_hash)
+            quorum_id = self._form_quorum(node_type, new_nodes_info_hash)
 
         if quorum_id:
             logger.info(
@@ -242,7 +242,7 @@ class QuorumManager:
 
     def is_launch_allowed(self, node_type: str):
         if self._has_node_constraints(node_type) and (
-                self._has_quorum_node_constraints(node_type)):
+                self._is_quorum_node_constraints(node_type)):
             running_quorum = self._get_running_quorum(node_type)
             if running_quorum:
                 # if there is a running quorum
@@ -266,7 +266,7 @@ class QuorumManager:
             return False
         return True
 
-    def _has_quorum_node_constraints(self, node_type: str):
+    def _is_quorum_node_constraints(self, node_type: str):
         node_constraints = self.node_constraints_by_node_type[node_type]
         return node_constraints.quorum
 
@@ -275,8 +275,8 @@ class QuorumManager:
         node_constraints = self.node_constraints_by_node_type[node_type]
         return node_constraints.scalable
 
-    def _form_a_quorum(self, node_type: str, quorum_id):
-        if not self._has_quorum_node_constraints(node_type):
+    def _form_quorum(self, node_type: str, quorum_id):
+        if not self._is_quorum_node_constraints(node_type):
             return None
 
         for node_id in self.non_terminated_nodes.worker_ids:
@@ -302,7 +302,7 @@ class QuorumManager:
                     node_type, running_quorum_id, quorum_id))
         return running_quorum_id
 
-    def _get_quorum(self, node_type: str):
+    def _get_quorum_info(self, node_type: str):
         node_constraints = self.node_constraints_by_node_type[node_type]
         minimal = node_constraints.minimal
         quorum = int(minimal / 2) + 1
@@ -310,10 +310,10 @@ class QuorumManager:
 
     def terminate_for_quorum(self, node_type: str, node_id):
         if (not self._has_node_constraints(node_type)) or (
-                not self._has_quorum_node_constraints(node_type)):
+                not self._is_quorum_node_constraints(node_type)):
             return False
 
-        quorum, minimal = self._get_quorum(node_type)
+        quorum, minimal = self._get_quorum_info(node_type)
         # Check whether the node is an invalid quorum member
         quorum_id_to_nodes = self.quorum_id_to_nodes_by_node_type.get(
             node_type, {})
@@ -360,7 +360,7 @@ class QuorumManager:
                 node_type, node_quorum_id, node_id)
 
     def _get_running_quorum(self, node_type: str):
-        quorum, minimal = self._get_quorum(node_type)
+        quorum, minimal = self._get_quorum_info(node_type)
         # Only when a quorum of the minimal nodes dead,
         # we can launch new nodes and form a new quorum
         quorum_id_to_nodes = self.quorum_id_to_nodes_by_node_type.get(

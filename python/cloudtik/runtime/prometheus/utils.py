@@ -1,18 +1,23 @@
+import os
 from typing import Any, Dict
 
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
-    SERVICE_DISCOVERY_PROTOCOL_TCP, get_canonical_service_name
+    SERVICE_DISCOVERY_PROTOCOL_TCP, get_canonical_service_name, SERVICE_DISCOVERY_NODE_KIND_NODE, \
+    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD
 
 RUNTIME_PROCESSES = [
-    # The first element is the substring to filter.
-    # The second element, if True, is to filter ps results by command name.
-    # The third element is the process name.
-    # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["prometheus", True, "Prometheus", "node"],
-]
+        # The first element is the substring to filter.
+        # The second element, if True, is to filter ps results by command name.
+        # The third element is the process name.
+        # The forth element, if node, the process should on all nodes,if head, the process should on head node.
+        ["prometheus", True, "Prometheus", "node"],
+        ["node_exporter", True, "Node Metrics", "node"],
+    ]
+
 
 PROMETHEUS_RUNTIME_CONFIG_KEY = "prometheus"
 PROMETHEUS_SERVICE_PORT_CONFIG_KEY = "port"
+PROMETHEUS_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
 
 PROMETHEUS_SERVICE_NAME = "prometheus"
 PROMETHEUS_SERVICE_PORT_DEFAULT = 9090
@@ -27,8 +32,23 @@ def _get_service_port(prometheus_config: Dict[str, Any]):
         PROMETHEUS_SERVICE_PORT_CONFIG_KEY, PROMETHEUS_SERVICE_PORT_DEFAULT)
 
 
+def _is_high_availability(prometheus_config: Dict[str, Any]):
+    return prometheus_config.get(
+        PROMETHEUS_HIGH_AVAILABILITY_CONFIG_KEY, False)
+
+
+def _get_home_dir():
+    return os.path.join(os.getenv("HOME"), "runtime", PROMETHEUS_SERVICE_NAME)
+
+
 def _get_runtime_processes():
     return RUNTIME_PROCESSES
+
+
+def _get_runtime_logs():
+    home_dir = _get_home_dir()
+    logs_dir = os.path.join(home_dir, "logs")
+    return {"prometheus": logs_dir}
 
 
 def _with_runtime_environment_variables(
@@ -39,6 +59,10 @@ def _with_runtime_environment_variables(
     prometheus_config = _get_config(runtime_config)
     service_port = _get_service_port(prometheus_config)
     runtime_envs["PROMETHEUS_SERVICE_PORT"] = service_port
+
+    high_availability = _is_high_availability(prometheus_config)
+    if high_availability:
+        runtime_envs["PROMETHEUS_HIGH_AVAILABILITY"] = high_availability
 
     return runtime_envs
 
@@ -77,6 +101,9 @@ def _get_runtime_services(
         service_name: {
             SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
             SERVICE_DISCOVERY_PORT: service_port,
+            SERVICE_DISCOVERY_NODE_KIND:
+                SERVICE_DISCOVERY_NODE_KIND_NODE if _is_high_availability(
+                    prometheus_config) else SERVICE_DISCOVERY_NODE_KIND_HEAD
         },
     }
     return services

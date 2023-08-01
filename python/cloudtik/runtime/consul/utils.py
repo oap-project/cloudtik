@@ -9,10 +9,10 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL, _get
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
     get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, subscribe_nodes_info, sort_nodes_by_seq_id, \
     load_and_save_json
-from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_NODE_KIND, \
-    SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_NODE_KIND_WORKER, SERVICE_DISCOVERY_PORT, \
+from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_META, SERVICE_DISCOVERY_META_RUNTIME, \
-    SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_META_CLUSTER
+    SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_META_CLUSTER, \
+    match_service_node
 from cloudtik.core._private.utils import \
     publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
     RUNTIME_CONFIG_KEY, get_config_for_update
@@ -102,18 +102,6 @@ def _bootstrap_join_list(cluster_config: Dict[str, Any]):
     return cluster_config
 
 
-def _match_service_type(runtime_service, head):
-    node_kind = runtime_service.get(SERVICE_DISCOVERY_NODE_KIND)
-    if head:
-        if not node_kind or node_kind == SERVICE_DISCOVERY_NODE_KIND_HEAD:
-            return True
-    else:
-        if not node_kind or node_kind == SERVICE_DISCOVERY_NODE_KIND_WORKER:
-            return True
-
-    return False
-
-
 def _bootstrap_runtime_services(config: Dict[str, Any]):
     # for all the runtimes, query its services per node type
     services_map = {}
@@ -139,7 +127,7 @@ def _bootstrap_runtime_services(config: Dict[str, Any]):
                 continue
 
             for service_name, runtime_service in services.items():
-                if _match_service_type(runtime_service, head):
+                if match_service_node(runtime_service, head):
                     # conversion between the data formats
                     service_config = _generate_service_config(
                         cluster_name, runtime_type, runtime_service)

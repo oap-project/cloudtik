@@ -37,16 +37,19 @@ function update_local_target() {
         SERVICE_PORT=${PROMETHEUS_SERVICE_PORT}
     fi
     PROMETHEUS_LISTEN_ADDRESS="${NODE_IP_ADDRESS}:${SERVICE_PORT}"
-    sed -i "s#{%local.target.address%}#${PROMETHEUS_LISTEN_ADDRESS}#g" ${config_template_file}
+    sed -i "s#{%self.target.address%}#${PROMETHEUS_LISTEN_ADDRESS}#g" ${config_template_file}
+
+    PROMETHEUS_NODE_EXPORTER_ADDRESS="${NODE_IP_ADDRESS}:9100"
+    sed -i "s#{%node.target.address%}#${PROMETHEUS_NODE_EXPORTER_ADDRESS}#g" ${config_template_file}
 }
 
 function configure_prometheus() {
     prepare_base_conf
     cd $output_dir
     prometheus_output_dir=$output_dir
-
     config_template_file=${output_dir}/prometheus.yaml
 
+    mkdir -p ${PROMETHEUS_HOME}/logs
     update_local_target
 
     PROMETHEUS_CONFIG_DIR=${PROMETHEUS_HOME}/conf

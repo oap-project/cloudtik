@@ -30,27 +30,30 @@ function get_data_dir() {
 
 case "$SERVICE_COMMAND" in
 start)
-    PROMETHEUS_CONFIG_FILE=${PROMETHEUS_HOME}/conf/prometheus.yaml
-    PROMETHEUS_DATA_PATH=$(get_data_dir)
-    SERVICE_PORT=9090
-    if [ ! -z "${PROMETHEUS_SERVICE_PORT}" ]; then
-        SERVICE_PORT=${PROMETHEUS_SERVICE_PORT}
+    if [ "${PROMETHEUS_HIGH_AVAILABILITY}" == "true" ] || [ "${IS_HEAD_NODE}" == "true" ]; then
+        PROMETHEUS_CONFIG_FILE=${PROMETHEUS_HOME}/conf/prometheus.yaml
+        PROMETHEUS_DATA_PATH=$(get_data_dir)
+        SERVICE_PORT=9090
+        if [ ! -z "${PROMETHEUS_SERVICE_PORT}" ]; then
+            SERVICE_PORT=${PROMETHEUS_SERVICE_PORT}
+        fi
+        PROMETHEUS_LISTEN_ADDRESS="${NODE_IP_ADDRESS}:${SERVICE_PORT}"
+        nohup ${PROMETHEUS_HOME}/prometheus \
+          --config.file=${PROMETHEUS_CONFIG_FILE} \
+          --storage.tsdb.path=${PROMETHEUS_DATA_PATH} \
+          --web.listen-address=${PROMETHEUS_LISTEN_ADDRESS} \
+          --web.enable-lifecycle >${PROMETHEUS_HOME}/logs/prometheus.log 2>&1 &
     fi
-    PROMETHEUS_LISTEN_ADDRESS="${NODE_IP_ADDRESS}:${SERVICE_PORT}"
-    nohup ${PROMETHEUS_HOME}/prometheus \
-      --config.file=${PROMETHEUS_CONFIG_FILE} \
-      --storage.tsdb.path=${PROMETHEUS_DATA_PATH} \
-      --web.listen-address=${PROMETHEUS_LISTEN_ADDRESS} \
-      --web.enable-lifecycle >/dev/null 2>&1 &
+
+    NODE_EXPORTER_ADDRESS="${NODE_IP_ADDRESS}:9100"
+    nohup ${PROMETHEUS_HOME}/node_exporter/node_exporter \
+          --web.listen-address=${NODE_EXPORTER_ADDRESS} >${PROMETHEUS_HOME}/logs/node_exporter.log 2>&1 &
     ;;
 stop)
-    # Stop prometheus
-    PROMETHEUS_PID=$(pgrep prometheus)
-    if [ -n "${PROMETHEUS_PID}" ]; then
-      echo "Stopping prometheus..."
-      # SIGTERM = 15
-      kill -15 ${PROMETHEUS_PID} >/dev/null 2>&1
+    if [ "${PROMETHEUS_HIGH_AVAILABILITY}" == "true" ] || [ "${IS_HEAD_NODE}" == "true" ]; then
+        stop_process_by_name "prometheus"
     fi
+    stop_process_by_name "node_exporter"
     ;;
 -h|--help)
     echo "Usage: $0 start|stop --head" >&2

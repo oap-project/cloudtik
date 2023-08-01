@@ -35,5 +35,9 @@ class PrometheusRuntime(RuntimeBase):
         return _get_runtime_services(self.runtime_config, cluster_name)
 
     @staticmethod
+    def get_logs() -> Dict[str, str]:
+        return _get_runtime_logs()
+
+    @staticmethod
     def get_processes():
         return _get_runtime_processes()

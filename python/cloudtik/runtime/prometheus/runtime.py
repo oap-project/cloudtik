@@ -4,7 +4,8 @@ from typing import Any, Dict
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.prometheus.utils import _get_runtime_processes, \
-    _get_runtime_endpoints, _get_head_service_ports, _get_runtime_services, _with_runtime_environment_variables
+    _get_runtime_endpoints, _get_head_service_ports, _get_runtime_services, _with_runtime_environment_variables, \
+    _get_runtime_logs
 
 logger = logging.getLogger(__name__)
 

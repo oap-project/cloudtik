@@ -44,7 +44,6 @@ function update_data_dir() {
 
 function configure_etcd() {
     prepare_base_conf
-    cd $output_dir
 
     ETC_LOG_DIR=${ETCD_HOME}/logs
     mkdir -p ${ETC_LOG_DIR}

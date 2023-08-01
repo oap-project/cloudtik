@@ -19,7 +19,7 @@ SSH_DEFAULT_PRIVATE_KEY_FILE=${SSH_CONFIG_HOME}/id_rsa
 BOOTSTRAP_PRIVATE_KEY_FILE=${USER_HOME}/cloudtik_bootstrap_key.pem
 
 function prepare_base_conf() {
-    source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
+    source_dir=$(dirname "${BIN_DIR}")/conf
     output_dir=/tmp/ssh_server/conf
     rm -rf  $output_dir
     mkdir -p $output_dir

@@ -56,7 +56,6 @@ function configure_haproxy_with_consul_dns() {
 
 function configure_haproxy() {
     prepare_base_conf
-    cd $output_dir
     haproxy_output_dir=$output_dir
 
     if [ "${HAPROXY_CONFIG_MODE}" == "CONSUL-DNS" ]; then

@@ -14,7 +14,7 @@ RUNTIME_PATH=$USER_HOME/runtime
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function prepare_base_conf() {
-    source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
+    source_dir=$(dirname "${BIN_DIR}")/conf
     output_dir=/tmp/ray/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
@@ -31,7 +31,6 @@ function check_ray_installed() {
 
 function configure_ray() {
     prepare_base_conf
-    cd $output_dir
 }
 
 set_head_option "$@"

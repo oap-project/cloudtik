@@ -14,7 +14,7 @@ RUNTIME_PATH=$USER_HOME/runtime
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function prepare_base_conf() {
-    source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
+    source_dir=$(dirname "${BIN_DIR}")/conf
     output_dir=/tmp/zookeeper/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
@@ -61,7 +61,6 @@ function update_myid() {
 function configure_zookeeper() {
     prepare_base_conf
     mkdir -p ${ZOOKEEPER_HOME}/logs
-    cd $output_dir
 
     update_zookeeper_data_disks_config
     # Zookeeper server ensemble will be updated in up-level of configure

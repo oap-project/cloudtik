@@ -30,31 +30,17 @@ function check_prometheus_installed() {
     fi
 }
 
-function update_local_target() {
-    # scrape myself
-    SERVICE_PORT=9090
-    if [ ! -z "${PROMETHEUS_SERVICE_PORT}" ]; then
-        SERVICE_PORT=${PROMETHEUS_SERVICE_PORT}
-    fi
-    PROMETHEUS_LISTEN_ADDRESS="${NODE_IP_ADDRESS}:${SERVICE_PORT}"
-    sed -i "s#{%self.target.address%}#${PROMETHEUS_LISTEN_ADDRESS}#g" ${config_template_file}
-
-    PROMETHEUS_NODE_EXPORTER_ADDRESS="${NODE_IP_ADDRESS}:9100"
-    sed -i "s#{%node.target.address%}#${PROMETHEUS_NODE_EXPORTER_ADDRESS}#g" ${config_template_file}
-}
-
-function configure_prometheus() {
+function update_home_dir() {
     prepare_base_conf
-    cd $output_dir
     prometheus_output_dir=$output_dir
     config_template_file=${output_dir}/prometheus.yaml
 
     mkdir -p ${PROMETHEUS_HOME}/logs
-    update_local_target
+    sed -i "s#{%prometheus.home%}#${PROMETHEUS_HOME}#g" `grep "{%prometheus.home%}" -rl ${output_dir}`
 
     PROMETHEUS_CONFIG_DIR=${PROMETHEUS_HOME}/conf
     mkdir -p ${PROMETHEUS_CONFIG_DIR}
-    cp -r ${config_template_file} ${PROMETHEUS_CONFIG_DIR}/prometheus.yaml
+    cp -r $output_dir/* ${PROMETHEUS_CONFIG_DIR}/
 }
 
 set_head_option "$@"

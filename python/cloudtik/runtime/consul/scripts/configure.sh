@@ -53,7 +53,6 @@ function update_ui_config() {
 
 function configure_consul() {
     prepare_base_conf
-    cd $output_dir
     consul_output_dir=$output_dir/consul
 
     mkdir -p ${CONSUL_HOME}/logs

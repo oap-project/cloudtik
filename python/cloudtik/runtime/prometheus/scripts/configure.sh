@@ -22,7 +22,6 @@ function prepare_base_conf() {
     cp -r $source_dir/* $output_dir
 }
 
-
 function check_prometheus_installed() {
     if ! command -v prometheus &> /dev/null
     then
@@ -36,8 +35,8 @@ function update_local_target() {
     SERVICE_PORT=9090
     if [ ! -z "${PROMETHEUS_SERVICE_PORT}" ]; then
         SERVICE_PORT=${PROMETHEUS_SERVICE_PORT}
-    if
-    PROMETHEUS_LISTEN_ADDRESS=${NODE_IP_ADDRESS}:${SERVICE_PORT}
+    fi
+    PROMETHEUS_LISTEN_ADDRESS="${NODE_IP_ADDRESS}:${SERVICE_PORT}"
     sed -i "s#{%local.target.address%}#${PROMETHEUS_LISTEN_ADDRESS}#g" ${config_template_file}
 }
 
@@ -62,5 +61,3 @@ set_node_ip_address
 configure_prometheus
 
 exit 0
-
-}

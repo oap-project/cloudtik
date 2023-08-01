@@ -35,8 +35,8 @@ start)
     SERVICE_PORT=9090
     if [ ! -z "${PROMETHEUS_SERVICE_PORT}" ]; then
         SERVICE_PORT=${PROMETHEUS_SERVICE_PORT}
-    if
-    PROMETHEUS_LISTEN_ADDRESS=${NODE_IP_ADDRESS}:${SERVICE_PORT}
+    fi
+    PROMETHEUS_LISTEN_ADDRESS="${NODE_IP_ADDRESS}:${SERVICE_PORT}"
     nohup ${PROMETHEUS_HOME}/prometheus \
       --config.file=${PROMETHEUS_CONFIG_FILE} \
       --storage.tsdb.path=${PROMETHEUS_DATA_PATH} \

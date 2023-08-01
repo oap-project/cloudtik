@@ -31,6 +31,7 @@ BUILT_IN_RUNTIME_CONSUL = "consul"
 BUILT_IN_RUNTIME_NGINX = "nginx"
 BUILT_IN_RUNTIME_HAPORXY = "haproxy"
 BUILT_IN_RUNTIME_ETCD = "etcd"
+BUILT_IN_RUNTIME_PROMETHEUS = "prometheus"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -115,6 +116,11 @@ def _import_etcd():
     return EtcdRuntime
 
 
+def _import_prometheus():
+    from cloudtik.runtime.prometheus.runtime import PrometheusRuntime
+    return PrometheusRuntime
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -132,6 +138,7 @@ _RUNTIMES = {
     "nginx": _import_nginx,
     "haproxy": _import_haproxy,
     "etcd": _import_etcd,
+    "prometheus": _import_prometheus,
 }
 
 

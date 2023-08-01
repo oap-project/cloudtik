@@ -9,6 +9,7 @@ SERVICE_DISCOVERY_PORT = "port"
 SERVICE_DISCOVERY_NODE_KIND = "node_kind"
 SERVICE_DISCOVERY_NODE_KIND_HEAD = "head"
 SERVICE_DISCOVERY_NODE_KIND_WORKER = "worker"
+SERVICE_DISCOVERY_NODE_KIND_NODE = "node"
 
 SERVICE_DISCOVERY_TAGS = "tags"
 SERVICE_DISCOVERY_META = "meta"
@@ -32,3 +33,17 @@ def get_canonical_service_name(
         return member_of
     else:
         return "{}-{}".format(cluster_name, runtime_service_name)
+
+
+def match_service_node(runtime_service, head):
+    node_kind = runtime_service.get(SERVICE_DISCOVERY_NODE_KIND)
+    if not node_kind or node_kind == SERVICE_DISCOVERY_NODE_KIND_NODE:
+        return True
+    if head:
+        if node_kind == SERVICE_DISCOVERY_NODE_KIND_HEAD:
+            return True
+    else:
+        if node_kind == SERVICE_DISCOVERY_NODE_KIND_WORKER:
+            return True
+
+    return False

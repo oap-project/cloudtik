@@ -107,3 +107,13 @@ function get_deb_arch() {
     fi
     echo "${deb_arch}"
 }
+
+function stop_process_by_name() {
+    local PROCESS_NAME=$1
+    local MY_PID=$(pgrep ${PROCESS_NAME})
+    if [ -n "${MY_PID}" ]; then
+        echo "Stopping ${PROCESS_NAME}..."
+        # SIGTERM = 15
+        kill -15 ${MY_PID} >/dev/null 2>&1
+    fi
+}

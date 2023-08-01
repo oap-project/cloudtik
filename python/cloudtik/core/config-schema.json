@@ -1241,6 +1241,18 @@
                             "description": "Whether the cluster with Consul runs with Consul server or client agent."
                         }
                     }
+                },
+                "prometheus": {
+                    "type": "object",
+                    "description": "Prometheus runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "high_availability": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to run a server on each node at high availability. Each server will scrape the same set of targets"
+                        }
+                    }
                 }
             }
         }

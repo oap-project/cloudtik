@@ -20,11 +20,12 @@ RUNTIME_PATH=$USER_HOME/runtime
 . "$ROOT_DIR"/common/scripts/cloud-storage-fuse.sh
 
 function prepare_base_conf() {
-    source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
+    source_dir=$(dirname "${BIN_DIR}")/conf
     output_dir=/tmp/spark/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
     cp -r $source_dir/* $output_dir
+
     # Include hadoop config file for cloud providers
     cp -r "$ROOT_DIR"/common/conf/hadoop $output_dir
     # Make copy for local and remote HDFS

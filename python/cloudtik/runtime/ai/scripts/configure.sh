@@ -16,10 +16,10 @@ USER_HOME=/home/$(whoami)
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function prepare_base_conf() {
+    source_dir=$(dirname "${BIN_DIR}")/conf
     output_dir=/tmp/ai/conf
     rm -rf  $output_dir
     mkdir -p $output_dir
-    source_dir=$(cd $(dirname ${BASH_SOURCE[0]})/..;pwd)/conf
     cp -r $source_dir/* $output_dir
 }
 

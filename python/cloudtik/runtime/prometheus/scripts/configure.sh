@@ -50,5 +50,3 @@ set_node_ip_address
 configure_prometheus
 
 exit 0
-
-}

@@ -53,6 +53,13 @@ def define_runtime_service_on_head(service_port):
         service_port, SERVICE_DISCOVERY_NODE_KIND_HEAD)
 
 
+def define_runtime_service_on_head_or_all(service_port, head_or_all):
+    node_kind = SERVICE_DISCOVERY_NODE_KIND_NODE \
+        if head_or_all else SERVICE_DISCOVERY_NODE_KIND_HEAD
+    return define_runtime_service(
+        service_port, node_kind)
+
+
 def match_service_node(runtime_service, head):
     node_kind = runtime_service.get(SERVICE_DISCOVERY_NODE_KIND)
     if not node_kind or node_kind == SERVICE_DISCOVERY_NODE_KIND_NODE:

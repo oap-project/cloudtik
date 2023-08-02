@@ -32,6 +32,7 @@ BUILT_IN_RUNTIME_NGINX = "nginx"
 BUILT_IN_RUNTIME_HAPORXY = "haproxy"
 BUILT_IN_RUNTIME_ETCD = "etcd"
 BUILT_IN_RUNTIME_PROMETHEUS = "prometheus"
+BUILT_IN_RUNTIME_GRAFANA = "grafana"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
 
@@ -121,6 +122,11 @@ def _import_prometheus():
     return PrometheusRuntime
 
 
+def _import_grafana():
+    from cloudtik.runtime.grafana.runtime import GrafanaRuntime
+    return GrafanaRuntime
+
+
 _RUNTIMES = {
     "ganglia": _import_ganglia,
     "spark": _import_spark,
@@ -139,6 +145,7 @@ _RUNTIMES = {
     "haproxy": _import_haproxy,
     "etcd": _import_etcd,
     "prometheus": _import_prometheus,
+    "grafana": _import_grafana,
 }
 
 

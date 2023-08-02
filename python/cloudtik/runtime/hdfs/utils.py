@@ -1,12 +1,10 @@
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
-    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP, \
-    get_canonical_service_name
+from cloudtik.core._private.providers import _get_node_provider
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head
 from cloudtik.core._private.utils import get_node_type_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
-from cloudtik.core._private.providers import _get_node_provider
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -101,10 +99,7 @@ def _get_runtime_services(
     service_name = get_canonical_service_name(
         hdfs_config, cluster_name, HDFS_SERVICE_NAME)
     services = {
-        service_name: {
-            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
-            SERVICE_DISCOVERY_PORT: HDFS_SERVICE_PORT,
-            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_HEAD
-        },
+        service_name: define_runtime_service_on_head(
+            HDFS_SERVICE_PORT),
     }
     return services

@@ -3,9 +3,7 @@ from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config
-from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
-    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_PROTOCOL_TCP, SERVICE_DISCOVERY_NODE_KIND_WORKER, \
-    get_canonical_service_name
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker
 from cloudtik.core._private.utils import \
     subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, load_properties_file, \
     save_properties_file, get_config_for_update
@@ -131,10 +129,7 @@ def _get_runtime_services(
     service_name = get_canonical_service_name(
         kafka_config, cluster_name, KAFKA_SERVICE_NAME)
     services = {
-        service_name: {
-            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
-            SERVICE_DISCOVERY_PORT: KAFKA_SERVICE_PORT,
-            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_WORKER
-        },
+        service_name: define_runtime_service_on_worker(
+            KAFKA_SERVICE_PORT),
     }
     return services

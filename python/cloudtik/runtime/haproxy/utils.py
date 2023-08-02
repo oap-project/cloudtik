@@ -1,7 +1,6 @@
 from typing import Any, Dict
 
-from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
-    SERVICE_DISCOVERY_PROTOCOL_TCP, get_canonical_service_name
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -114,9 +113,7 @@ def _get_runtime_services(
         haproxy_config, cluster_name, HAPROXY_SERVICE_NAME)
     service_port = _get_service_port(haproxy_config)
     services = {
-        service_name: {
-            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
-            SERVICE_DISCOVERY_PORT: service_port,
-        },
+        service_name: define_runtime_service(
+            service_port),
     }
     return services

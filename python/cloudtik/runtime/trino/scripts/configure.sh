@@ -225,21 +225,20 @@ function update_trino_memory_config() {
         query_max_memory=$TRINO_QUERY_MAX_MEMORY
     fi
 
-    sed -i "s/{%jvm.max-memory%}/${jvm_max_memory}m/g" `grep "{%jvm.max-memory%}" -rl ./`
-    sed -i "s/{%query.max-memory-per-node%}/${query_max_memory_per_node}MB/g" `grep "{%query.max-memory-per-node%}" -rl ./`
-    sed -i "s/{%memory.heap-headroom-per-node%}/${memory_heap_headroom_per_node}MB/g" `grep "{%memory.heap-headroom-per-node%}" -rl ./`
+    sed -i "s/{%jvm.max-memory%}/${jvm_max_memory}m/g" `grep "{%jvm.max-memory%}" -rl ${output_dir}`
+    sed -i "s/{%query.max-memory-per-node%}/${query_max_memory_per_node}MB/g" `grep "{%query.max-memory-per-node%}" -rl ${output_dir}`
+    sed -i "s/{%memory.heap-headroom-per-node%}/${memory_heap_headroom_per_node}MB/g" `grep "{%memory.heap-headroom-per-node%}" -rl ${output_dir}`
 
-    sed -i "s/{%query.max-memory%}/${query_max_memory}/g" `grep "{%query.max-memory%}" -rl ./`
+    sed -i "s/{%query.max-memory%}/${query_max_memory}/g" `grep "{%query.max-memory%}" -rl ${output_dir}`
 }
 
 function configure_trino() {
     prepare_base_conf
     update_metastore_config
 
-    cd $output_dir
     node_id=$(uuid)
 
-    sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" `grep "{%HEAD_ADDRESS%}" -rl ./`
+    sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" `grep "{%HEAD_ADDRESS%}" -rl ${output_dir}`
     sed -i "s/{%node.environment%}/trino/g" $output_dir/trino/node.properties
     sed -i "s/{%node.id%}/${node_id}/g" $output_dir/trino/node.properties
 

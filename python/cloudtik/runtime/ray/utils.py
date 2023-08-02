@@ -1,9 +1,7 @@
 import os
 from typing import Any, Dict, Optional
 
-from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
-    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP, \
-    get_canonical_service_name
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head
 from cloudtik.core._private.utils import get_node_type_config
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.ray.scaling_policy import RayScalingPolicy
@@ -117,10 +115,7 @@ def _get_runtime_services(
     service_name = get_canonical_service_name(
         ray_config, cluster_name, RAY_SERVICE_NAME)
     services = {
-        service_name: {
-            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
-            SERVICE_DISCOVERY_PORT: RAY_SERVICE_PORT,
-            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_HEAD
-        },
+        service_name: define_runtime_service_on_head(
+            RAY_SERVICE_PORT),
     }
     return services

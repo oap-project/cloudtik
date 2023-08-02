@@ -31,4 +31,4 @@ available_node_types:
 
 # Specify the AI runtime with CPU
 runtime:
-    types: [ganglia, spark, ai]
+    types: [spark, ai]

@@ -32,7 +32,7 @@ PRESTO_BENCHMARK = {
 }
 
 runtime_additional_conf = {
-    'runtime': {'types': ['ganglia', 'metastore', 'spark', 'kafka']}}
+    'runtime': {'types': ['prometheus', 'metastore', 'spark', 'kafka']}}
 
 WORKER_NODES_LIST = [1, 4]
 SCALE_CPUS_LIST = [2, 6, 14]

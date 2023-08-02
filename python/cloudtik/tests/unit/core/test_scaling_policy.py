@@ -9,6 +9,8 @@ from cloudtik.core._private.cluster.scaling_policies import ScalingWithTime
 from cloudtik.core._private.utils import merge_scaling_state
 from cloudtik.core.scaling_policy import ScalingState, ScalingPolicy
 
+SCALING_POLICY_TEST_RUNTIME = "prometheus"
+
 test_now = time.time()
 
 autoscaling_instructions = {
@@ -101,7 +103,7 @@ class TestScalingPolicy:
         resource_scaling_policy = ResourceScalingPolicy("127.0.0.1", None)
         config = {
             "runtime": {
-                "types": ["ganglia"],
+                "types": [SCALING_POLICY_TEST_RUNTIME],
                 "scaling": {
                     "scaling_policy_class": "cloudtik.tests.unit.core.test_scaling_policy.ScalingPolicyForTest"
                 }
@@ -135,7 +137,7 @@ class TestScalingPolicy:
     def test_scaling_with_time(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
-            "types": ["ganglia"],
+            "types": [SCALING_POLICY_TEST_RUNTIME],
             "scaling": {
                 "scaling_policy": "scale-with-time",
                 "scaling_math_base": "on-previous-time",
@@ -165,7 +167,7 @@ class TestScalingPolicy:
     def test_scaling_with_time_reorder(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
-            "types": ["ganglia"],
+            "types": [SCALING_POLICY_TEST_RUNTIME],
             "scaling": {
                 "scaling_policy": "scale-with-time",
                 "scaling_math_base": "on-previous-time",
@@ -195,7 +197,7 @@ class TestScalingPolicy:
     def test_scaling_with_time_expanding(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
-            "types": ["ganglia"],
+            "types": [SCALING_POLICY_TEST_RUNTIME],
             "scaling": {
                 "scaling_policy": "scale-with-time",
                 "scaling_math_base": "on-previous-time",
@@ -225,7 +227,7 @@ class TestScalingPolicy:
     def test_scaling_with_time_base_on_min_workers(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
-            "types": ["ganglia"],
+            "types": [SCALING_POLICY_TEST_RUNTIME],
             "scaling": {
                 "scaling_policy": "scale-with-time",
                 "scaling_math_base": "on-min-workers",
@@ -255,7 +257,7 @@ class TestScalingPolicy:
     def test_scaling_with_time_nodes_request(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
-            "types": ["ganglia"],
+            "types": [SCALING_POLICY_TEST_RUNTIME],
             "scaling": {
                 "scaling_policy": "scale-with-time",
                 "scaling_math_base": "on-previous-time",
@@ -300,7 +302,7 @@ class TestScalingPolicy:
     def test_scaling_with_time_weekly(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
-            "types": ["ganglia"],
+            "types": [SCALING_POLICY_TEST_RUNTIME],
             "scaling": {
                 "scaling_policy": "scale-with-time",
                 "scaling_math_base": "on-min-workers",
@@ -330,7 +332,7 @@ class TestScalingPolicy:
     def test_scaling_with_time_monthly(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
-            "types": ["ganglia"],
+            "types": [SCALING_POLICY_TEST_RUNTIME],
             "scaling": {
                 "scaling_policy": "scale-with-time",
                 "scaling_math_base": "on-min-workers",
@@ -360,7 +362,7 @@ class TestScalingPolicy:
     def test_scaling_with_time_nodes_request_weekly(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
-            "types": ["ganglia"],
+            "types": [SCALING_POLICY_TEST_RUNTIME],
             "scaling": {
                 "scaling_policy": "scale-with-time",
                 "scaling_math_base": "on-previous-time",
@@ -396,7 +398,7 @@ class TestScalingPolicy:
     def test_scaling_with_time_nodes_request_monthly(self):
         config = copy.deepcopy(CONFIG)
         config["runtime"] = {
-            "types": ["ganglia"],
+            "types": [SCALING_POLICY_TEST_RUNTIME],
             "scaling": {
                 "scaling_policy": "scale-with-time",
                 "scaling_math_base": "on-previous-time",

@@ -41,7 +41,7 @@ $ cloudtik info /path/to/your-cluster-config.yaml
 Cluster small is: RUNNING
 1 worker(s) are running
 
-Runtimes: ganglia, spark
+Runtimes: prometheus, spark
 
 The total worker CPUs: 4.
 The total worker memory: 16.0GB.
@@ -232,7 +232,7 @@ $ cloudtik info /path/to/your-cluster-config.yaml
 Cluster small is: RUNNING
 2 worker(s) are running
 
-Runtimes: ganglia, spark
+Runtimes: prometheus, spark
 
 The total worker CPUs: 8.
 The total worker memory: 32.0GB.
@@ -251,7 +251,7 @@ $ cloudtik info /path/to/your-cluster-config.yaml
 Cluster small is: RUNNING
 3 worker(s) are running
 
-Runtimes: ganglia, spark
+Runtimes: prometheus, spark
 
 The total worker CPUs: 12.
 The total worker memory: 48.0GB.
@@ -267,8 +267,8 @@ Key information:
 The SOCKS5 proxy to access the cluster Web UI from local browsers:
     localhost:6001
 
-Ganglia Web UI:
-    http://<head-internal-ip>/ganglia
+Prometheus:
+    http://<head-internal-ip>:9090
 YARN ResourceManager Web UI:
     http://<head-internal-ip>:8088
 Spark History Server Web UI:

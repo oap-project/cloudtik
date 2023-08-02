@@ -31,10 +31,10 @@ function install_prometheus() {
 
         # install node exporter on each node by default
         export PROMETHEUS_NODE_EXPORTER_HOME=$RUNTIME_PATH/prometheus/node_exporter
-        (cd $RUNTIME_PATH && wget -q --show-progress https://github.com/prometheus/node_exporter/releases/download/v${PROMETHEUS_NODE_EXPORTER_VERSION}/node_exporter-${PROMETHEUS_NODE_EXPORTER_VERSION}.linux-${deb_arch}.tar.gz -O prometheus_node_exporter.tar.gz && \
+        (cd $RUNTIME_PATH && wget -q --show-progress https://github.com/prometheus/node_exporter/releases/download/v${PROMETHEUS_NODE_EXPORTER_VERSION}/node_exporter-${PROMETHEUS_NODE_EXPORTER_VERSION}.linux-${deb_arch}.tar.gz -O node_exporter.tar.gz && \
           mkdir -p "${PROMETHEUS_NODE_EXPORTER_HOME}" && \
-          tar --extract --file prometheus_node_exporter.tar.gz --directory "${PROMETHEUS_NODE_EXPORTER_HOME}" --strip-components 1 --no-same-owner && \
-          rm prometheus_node_exporter.tar.gz)
+          tar --extract --file node_exporter.tar.gz --directory "${PROMETHEUS_NODE_EXPORTER_HOME}" --strip-components 1 --no-same-owner && \
+          rm node_exporter.tar.gz)
     fi
 }
 

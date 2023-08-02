@@ -24,14 +24,7 @@ ENV PRESTO_HOME           $RUNTIME_PATH/presto
 
 ENV PATH                  $PRESTO_HOME/bin:$KAFKA_HOME/bin:$ZOOKEEPER_HOME/bin:$PATH
 
-RUN sudo apt-get update -y \
-    && sudo apt-get install -y \
-        ganglia-monitor \
-    && arch=$(uname -m) && wget ${CLOUDTIK_DOWNLOADS}/ganglia/modpython-${arch}.so -O modpython.so \
-    && sudo cp modpython.so /usr/lib/ganglia && sudo chmod 644 /usr/lib/ganglia/modpython.so \
-    && rm modpython.so \
-    && sudo rm -rf /var/lib/apt/lists/* \
-    && sudo apt-get clean
+# TODO: Install prometheus
 
 RUN wget https://downloads.apache.org/zookeeper/zookeeper-${ZOOKEEPER_VERSION}/apache-zookeeper-${ZOOKEEPER_VERSION}-bin.tar.gz -O zookeeper-${ZOOKEEPER_VERSION}.tar.gz -O zookeeper.tar.gz \
     && mkdir -p "$ZOOKEEPER_HOME" \

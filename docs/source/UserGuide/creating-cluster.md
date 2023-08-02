@@ -45,14 +45,15 @@ available_node_types:
 
 ## Choosing Runtimes for Cluster
 
-Without extra configuration, CloudTik creates a cluster with the Ganglia and Spark runtimes by default.
+Without extra configuration, CloudTik creates a cluster with the Spark runtimes by default.
 You can use 'types' configure key under 'runtime' to configure the list of runtimes for the cluster.
+Runtimes will be automatically configured to use the other runtimes if it there is a dependency.
 
-The following example will start a cluster with Ganglia, HDFS as default storage and Spark.
+The following example will start a cluster with HDFS as default storage and Spark.
 
 ```
 runtime:
-    types: [ganglia, hdfs, spark]
+    types: [hdfs, spark]
 ```
 
 For more detailed information of each runtime, please refer to [Reference: Runtimes](../Reference/runtimes.md)

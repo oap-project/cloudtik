@@ -67,4 +67,4 @@ spec:
                 # redis, the rest for application memory.
                 memory: 8Gi
   runtime:
-    types: [ganglia, hdfs, spark]
+    types: [hdfs, spark]

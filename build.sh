@@ -8,11 +8,8 @@ do
     --no-build-redis)
         NO_BUILD_REDIS=YES
         ;;
-    --no-build-ganglia)
-        NO_BUILD_GANGLIA=YES
-        ;;
     *)
-        echo "Usage: build.sh [ --no-build-redis ] [ --no-build-ganglia ] "
+        echo "Usage: build.sh [ --no-build-redis ] "
         exit 1
     esac
     shift
@@ -46,30 +43,8 @@ function compile_redis_server() {
     rm -r -f -- ${REDIS_BUILD_DIR}
 }
 
-function compile_ganglia_for_python() {
-    # download ganglia-monitor-core
-    rm -rf /tmp/monitor-core && git clone https://github.com/ganglia/monitor-core.git /tmp/monitor-core &&  cd /tmp/monitor-core && git checkout release/3.6
-
-    # install prerequisit before compiling
-    sudo -E apt-get -yq --no-install-suggests --no-install-recommends install \
-        libapr1-dev libaprutil1-dev libconfuse-dev libexpat1-dev libpcre3-dev libssl-dev librrd-dev libperl-dev libtool m4 gperf zlib1g-dev pkg-config libtool python2.7-dev automake make
-
-    # compile ganglia-monitor-core
-    ./bootstrap && ./configure --with-gmetad --enable-status --with-python=/usr/bin/python2.7 && make
-
-    # copy binary to target folder
-    GANGLIA_BIN_DIR=${THIRDPARTY_DIR}/ganglia
-    mkdir -p ${GANGLIA_BIN_DIR}
-    cp ./gmond/modules/python/.libs/modpython.so ${GANGLIA_BIN_DIR}/
-    sudo chmod 644 ${GANGLIA_BIN_DIR}/modpython.so
-}
-
 if [ ! $NO_BUILD_REDIS ]; then
   compile_redis_server
-fi
-
-if [ ! $NO_BUILD_GANGLIA ]; then
-  compile_ganglia_for_python
 fi
 
 # build pip wheel

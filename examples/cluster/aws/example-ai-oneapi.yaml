@@ -28,6 +28,6 @@ available_node_types:
 
 # Specify the AI runtime with oneAPI for CPU
 runtime:
-    types: [ganglia, spark, ai]
+    types: [spark, ai]
     ml:
         with_oneapi: True

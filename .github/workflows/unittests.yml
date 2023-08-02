@@ -45,6 +45,6 @@ jobs:
       - name: Test with pytest
         run: |
           # compile redis server
-          bash build.sh --no-build-ganglia
+          bash build.sh
           # run unit tests with pytest
           pytest python/cloudtik/tests/unit

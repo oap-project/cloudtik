@@ -193,7 +193,7 @@ available_node_types:
 This example can be found in CloudTik source code folder `examples/cluster/aws/example-standard.yaml`.
 
 It will start a cluster named "example" in workspace "example-workspace" with minimal of 3 worker nodes running
-Ganglia and Spark runtime services by default.
+Spark runtime services by default.
 
 You need only a few key settings in the configuration file to launch a Spark cluster.
 
@@ -218,9 +218,9 @@ If you need different runtime components in the cluster,
 in the cluster configuration file, you can set the runtime types. For example,
 ```
 runtime:
-    types: [ganglia, hdfs, spark, ai]
+    types: [hdfs, spark, ai]
 ```
-It will run a cluster with ganglia, hdfs, spark and ai runtimes.
+It will run a cluster with hdfs, spark and ai runtimes.
 
 Refer to `examples/cluster` directory for more cluster configurations examples.
 

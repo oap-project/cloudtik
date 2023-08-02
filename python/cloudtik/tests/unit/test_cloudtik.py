@@ -457,7 +457,7 @@ SMALL_CLUSTER = {
     "worker_start_commands": ["worker_start_cmd"],
     "merged_commands": {},
     "runtime": {
-        "types": ["spark", "ganglia"]
+        "types": ["prometheus", "spark"]
     },
 }
 

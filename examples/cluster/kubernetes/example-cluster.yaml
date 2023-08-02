@@ -16,4 +16,4 @@ available_node_types:
         min_workers: 3
 
 runtime:
-    types: [ganglia, hdfs, spark]
+    types: [hdfs, spark]

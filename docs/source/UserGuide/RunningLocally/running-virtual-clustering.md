@@ -89,7 +89,7 @@ available_node_types:
         min_workers: 3
         
 runtimes:
-    types: [ganglia, hdfs, metastore, spark]
+    types: [hdfs, metastore, spark]
 ```
 
 Execute the following command to start the cluster:

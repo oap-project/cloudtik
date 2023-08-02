@@ -77,7 +77,6 @@ CloudTik and works together with other runtimes by providing services to other r
 Currently, we implemented the following runtimes:
 - Spark Runtime: to provide distributed analytics capabilities.
 - AI Runtime: to provide distributed AI training and inference capabilities.
-- Ganglia Runtime: to provide monitoring services for all nodes.
 - Metastore Runtime: to provide catalog services for SQL.
 - Flink Runtime: to provide distributed streaming analytics capabilities.
 - Presto Runtime or Trino Runtime: to provide interactive analytics capabilities.
@@ -85,3 +84,4 @@ Currently, we implemented the following runtimes:
 - Ray Runtime: to provide Ray based training and tuning capabilities.
 - SSH Server Runtime: to provide password-less SSH capability within cluster.
 - ZooKeeper Runtime: to provide coordinating and distributed consistency services.
+- Prometheus Runtime: to provide metric monitoring for all nodes.

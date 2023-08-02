@@ -277,9 +277,9 @@ If you need different runtime components in the cluster,
 in the cluster configuration file, you can set the runtime types. For example,
 ```
 runtime:
-    types: [ganglia, hdfs, spark, ml]
+    types: [spark, ai]
 ```
-It will run a cluster with ganglia, hdfs, spark and ml runtimes.
+It will run a cluster with spark and AI runtimes.
 
 Refer to `examples/cluster` directory for more cluster configurations examples.
 

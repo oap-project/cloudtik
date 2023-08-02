@@ -24,7 +24,7 @@ available_node_types:
         min_workers: 3
 
 runtime:
-    types: [ganglia, spark]
+    types: [spark]
     spark:
       yarn_resource_memory_ratio: 1
 

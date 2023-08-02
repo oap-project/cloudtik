@@ -48,4 +48,4 @@ rsync_exclude: []
 rsync_filter: []
 
 runtime:
-    types: [ganglia, spark]
+    types: [prometheus, spark]

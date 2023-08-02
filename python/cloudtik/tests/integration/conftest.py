@@ -99,5 +99,5 @@ def runtime_cluster_fixture(request):
     conf["docker"]["image"] = "cloudtik/spark-runtime-benchmark:nightly"
     if not conf.get("runtime", False):
         conf["runtime"] = {}
-    conf["runtime"]["types"] = ["ganglia", "metastore", "zookeeper", "spark", "kafka", "presto"]
+    conf["runtime"]["types"] = ["prometheus", "metastore", "zookeeper", "spark", "kafka", "presto"]
     yield from cluster_up_down_opt(conf)

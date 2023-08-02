@@ -15,7 +15,6 @@ _runtime_instances = ConcurrentObjectCache()
 
 RUNTIME_MINIMAL_EXTERNAL_CONFIG = {}
 
-BUILT_IN_RUNTIME_GANGLIA = "ganglia"
 BUILT_IN_RUNTIME_HDFS = "hdfs"
 BUILT_IN_RUNTIME_METASTORE = "metastore"
 BUILT_IN_RUNTIME_SPARK = "spark"
@@ -34,12 +33,7 @@ BUILT_IN_RUNTIME_ETCD = "etcd"
 BUILT_IN_RUNTIME_PROMETHEUS = "prometheus"
 BUILT_IN_RUNTIME_GRAFANA = "grafana"
 
-DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_GANGLIA, BUILT_IN_RUNTIME_SPARK]
-
-
-def _import_ganglia():
-    from cloudtik.runtime.ganglia.runtime import GangliaRuntime
-    return GangliaRuntime
+DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_PROMETHEUS, BUILT_IN_RUNTIME_SPARK]
 
 
 def _import_spark():
@@ -128,7 +122,6 @@ def _import_grafana():
 
 
 _RUNTIMES = {
-    "ganglia": _import_ganglia,
     "spark": _import_spark,
     "hdfs": _import_hdfs,
     "metastore": _import_metastore,

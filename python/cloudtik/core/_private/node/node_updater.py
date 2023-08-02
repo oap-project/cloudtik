@@ -20,7 +20,8 @@ from cloudtik.core._private.cli_logger import cf, CliLogger
 import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID, \
     CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE, CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION, \
-    CLOUDTIK_CLUSTER_PYTHON_VERSION, CLOUDTIK_NODE_START_WAIT_S, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN
+    CLOUDTIK_CLUSTER_PYTHON_VERSION, CLOUDTIK_NODE_START_WAIT_S, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN, \
+    CLOUDTIK_RUNTIME_ENV_CLUSTER, CLOUDTIK_RUNTIME_ENV_NODE_ID
 from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
 
 logger = logging.getLogger(__name__)
@@ -360,6 +361,8 @@ class NodeUpdater:
             node_envs[CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE] = self.provider_type
 
         node_envs[CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION] = CLOUDTIK_CLUSTER_PYTHON_VERSION
+        node_envs[CLOUDTIK_RUNTIME_ENV_CLUSTER] = self.config["cluster_name"]
+        node_envs[CLOUDTIK_RUNTIME_ENV_NODE_ID] = self.node_id
         return node_envs
 
     def get_shared_memory_ratio(self):

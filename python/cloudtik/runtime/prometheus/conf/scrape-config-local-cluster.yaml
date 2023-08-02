@@ -13,10 +13,10 @@ scrape_configs:
     # List of file service discovery configurations.
     file_sd_configs:
       # Patterns for files from which target groups are extracted.
-      files:
-        - '{%prometheus.home%}/conf/prometheus-server-targets.yaml'
-      # Refresh interval to re-read the files.
-      refresh_interval: 5m
+      - files:
+          - '{%prometheus.home%}/conf/prometheus-server-targets.yaml'
+        # Refresh interval to re-read the files.
+        refresh_interval: 5m
   - job_name: "node_metrics"
 
     # Override the global default and scrape targets from this job every 10 seconds.
@@ -28,7 +28,7 @@ scrape_configs:
     # List of file service discovery configurations.
     file_sd_configs:
       # Patterns for files from which target groups are extracted.
-      files:
-        - '{%prometheus.home%}/conf/prometheus-node-targets.yaml'
-      # Refresh interval to re-read the files.
-      refresh_interval: 5m
+      - files:
+          - '{%prometheus.home%}/conf/prometheus-node-targets.yaml'
+        # Refresh interval to re-read the files.
+        refresh_interval: 5m

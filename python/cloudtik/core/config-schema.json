@@ -1242,7 +1242,7 @@
                         },
                         "data_center": {
                             "type": "string",
-                            "description": "Override data center name. By default is the workspace name."
+                            "description": "Override Consul data center name. By default is the workspace name."
                         }
                     }
                 },

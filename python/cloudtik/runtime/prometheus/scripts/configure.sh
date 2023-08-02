@@ -30,6 +30,24 @@ function check_prometheus_installed() {
     fi
 }
 
+function update_local_targets() {
+    # scrape prometheus server and node exporter of this node
+    # a file service discovery will update nodes from the clusters
+    local SERVICE_PORT=9090
+    if [ ! -z "${PROMETHEUS_SERVICE_PORT}" ]; then
+        SERVICE_PORT=${PROMETHEUS_SERVICE_PORT}
+    fi
+    local PROMETHEUS_LISTEN_ADDRESS="${NODE_IP_ADDRESS}:${SERVICE_PORT}"
+    sed -i "s#{%local.server.target%}#${PROMETHEUS_LISTEN_ADDRESS}#g" ${output_dir}/prometheus-server-targets.yaml
+
+    local NODE_EXPORTER_PORT=9090
+    if [ ! -z "${PROMETHEUS_NODE_EXPORTER_PORT}" ]; then
+        NODE_EXPORTER_PORT=${PROMETHEUS_NODE_EXPORTER_PORT}
+    fi
+    local PROMETHEUS_NODE_EXPORTER_ADDRESS="${NODE_IP_ADDRESS}:${NODE_EXPORTER_PORT}"
+    sed -i "s#{%local.node.target%}#${PROMETHEUS_NODE_EXPORTER_ADDRESS}#g" ${output_dir}/prometheus-node-targets.yaml
+}
+
 function update_home_dir() {
     prepare_base_conf
     prometheus_output_dir=$output_dir
@@ -37,6 +55,8 @@ function update_home_dir() {
 
     mkdir -p ${PROMETHEUS_HOME}/logs
     sed -i "s#{%prometheus.home%}#${PROMETHEUS_HOME}#g" `grep "{%prometheus.home%}" -rl ${output_dir}`
+
+    update_local_targets
 
     PROMETHEUS_CONFIG_DIR=${PROMETHEUS_HOME}/conf
     mkdir -p ${PROMETHEUS_CONFIG_DIR}

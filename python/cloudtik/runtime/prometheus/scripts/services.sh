@@ -28,15 +28,28 @@ function get_data_dir() {
     echo "${data_dir}"
 }
 
+function get_service_port() {
+    local service_port=9090
+    if [ ! -z "${PROMETHEUS_SERVICE_PORT}" ]; then
+        service_port=${PROMETHEUS_SERVICE_PORT}
+    fi
+    echo "${service_port}"
+}
+
+function get_node_exporter_port() {
+    local node_exporter_port=9100
+    if [ ! -z "${PROMETHEUS_NODE_EXPORTER_PORT}" ]; then
+        node_exporter_port=${PROMETHEUS_NODE_EXPORTER_PORT}
+    fi
+    echo "${node_exporter_port}"
+}
+
 case "$SERVICE_COMMAND" in
 start)
     if [ "${PROMETHEUS_HIGH_AVAILABILITY}" == "true" ] || [ "${IS_HEAD_NODE}" == "true" ]; then
         PROMETHEUS_CONFIG_FILE=${PROMETHEUS_HOME}/conf/prometheus.yaml
         PROMETHEUS_DATA_PATH=$(get_data_dir)
-        SERVICE_PORT=9090
-        if [ ! -z "${PROMETHEUS_SERVICE_PORT}" ]; then
-            SERVICE_PORT=${PROMETHEUS_SERVICE_PORT}
-        fi
+        SERVICE_PORT=$(get_service_port)
         PROMETHEUS_LISTEN_ADDRESS="${NODE_IP_ADDRESS}:${SERVICE_PORT}"
         nohup ${PROMETHEUS_HOME}/prometheus \
           --config.file=${PROMETHEUS_CONFIG_FILE} \
@@ -45,7 +58,8 @@ start)
           --web.enable-lifecycle >${PROMETHEUS_HOME}/logs/prometheus.log 2>&1 &
     fi
 
-    NODE_EXPORTER_ADDRESS="${NODE_IP_ADDRESS}:9100"
+    NODE_EXPORTER_PORT=$(get_node_exporter_port)
+    NODE_EXPORTER_ADDRESS="${NODE_IP_ADDRESS}:${NODE_EXPORTER_PORT}"
     nohup ${PROMETHEUS_HOME}/node_exporter/node_exporter \
           --web.listen-address=${NODE_EXPORTER_ADDRESS} >${PROMETHEUS_HOME}/logs/node_exporter.log 2>&1 &
     ;;

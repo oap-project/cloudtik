@@ -210,7 +210,7 @@ def _get_runtime_endpoints(server_mode, cluster_head_ip):
     }
     if server_mode:
         endpoints["consul_http"] = {
-            "name": "Consul HTTP API",
+            "name": "Consul HTTP",
             "url": "{}:{}".format(cluster_head_ip, CONSUL_SERVER_HTTP_PORT)
         }
         endpoints["consul_dns"] = {

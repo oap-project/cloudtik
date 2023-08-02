@@ -1,0 +1,2 @@
+- targets:
+    - '{%local.server.target%}'

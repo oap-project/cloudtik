@@ -35,6 +35,24 @@ def get_canonical_service_name(
         return "{}-{}".format(cluster_name, runtime_service_name)
 
 
+def define_runtime_service(service_port, node_kind=SERVICE_DISCOVERY_NODE_KIND_NODE):
+    return {
+        SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+        SERVICE_DISCOVERY_PORT: service_port,
+        SERVICE_DISCOVERY_NODE_KIND: node_kind
+    }
+
+
+def define_runtime_service_on_worker(service_port):
+    return define_runtime_service(
+        service_port, SERVICE_DISCOVERY_NODE_KIND_WORKER)
+
+
+def define_runtime_service_on_head(service_port):
+    return define_runtime_service(
+        service_port, SERVICE_DISCOVERY_NODE_KIND_HEAD)
+
+
 def match_service_node(runtime_service, head):
     node_kind = runtime_service.get(SERVICE_DISCOVERY_NODE_KIND)
     if not node_kind or node_kind == SERVICE_DISCOVERY_NODE_KIND_NODE:

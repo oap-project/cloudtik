@@ -1,0 +1,2 @@
+- targets:
+    - '{%local.node.target%}'

@@ -58,6 +58,10 @@ function configure_consul() {
     mkdir -p ${CONSUL_HOME}/logs
 
     # General agent configuration. retry_join will be set in python script
+    local DATA_CENTER=default
+    if [ ! -z "${CONSUL_DATA_CENTER}" ]; then
+        DATA_CENTER=${CONSUL_DATA_CENTER}
+    sed -i "s!{%data.center%}!${DATA_CENTER}!g" ${consul_output_dir}/consul.json
     sed -i "s!{%bind.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.json
 
     if [ "${CONSUL_SERVER}" == "true" ]; then

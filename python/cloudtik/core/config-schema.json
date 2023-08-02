@@ -1239,6 +1239,10 @@
                             "type": "boolean",
                             "default": false,
                             "description": "Whether the cluster with Consul runs with Consul server or client agent."
+                        },
+                        "data_center": {
+                            "type": "string",
+                            "description": "Override Consul data center name. By default is the workspace name."
                         }
                     }
                 },

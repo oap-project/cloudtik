@@ -51,7 +51,7 @@ function get_data_dir() {
 function configure_grafana() {
     prepare_base_conf
     grafana_output_dir=$output_dir
-    config_template_file=${output_dir}/grafana.yaml
+    config_template_file=${output_dir}/grafana.ini
 
     mkdir -p ${GRAFANA_HOME}/logs
     mkdir -p ${GRAFANA_HOME}/plugins

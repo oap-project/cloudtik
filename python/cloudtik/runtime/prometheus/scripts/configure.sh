@@ -55,6 +55,7 @@ function configure_prometheus() {
 
     mkdir -p ${PROMETHEUS_HOME}/logs
     sed -i "s#{%prometheus.home%}#${PROMETHEUS_HOME}#g" `grep "{%prometheus.home%}" -rl ${output_dir}`
+    sed -i "s#{%cluster.name%}#${CLOUDTIK_CLUSTER}#g" `grep "{%cluster.name%}" -rl ${output_dir}`
 
     update_local_targets
 

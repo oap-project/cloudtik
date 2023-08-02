@@ -61,6 +61,7 @@ function configure_consul() {
     local DATA_CENTER=default
     if [ ! -z "${CONSUL_DATA_CENTER}" ]; then
         DATA_CENTER=${CONSUL_DATA_CENTER}
+    fi
     sed -i "s!{%data.center%}!${DATA_CENTER}!g" ${consul_output_dir}/consul.json
     sed -i "s!{%bind.address%}!${NODE_IP_ADDRESS}!g" ${consul_output_dir}/consul.json
 

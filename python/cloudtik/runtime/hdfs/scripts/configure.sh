@@ -51,8 +51,8 @@ function update_hdfs_data_disks_config() {
         sudo rm -rf "${HADOOP_HOME}/data/dfs/dn"
         hdfs_dn_dirs="${HADOOP_HOME}/data/dfs/dn"
     fi
-    sed -i "s!{%dfs.namenode.name.dir%}!${hdfs_nn_dirs}!g" `grep "{%dfs.namenode.name.dir%}" -rl ./`
-    sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ./`
+    sed -i "s!{%dfs.namenode.name.dir%}!${hdfs_nn_dirs}!g" `grep "{%dfs.namenode.name.dir%}" -rl ${output_dir}`
+    sed -i "s!{%dfs.datanode.data.dir%}!${hdfs_dn_dirs}!g" `grep "{%dfs.datanode.data.dir%}" -rl ${output_dir}`
 }
 
 function update_proxy_user_for_current_user() {
@@ -67,19 +67,18 @@ function update_proxy_user_for_current_user() {
         <name>hadoop.proxyuser.${CURRENT_SYSTEM_USER}.hosts</name>\n\
         <value>*</value>\n\
     </property>"
-        sed -i "s#{%hadoop.proxyuser.properties%}#${HADOOP_PROXY_USER_PROPERTIES}#g" `grep "{%hadoop.proxyuser.properties%}" -rl ./`
+        sed -i "s#{%hadoop.proxyuser.properties%}#${HADOOP_PROXY_USER_PROPERTIES}#g" `grep "{%hadoop.proxyuser.properties%}" -rl ${output_dir}`
     else
-        sed -i "s#{%hadoop.proxyuser.properties%}#""#g" `grep "{%hadoop.proxyuser.properties%}" -rl ./`
+        sed -i "s#{%hadoop.proxyuser.properties%}#""#g" `grep "{%hadoop.proxyuser.properties%}" -rl ${output_dir}`
     fi
 }
 
 function configure_hdfs() {
     prepare_base_conf
     mkdir -p ${HADOOP_HOME}/logs
-    cd $output_dir
 
     fs_default_dir="hdfs://${HEAD_ADDRESS}:9000"
-    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ./`
+    sed -i "s!{%fs.default.name%}!${fs_default_dir}!g" `grep "{%fs.default.name%}" -rl ${output_dir}`
 
     update_proxy_user_for_current_user
     update_hdfs_data_disks_config

@@ -6,9 +6,7 @@ from cloudtik.core._private.core_utils import exec_with_output, strip_quote
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, sort_nodes_by_seq_id, \
     load_and_save_yaml
-from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
-    SERVICE_DISCOVERY_PROTOCOL_TCP, get_canonical_service_name, SERVICE_DISCOVERY_NODE_KIND, \
-    SERVICE_DISCOVERY_NODE_KIND_WORKER
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -90,11 +88,8 @@ def _get_runtime_services(
     service_name = get_canonical_service_name(
         etcd_config, cluster_name, ETCD_SERVICE_NAME)
     services = {
-        service_name: {
-            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
-            SERVICE_DISCOVERY_PORT: ETCD_SERVICE_PORT,
-            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_WORKER
-        },
+        service_name: define_runtime_service_on_worker(
+            ETCD_SERVICE_PORT),
     }
     return services
 

@@ -1,11 +1,9 @@
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PROTOCOL, SERVICE_DISCOVERY_PORT, \
-    SERVICE_DISCOVERY_NODE_KIND, SERVICE_DISCOVERY_NODE_KIND_HEAD, SERVICE_DISCOVERY_PROTOCOL_TCP, \
-    get_canonical_service_name
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_AI
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head
 from cloudtik.core._private.utils import export_runtime_flags
 from cloudtik.runtime.common.utils import get_runtime_endpoints_of
 
@@ -92,10 +90,7 @@ def _get_runtime_services(
     service_name = get_canonical_service_name(
         ai_config, cluster_name, MLFLOW_SERVICE_NAME)
     services = {
-        service_name: {
-            SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
-            SERVICE_DISCOVERY_PORT: MLFLOW_SERVICE_PORT,
-            SERVICE_DISCOVERY_NODE_KIND: SERVICE_DISCOVERY_NODE_KIND_HEAD
-        },
+        service_name: define_runtime_service_on_head(
+            MLFLOW_SERVICE_PORT),
     }
     return services

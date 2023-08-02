@@ -52,7 +52,7 @@ function init_or_upgrade_schema() {
 
 function configure_hive_metastore() {
     prepare_base_conf
-    cd $output_dir
+    config_template_file=${output_dir}/hive/metastore-site.xml
 
     mkdir -p ${METASTORE_HOME}/logs
 
@@ -83,18 +83,18 @@ function configure_hive_metastore() {
             --username=${CLOUD_DATABASE_USERNAME} > ${METASTORE_HOME}/logs/configure.log
     fi
 
-    sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" `grep "{%HEAD_ADDRESS%}" -rl ./`
-    sed -i "s#{%DATABASE_CONNECTION%}#${DATABASE_CONNECTION}#g" `grep "{%DATABASE_CONNECTION%}" -rl ./`
-    sed -i "s#{%DATABASE_DRIVER%}#${DATABASE_DRIVER}#g" `grep "{%DATABASE_DRIVER%}" -rl ./`
-    sed -i "s/{%DATABASE_USER%}/${DATABASE_USER}/g" `grep "{%DATABASE_USER%}" -rl ./`
-    sed -i "s/{%DATABASE_PASSWORD%}/${DATABASE_PASSWORD}/g" `grep "{%DATABASE_PASSWORD%}" -rl ./`
+    sed -i "s/{%HEAD_ADDRESS%}/${HEAD_ADDRESS}/g" ${config_template_file}
+    sed -i "s#{%DATABASE_CONNECTION%}#${DATABASE_CONNECTION}#g" ${config_template_file}
+    sed -i "s#{%DATABASE_DRIVER%}#${DATABASE_DRIVER}#g" ${config_template_file}
+    sed -i "s/{%DATABASE_USER%}/${DATABASE_USER}/g" ${config_template_file}
+    sed -i "s/{%DATABASE_PASSWORD%}/${DATABASE_PASSWORD}/g" ${config_template_file}
 
     # set metastore warehouse dir according to the storage options: HDFS, S3, GCS, Azure
     # The full path will be decided on the default.fs of hadoop core-site.xml
     METASTORE_WAREHOUSE_DIR=/shared/warehouse
-    sed -i "s|{%METASTORE_WAREHOUSE_DIR%}|${METASTORE_WAREHOUSE_DIR}|g" `grep "{%METASTORE_WAREHOUSE_DIR%}" -rl ./`
+    sed -i "s|{%METASTORE_WAREHOUSE_DIR%}|${METASTORE_WAREHOUSE_DIR}|g" ${config_template_file}
 
-    cp -r ${output_dir}/hive/metastore-site.xml  ${METASTORE_HOME}/conf/metastore-site.xml
+    cp -r ${config_template_file}  ${METASTORE_HOME}/conf/metastore-site.xml
 
     if [ "${CLOUD_DATABASE}" != "true" ] || [ "$METASTORE_WITH_CLOUD_DATABASE" == "false" ]; then
         # Start mariadb

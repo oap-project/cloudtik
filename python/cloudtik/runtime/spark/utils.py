@@ -8,6 +8,7 @@ from cloudtik.core._private.cluster.cluster_tunnel_request import _request_rest_
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
     BUILT_IN_RUNTIME_SPARK
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head
 from cloudtik.core._private.utils import \
     is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
@@ -43,11 +44,15 @@ SPARK_ADDITIONAL_OVERHEAD = 1024
 SPARK_EXECUTOR_OVERHEAD_MINIMUM = 384
 SPARK_EXECUTOR_OVERHEAD_RATIO = 0.1
 
+SPARK_YARN_RESOURCE_MANAGER_PORT = 8032
 SPARK_YARN_WEB_API_PORT = 8088
 SPARK_HISTORY_SERVER_API_PORT = 18080
+SPARK_JUPYTER_WEB_PORT = 8888
 
 YARN_REQUEST_REST_RETRY_DELAY_S = 5
 YARN_REQUEST_REST_RETRY_COUNT = 36
+
+SPARK_YARN_SERVICE_NAME = "yarn"
 
 
 def _get_config(runtime_config: Dict[str, Any]):
@@ -353,13 +358,17 @@ def _validate_config(config: Dict[str, Any]):
 
 def _get_runtime_endpoints(cluster_head_ip):
     endpoints = {
+        "yarn-client": {
+            "name": "Yarn",
+            "url": "{}:{}".format(cluster_head_ip, SPARK_YARN_RESOURCE_MANAGER_PORT)
+        },
         "yarn-web": {
             "name": "Yarn Web UI",
             "url": "http://{}:{}".format(cluster_head_ip, SPARK_YARN_WEB_API_PORT)
         },
         "jupyter-web": {
             "name": "Jupyter Web UI",
-            "url": "http://{}:8888".format(cluster_head_ip),
+            "url": "http://{}:{}".format(cluster_head_ip, SPARK_JUPYTER_WEB_PORT),
             "info": "default password is \'cloudtik\'"
         },
         "history-server": {
@@ -372,13 +381,17 @@ def _get_runtime_endpoints(cluster_head_ip):
 
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
+        "yarn-client": {
+            "protocol": "TCP",
+            "port": SPARK_YARN_RESOURCE_MANAGER_PORT,
+        },
         "yarn-web": {
             "protocol": "TCP",
             "port": SPARK_YARN_WEB_API_PORT,
         },
         "jupyter-web": {
             "protocol": "TCP",
-            "port": 8888,
+            "port": SPARK_JUPYTER_WEB_PORT,
         },
         "history-server": {
             "protocol": "TCP",
@@ -386,6 +399,18 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
         },
     }
     return service_ports
+
+
+def _get_runtime_services(
+        runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
+    spark_config = _get_config(runtime_config)
+    yarn_service_name = get_canonical_service_name(
+        spark_config, cluster_name, SPARK_YARN_SERVICE_NAME)
+    services = {
+        yarn_service_name: define_runtime_service_on_head(
+            SPARK_YARN_RESOURCE_MANAGER_PORT),
+    }
+    return services
 
 
 def _get_scaling_policy(

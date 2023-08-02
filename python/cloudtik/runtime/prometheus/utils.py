@@ -172,4 +172,3 @@ def _get_runtime_services(
         node_exporter: define_runtime_service(node_exporter_port),
     }
     return services
-w

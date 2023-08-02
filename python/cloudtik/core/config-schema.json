@@ -1247,10 +1247,37 @@
                     "description": "Prometheus runtime related configurations",
                     "additionalProperties": true,
                     "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 9090,
+                            "description": "Prometheus server port."
+                        },
+                        "node_exporter_port": {
+                            "type": "integer",
+                            "default": 9100,
+                            "description": "Prometheus node exporter port."
+                        },
                         "high_availability": {
                             "type": "boolean",
                             "default": false,
-                            "description": "Whether to run a server on each node at high availability. Each server will scrape the same set of targets"
+                            "description": "Whether to run a server on each node for high availability. Each server will scrape the same set of targets"
+                        }
+                    }
+                },
+                "grafana": {
+                    "type": "object",
+                    "description": "Grafana runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 3000,
+                            "description": "Grafana server port."
+                        },
+                        "high_availability": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to run a server on each node for high availability."
                         }
                     }
                 }

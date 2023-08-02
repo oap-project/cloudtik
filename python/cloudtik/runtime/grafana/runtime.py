@@ -3,15 +3,15 @@ from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
-from cloudtik.runtime.prometheus.utils import _get_runtime_processes, \
+from cloudtik.runtime.grafana.utils import _get_runtime_processes, \
     _get_runtime_endpoints, _get_head_service_ports, _get_runtime_services, _with_runtime_environment_variables, \
     _get_runtime_logs
 
 logger = logging.getLogger(__name__)
 
 
-class PrometheusRuntime(RuntimeBase):
-    """Implementation for Prometheus Runtime for monitoring metrics collection"""
+class GrafanaRuntime(RuntimeBase):
+    """Implementation for Grafana Runtime for monitor visualization"""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
         super().__init__(runtime_config)

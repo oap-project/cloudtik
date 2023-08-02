@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
-    SERVICE_DISCOVERY_NODE_KIND_NODE, SERVICE_DISCOVERY_NODE_KIND_HEAD
+    define_runtime_service_on_head_or_all
 
 RUNTIME_PROCESSES = [
         # The first element is the substring to filter.
@@ -112,9 +112,9 @@ def _get_runtime_services(
     service_port = _get_service_port(prometheus_config)
     node_exporter_port = _get_node_exporter_port(prometheus_config)
     services = {
-        service_name: define_runtime_service(
-            service_port, SERVICE_DISCOVERY_NODE_KIND_NODE if _is_high_availability(
-                prometheus_config) else SERVICE_DISCOVERY_NODE_KIND_HEAD),
+        service_name: define_runtime_service_on_head_or_all(
+            service_port, _is_high_availability(
+                prometheus_config)),
         node_exporter: define_runtime_service(node_exporter_port),
     }
     return services

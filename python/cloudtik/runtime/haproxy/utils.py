@@ -14,9 +14,10 @@ HAPROXY_RUNTIME_CONFIG_KEY = "haproxy"
 HAPROXY_SERVICE_PORT_CONFIG_KEY = "port"
 HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY = "protocol"
 
+HAPROXY_BACKEND_CONFIG_KEY = "backend"
 HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY = "service_name"
+HAPROXY_BACKEND_SERVICE_TAG_CONFIG_KEY = "service_tag"
 HAPROXY_BACKEND_SERVICE_MAX_SERVERS_CONFIG_KEY = "service_max_servers"
-HAPROXY_BACKEND_SERVICE_PROTOCOL_CONFIG_KEY = "service_protocol"
 
 HAPROXY_SERVICE_NAME = "haproxy"
 HAPROXY_SERVICE_PORT_DEFAULT = 80
@@ -38,6 +39,11 @@ def _get_service_port(haproxy_config: Dict[str, Any]):
 def _get_service_protocol(haproxy_config):
     return haproxy_config.get(
         HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY, HAPROXY_SERVICE_PROTOCOL_DEFAULT)
+
+
+def _get_backend_config(haproxy_config: Dict[str, Any]):
+    return haproxy_config.get(
+        HAPROXY_BACKEND_CONFIG_KEY, {})
 
 
 def _get_runtime_processes():
@@ -66,19 +72,20 @@ def _with_runtime_environment_variables(
 
 
 def _with_runtime_envs_for_consul_dns(haproxy_config, runtime_envs):
-    service_name = haproxy_config.get(HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY)
+    backend_config = _get_backend_config(HAPROXY_BACKEND_CONFIG_KEY)
+    service_name = backend_config.get(HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY)
     if not service_name:
         raise ValueError("Backend service name is not configured for load balancer.")
 
     runtime_envs["HAPROXY_BACKEND_SERVICE_NAME"] = service_name
-    runtime_envs["HAPROXY_BACKEND_SERVICE_MAX_SERVERS"] = haproxy_config.get(
+    runtime_envs["HAPROXY_BACKEND_SERVICE_MAX_SERVERS"] = backend_config.get(
         HAPROXY_BACKEND_SERVICE_MAX_SERVERS_CONFIG_KEY,
         HAPROXY_BACKEND_SERVICE_MAX_SERVERS_DEFAULT)
 
-    backend_service_protocol = haproxy_config.get(
-        HAPROXY_BACKEND_SERVICE_PROTOCOL_CONFIG_KEY)
-    if backend_service_protocol:
-        runtime_envs["HAPROXY_BACKEND_SERVICE_PROTOCOL"] = backend_service_protocol
+    service_tag = backend_config.get(
+        HAPROXY_BACKEND_SERVICE_TAG_CONFIG_KEY)
+    if service_tag:
+        runtime_envs["HAPROXY_BACKEND_SERVICE_TAG"] = service_tag
 
 
 def _get_runtime_endpoints(runtime_config: Dict[str, Any], cluster_head_ip):

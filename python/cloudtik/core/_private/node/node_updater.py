@@ -361,9 +361,15 @@ class NodeUpdater:
             node_envs[CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE] = self.provider_type
 
         node_envs[CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION] = CLOUDTIK_CLUSTER_PYTHON_VERSION
-        node_envs[CLOUDTIK_RUNTIME_ENV_WORKSPACE] = self.config["workspace_name"]
-        node_envs[CLOUDTIK_RUNTIME_ENV_CLUSTER] = self.config["cluster_name"]
         node_envs[CLOUDTIK_RUNTIME_ENV_NODE_ID] = self.node_id
+
+        workspace_name = self.config.get("workspace_name")
+        if workspace_name:
+            node_envs[CLOUDTIK_RUNTIME_ENV_WORKSPACE] = workspace_name
+        cluster_name = self.config.get("cluster_name")
+        if cluster_name:
+            node_envs[CLOUDTIK_RUNTIME_ENV_CLUSTER] = cluster_name
+
         return node_envs
 
     def get_shared_memory_ratio(self):

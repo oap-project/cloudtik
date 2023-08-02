@@ -48,7 +48,7 @@ function update_local_targets() {
     sed -i "s#{%local.node.target%}#${PROMETHEUS_NODE_EXPORTER_ADDRESS}#g" ${output_dir}/prometheus-node-targets.yaml
 }
 
-function update_home_dir() {
+function configure_prometheus() {
     prepare_base_conf
     prometheus_output_dir=$output_dir
     config_template_file=${output_dir}/prometheus.yaml

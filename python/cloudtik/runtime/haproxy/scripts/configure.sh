@@ -41,13 +41,13 @@ function configure_haproxy_with_consul_dns() {
     sed -i "s#{%backend.service.name%}#${HAPROXY_BACKEND_SERVICE_NAME}#g" ${config_template_file}
     sed -i "s#{%backend.service.max.servers%}#${HAPROXY_BACKEND_SERVICE_MAX_SERVERS}#g" ${config_template_file}
 
-    if [ -z "${HAPROXY_BACKEND_SERVICE_PROTOCOL}" ]; then
-        # Consul seems always default to the protocol to tcp
-        BACKEND_SERVICE_PROTOCOL=tcp
+    if [ -z "${HAPROXY_BACKEND_SERVICE_TAG}" ]; then
+        # if no tag specified, use the protocol of tcp
+        BACKEND_SERVICE_TAG=tcp
     else
-        BACKEND_SERVICE_PROTOCOL==${HAPROXY_BACKEND_SERVICE_PROTOCOL}
+        BACKEND_SERVICE_TAG==${HAPROXY_BACKEND_SERVICE_TAG}
     fi
-    sed -i "s#{%backend.service.protocol%}#${BACKEND_SERVICE_PROTOCOL}#g" ${config_template_file}
+    sed -i "s#{%backend.service.tag%}#${BACKEND_SERVICE_TAG}#g" ${config_template_file}
 
     HAPROXY_CONFIG_DIR=/etc/haproxy
     sudo mkdir -p ${HAPROXY_CONFIG_DIR}

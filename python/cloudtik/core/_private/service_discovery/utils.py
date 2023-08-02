@@ -15,8 +15,8 @@ SERVICE_DISCOVERY_NODE_KIND_NODE = "node"
 SERVICE_DISCOVERY_TAGS = "tags"
 SERVICE_DISCOVERY_META = "meta"
 
-SERVICE_DISCOVERY_META_CLUSTER = "cluster"
-SERVICE_DISCOVERY_META_RUNTIME = "runtime"
+SERVICE_DISCOVERY_META_CLUSTER = "cloudtik-cluster"
+SERVICE_DISCOVERY_META_RUNTIME = "cloudtik-runtime"
 
 SERVICE_DISCOVERY_CHECK_INTERVAL = "check_interval"
 SERVICE_DISCOVERY_CHECK_TIMEOUT = "check_timeout"
@@ -27,18 +27,30 @@ SERVICE_DISCOVERY_CONFIG_MEMBER_OF = "member_of"
 
 
 class ServiceScope(Enum):
-    CLUSTER = 1
-    WORKSPACE = 2
+    """The service scope decide how the canonical service name is formed.
+    For workspace scoped service, the runtime service name is used directly
+    as the service name and the cluster name as a tag.
+    For cluster scoped service, the cluster name will be prefixed with the
+    runtime service name to form a unique canonical service name.
+
+    """
+    WORKSPACE = 1
+    CLUSTER = 2
 
 
 def get_canonical_service_name(
-        config, cluster_name, runtime_service_name):
+        config, cluster_name, runtime_service_name,
+        service_scope: ServiceScope = ServiceScope.WORKSPACE):
     member_of = config.get(SERVICE_DISCOVERY_CONFIG_MEMBER_OF)
     if member_of:
-        # This service is a member of a service group
+        # override the service name
         return member_of
     else:
-        return "{}-{}".format(cluster_name, runtime_service_name)
+        if service_scope == ServiceScope.WORKSPACE:
+            return runtime_service_name
+        else:
+            # cluster name as prefix of service name
+            return "{}-{}".format(cluster_name, runtime_service_name)
 
 
 def define_runtime_service(service_port, node_kind=SERVICE_DISCOVERY_NODE_KIND_NODE):

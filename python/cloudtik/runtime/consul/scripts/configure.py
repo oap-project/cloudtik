@@ -1,6 +1,6 @@
 import argparse
 
-from cloudtik.runtime.consul.utils import configure_join, configure_services
+from cloudtik.runtime.consul.utils import configure_agent, configure_services
 
 
 def main():
@@ -11,7 +11,7 @@ def main():
     args = parser.parse_args()
 
     # configure join
-    configure_join(args.head)
+    configure_agent(args.head)
 
     # Configure the Consul services
     configure_services(args.head)

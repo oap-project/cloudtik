@@ -3014,6 +3014,12 @@ def get_config_for_update(config, config_key):
     return config[config_key]
 
 
+def get_list_for_update(config, config_key):
+    if config_key not in config:
+        config[config_key] = []
+    return config[config_key]
+
+
 def print_json_formatted(json_bytes):
     json_object = json.loads(json_bytes)
     formatted_response = json.dumps(json_object, indent=4)

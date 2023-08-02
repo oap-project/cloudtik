@@ -4,7 +4,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN, \
-    CLOUDTIK_RUNTIME_ENV_HEAD_IP
+    CLOUDTIK_RUNTIME_ENV_HEAD_IP, CLOUDTIK_RUNTIME_ENV_CLUSTER
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL, _get_runtime
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
     get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, subscribe_nodes_info, sort_nodes_by_seq_id, \
@@ -15,7 +15,7 @@ from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_POR
     match_service_node
 from cloudtik.core._private.utils import \
     publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
-    RUNTIME_CONFIG_KEY, get_config_for_update
+    RUNTIME_CONFIG_KEY, get_config_for_update, get_list_for_update
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.tags import QUORUM_JOIN_STATUS_INIT
 
@@ -35,6 +35,7 @@ CONFIG_KEY_DATA_CENTER = "data_center"
 
 CONSUL_SERVER_RPC_PORT = 8300
 CONSUL_SERVER_HTTP_PORT = 8500
+CONSUL_SERVER_DNS_PORT = 8600
 
 SERVICE_CHECK_INTERVAL_DEFAULT = 10
 SERVICE_CHECK_TIMEOUT_DEFAULT = 5
@@ -146,6 +147,13 @@ def _bootstrap_runtime_services(config: Dict[str, Any]):
 def _generate_service_config(cluster_name, runtime_type, runtime_service):
     # We utilize all the standard service discovery properties
     service_config = copy.deepcopy(runtime_service)
+
+    # tags cluster name as tags
+    tags = get_list_for_update(
+        service_config, SERVICE_DISCOVERY_TAGS)
+    # TODO: check duplication
+    tags.append(cluster_name)
+
     meta_config = get_config_for_update(
         service_config, SERVICE_DISCOVERY_META)
 
@@ -196,15 +204,20 @@ def _get_runtime_logs():
 def _get_runtime_endpoints(server_mode, cluster_head_ip):
     endpoints = {
         "consul": {
-            "name": "Consul RPC",
+            "name": "Consul",
             "url": "{}:{}".format(cluster_head_ip, CONSUL_SERVER_RPC_PORT)
         },
     }
     if server_mode:
-        endpoints["consul_ui"] = {
-            "name": "Consul UI",
-            "url": "http://{}:{}".format(cluster_head_ip, CONSUL_SERVER_HTTP_PORT)
+        endpoints["consul_http"] = {
+            "name": "Consul HTTP API",
+            "url": "{}:{}".format(cluster_head_ip, CONSUL_SERVER_HTTP_PORT)
         }
+        endpoints["consul_dns"] = {
+            "name": "Consul DNS",
+            "url": "{}:{}".format(cluster_head_ip, CONSUL_SERVER_DNS_PORT)
+        }
+
     return endpoints
 
 
@@ -217,9 +230,13 @@ def _get_head_service_ports(server_mode, runtime_config: Dict[str, Any]) -> Dict
     }
 
     if server_mode:
-        service_ports["consul_ui"] = {
+        service_ports["consul_http"] = {
             "protocol": "TCP",
             "port": CONSUL_SERVER_HTTP_PORT,
+        }
+        service_ports["consul_dns"] = {
+            "protocol": "TCP",
+            "port": CONSUL_SERVER_DNS_PORT,
         }
     return service_ports
 
@@ -307,10 +324,10 @@ def _get_services_of_node_type(runtime_config, node_type):
 ###################################
 
 
-def configure_join(head):
+def configure_agent(head):
     consul_server = os.environ.get("CONSUL_SERVER")
     server_mode = True if consul_server == "true" else False
-    _configure_join_list(server_mode, head)
+    _configure_agent(server_mode, head)
 
     if server_mode:
         quorum_join = os.environ.get(CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN)
@@ -318,7 +335,7 @@ def configure_join(head):
             _update_server_config_for_join()
 
 
-def _configure_join_list(server_mode, head):
+def _configure_agent(server_mode, head):
     # Configure the retry join list for all the cases
 
     if server_mode:
@@ -339,7 +356,8 @@ def _configure_join_list(server_mode, head):
             raise RuntimeError("Missing join list environment variable for the running node.")
         join_list = join_list_str.split(',')
 
-    _update_join_list_config(join_list)
+    cluster_name = os.environ.get(CLOUDTIK_RUNTIME_ENV_CLUSTER)
+    _update_agent_config(join_list, cluster_name)
 
 
 def _get_join_list_from_nodes_info():
@@ -354,12 +372,15 @@ def _get_join_list_from_nodes_info():
     return join_list
 
 
-def _update_join_list_config(join_list):
+def _update_agent_config(join_list, cluster_name):
     home_dir = _get_home_dir()
     config_file = os.path.join(home_dir, "consul.d", "consul.json")
 
     def update_retry_join(config_object):
         config_object["retry_join"] = join_list
+        if cluster_name:
+            node_meta = get_config_for_update(config_object, "node_meta")
+            node_meta[SERVICE_DISCOVERY_META_CLUSTER] = cluster_name
 
     load_and_save_json(config_file, update_retry_join)
 

@@ -22,8 +22,8 @@ class ConsulRuntime(RuntimeBase):
             # for client mode, we bootstrap the consul server cluster
             cluster_config = _bootstrap_join_list(cluster_config)
 
-            # for client mode, collect the runtime services information
-            cluster_config = _bootstrap_runtime_services(cluster_config)
+        # collect the runtime services information
+        cluster_config = _bootstrap_runtime_services(cluster_config)
         return cluster_config
 
     def with_environment_variables(

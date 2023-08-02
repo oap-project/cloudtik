@@ -31,6 +31,7 @@ CONSUL_RUNTIME_CONFIG_KEY = "consul"
 CONFIG_KEY_JOIN_LIST = "join_list"
 CONFIG_KEY_RPC_PORT = "rpc_port"
 CONFIG_KEY_SERVICES = "services"
+CONFIG_KEY_DATA_CENTER = "data_center"
 
 CONSUL_SERVER_RPC_PORT = 8300
 CONSUL_SERVER_HTTP_PORT = 8500
@@ -158,6 +159,14 @@ def _with_runtime_environment_variables(
         provider, node_id: str):
     runtime_envs = {}
 
+    consul_config = _get_config(runtime_config)
+
+    data_center = consul_config.get(CONFIG_KEY_DATA_CENTER)
+    if not data_center:
+        # default to use workspace name as datacenter unless override
+        data_center = config["workspace_name"]
+    runtime_envs["CONSUL_DATA_CENTER"] = data_center
+
     if server_mode:
         runtime_envs["CONSUL_SERVER"] = True
 
@@ -166,8 +175,6 @@ def _with_runtime_environment_variables(
         runtime_envs["CONSUL_NUM_SERVERS"] = minimal_workers + 1
     else:
         runtime_envs["CONSUL_CLIENT"] = True
-
-        consul_config = _get_config(runtime_config)
         join_list = consul_config.get(CONFIG_KEY_JOIN_LIST)
         if not join_list:
             raise RuntimeError("Invalid join list. No running consul server cluster is detected.")

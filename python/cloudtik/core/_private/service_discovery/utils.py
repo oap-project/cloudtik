@@ -1,3 +1,4 @@
+from enum import Enum
 
 # The standard keys and values used for service discovery
 
@@ -23,6 +24,11 @@ SERVICE_DISCOVERY_CHECK_TIMEOUT = "check_timeout"
 
 # Standard runtime configurations for service discovery
 SERVICE_DISCOVERY_CONFIG_MEMBER_OF = "member_of"
+
+
+class ServiceScope(Enum):
+    CLUSTER = 1
+    WORKSPACE = 2
 
 
 def get_canonical_service_name(

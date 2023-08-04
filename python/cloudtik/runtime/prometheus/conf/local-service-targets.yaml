@@ -1,0 +1,4 @@
+- labels:
+      service: '{%service.name%}'
+  targets:
+    - '{%service.target%}'

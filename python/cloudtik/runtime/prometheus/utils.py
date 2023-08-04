@@ -1,11 +1,11 @@
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL
+from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import \
-    get_canonical_service_name, define_runtime_service, \
+    get_canonical_service_name, \
     define_runtime_service_on_head_or_all, get_service_discovery_config
-from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, is_runtime_enabled
+from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
         # The first element is the substring to filter.
@@ -13,24 +13,22 @@ RUNTIME_PROCESSES = [
         # The third element is the process name.
         # The forth element, if node, the process should on all nodes,if head, the process should on head node.
         ["prometheus", True, "Prometheus", "node"],
-        ["node_exporter", True, "Node Metrics", "node"],
     ]
-
 
 PROMETHEUS_RUNTIME_CONFIG_KEY = "prometheus"
 PROMETHEUS_SERVICE_PORT_CONFIG_KEY = "port"
-PROMETHEUS_NODE_EXPORTER_PORT_CONFIG_KEY = "node_exporter_port"
 PROMETHEUS_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
+PROMETHEUS_SCRAPE_SCOPE_CONFIG_KEY = "scrape_scope"
 PROMETHEUS_SERVICE_DISCOVERY_CONFIG_KEY = "service_discovery"
 
 PROMETHEUS_SERVICE_NAME = "prometheus"
-PROMETHEUS_NODE_EXPORTER_NAME = "node-exporter"
 PROMETHEUS_SERVICE_PORT_DEFAULT = 9090
-PROMETHEUS_NODE_EXPORTER_PORT_DEFAULT = 9100
 
 PROMETHEUS_SERVICE_DISCOVERY_FILE = "FILE"
-PROMETHEUS_SERVICE_DISCOVERY_DNS = "DNS"
 PROMETHEUS_SERVICE_DISCOVERY_CONSUL = "CONSUL"
+
+PROMETHEUS_SCRAPE_SCOPE_LOCAL = "local"
+PROMETHEUS_SCRAPE_SCOPE_WORKSPACE = "workspace"
 
 
 def _get_config(runtime_config: Dict[str, Any]):
@@ -40,11 +38,6 @@ def _get_config(runtime_config: Dict[str, Any]):
 def _get_service_port(prometheus_config: Dict[str, Any]):
     return prometheus_config.get(
         PROMETHEUS_SERVICE_PORT_CONFIG_KEY, PROMETHEUS_SERVICE_PORT_DEFAULT)
-
-
-def _get_node_exporter_port(prometheus_config: Dict[str, Any]):
-    return prometheus_config.get(
-        PROMETHEUS_NODE_EXPORTER_PORT_CONFIG_KEY, PROMETHEUS_NODE_EXPORTER_PORT_DEFAULT)
 
 
 def _is_high_availability(prometheus_config: Dict[str, Any]):
@@ -67,16 +60,13 @@ def _get_runtime_logs():
 
 
 def _with_runtime_environment_variables(
-        runtime_config, config,
-        provider, node_id: str):
+        runtime_config, config):
     runtime_envs = {}
 
     prometheus_config = _get_config(runtime_config)
+
     service_port = _get_service_port(prometheus_config)
     runtime_envs["PROMETHEUS_SERVICE_PORT"] = service_port
-
-    node_exporter_port = _get_node_exporter_port(prometheus_config)
-    runtime_envs["PROMETHEUS_NODE_EXPORTER_PORT"] = node_exporter_port
 
     high_availability = _is_high_availability(prometheus_config)
     if high_availability:
@@ -86,7 +76,7 @@ def _with_runtime_environment_variables(
     if not sd:
         # auto decide
         cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
-        if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_CONSUL):
+        if get_service_discovery_runtime(cluster_runtime_config):
             sd = PROMETHEUS_SERVICE_DISCOVERY_CONSUL
         else:
             sd = PROMETHEUS_SERVICE_DISCOVERY_FILE
@@ -94,34 +84,37 @@ def _with_runtime_environment_variables(
     if sd == PROMETHEUS_SERVICE_DISCOVERY_FILE:
         _with_file_sd_environment_variables(
             prometheus_config, config, runtime_envs)
-    elif sd == PROMETHEUS_SERVICE_DISCOVERY_DNS:
-        _with_dns_sd_environment_variables(
-            prometheus_config, config, runtime_envs)
     elif sd == PROMETHEUS_SERVICE_DISCOVERY_CONSUL:
         _with_consul_sd_environment_variables(
             prometheus_config, config, runtime_envs)
     else:
         raise RuntimeError(
             "Unsupported service discovery type: {}. "
-            "Valid types are: {}, {}, {}.".format(
+            "Valid types are: {}, {}.".format(
                 sd,
                 PROMETHEUS_SERVICE_DISCOVERY_FILE,
-                PROMETHEUS_SERVICE_DISCOVERY_DNS,
                 PROMETHEUS_SERVICE_DISCOVERY_CONSUL))
 
+    scrape_scope = prometheus_config.get(PROMETHEUS_SCRAPE_SCOPE_CONFIG_KEY)
+    if scrape_scope == PROMETHEUS_SCRAPE_SCOPE_WORKSPACE:
+        # make sure
+        cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
+        if not get_service_discovery_runtime(cluster_runtime_config):
+            raise RuntimeError("Service discovery service is needed for workspace scoped scrape.")
+
+        sd = PROMETHEUS_SERVICE_DISCOVERY_CONSUL
+        scrape_scope = PROMETHEUS_SCRAPE_SCOPE_WORKSPACE
+    elif not scrape_scope:
+        scrape_scope = PROMETHEUS_SCRAPE_SCOPE_LOCAL
+
     runtime_envs["PROMETHEUS_SERVICE_DISCOVERY"] = sd
+    runtime_envs["PROMETHEUS_SCRAPE_SCOPE"] = scrape_scope
     return runtime_envs
 
 
 def _with_file_sd_environment_variables(
         prometheus_config, config, runtime_envs):
     # TODO: discovery through file periodically updated by daemon
-    pass
-
-
-def _with_dns_sd_environment_variables(
-        prometheus_config, config, runtime_envs):
-    # TODO: export variables necessary for DNS service discovery
     pass
 
 
@@ -161,17 +154,11 @@ def _get_runtime_services(
     service_discovery_config = get_service_discovery_config(prometheus_config)
     service_name = get_canonical_service_name(
         service_discovery_config, cluster_name, PROMETHEUS_SERVICE_NAME)
-    node_exporter = get_canonical_service_name(
-        service_discovery_config, cluster_name, PROMETHEUS_NODE_EXPORTER_NAME)
     service_port = _get_service_port(prometheus_config)
-    node_exporter_port = _get_node_exporter_port(prometheus_config)
     services = {
         service_name: define_runtime_service_on_head_or_all(
             service_discovery_config, service_port,
             _is_high_availability(prometheus_config),
-            metrics=True),
-        node_exporter: define_runtime_service(
-            service_discovery_config, node_exporter_port,
-            metrics=True),
+            metrics=True)
     }
     return services

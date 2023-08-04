@@ -52,8 +52,7 @@ def _get_runtime_processes():
 
 
 def _with_runtime_environment_variables(
-        runtime_config, config,
-        provider, node_id: str):
+        runtime_config, config):
     runtime_envs = {}
 
     # export HAPROXY_LOAD_BALANCER_PORT, HAPROXY_LOAD_BALANCER_PROTOCOL

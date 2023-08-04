@@ -2,7 +2,7 @@
 # Here it's Prometheus itself.
 scrape_configs:
   # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
-  - job_name: "prometheus"
+  - job_name: "local"
 
     # Override the global default and scrape targets from this job every 10 seconds.
     scrape_interval: 10s
@@ -10,25 +10,17 @@ scrape_configs:
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
 
-    # List of file service discovery configurations.
-    file_sd_configs:
-      # Patterns for files from which target groups are extracted.
-      - files:
-          - '{%prometheus.home%}/conf/prometheus-server-targets.yaml'
-        # Refresh interval to re-read the files.
-        refresh_interval: 5m
-  - job_name: "node-exporter"
-
-    # Override the global default and scrape targets from this job every 10 seconds.
-    scrape_interval: 10s
-
-    # metrics_path defaults to '/metrics'
-    # scheme defaults to 'http'.
+    # List of target relabel configurations.
+    relabel_configs:
+      - target_label: workspace
+        replacement: '{%workspace.name%}'
+      - target_label: cluster
+        replacement: '{%cluster.name%}'
 
     # List of file service discovery configurations.
     file_sd_configs:
       # Patterns for files from which target groups are extracted.
       - files:
-          - '{%prometheus.home%}/conf/prometheus-node-targets.yaml'
+          - '{%prometheus.home%}/conf/local-*-targets.yaml'
         # Refresh interval to re-read the files.
         refresh_interval: 5m

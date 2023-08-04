@@ -1,4 +1,0 @@
-- labels:
-      cluster: '{%cluster.name%}'
-  targets:
-    - '{%local.node.target%}'

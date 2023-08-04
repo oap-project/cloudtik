@@ -23,41 +23,22 @@ function prepare_base_conf() {
 }
 
 function check_prometheus_installed() {
-    if ! command -v prometheus &> /dev/null
-    then
+    if [ ! -f "${PROMETHEUS_HOME}/prometheus" ]; then
         echo "Prometheus is not installed for prometheus command is not available."
         exit 1
     fi
 }
 
 function update_local_file() {
-    # scrape prometheus server and node exporter of this node
-    # a file service discovery will update nodes from the clusters
-    local SERVICE_PORT=9090
-    if [ ! -z "${PROMETHEUS_SERVICE_PORT}" ]; then
-        SERVICE_PORT=${PROMETHEUS_SERVICE_PORT}
-    fi
-    local PROMETHEUS_LISTEN_ADDRESS="${NODE_IP_ADDRESS}:${SERVICE_PORT}"
-    sed -i "s#{%local.server.target%}#${PROMETHEUS_LISTEN_ADDRESS}#g" ${output_dir}/prometheus-server-targets.yaml
-
-    local NODE_EXPORTER_PORT=9090
-    if [ ! -z "${PROMETHEUS_NODE_EXPORTER_PORT}" ]; then
-        NODE_EXPORTER_PORT=${PROMETHEUS_NODE_EXPORTER_PORT}
-    fi
-    local PROMETHEUS_NODE_EXPORTER_ADDRESS="${NODE_IP_ADDRESS}:${NODE_EXPORTER_PORT}"
-    sed -i "s#{%local.node.target%}#${PROMETHEUS_NODE_EXPORTER_ADDRESS}#g" ${output_dir}/prometheus-node-targets.yaml
-
     cp -r $output_dir/scrape-config-local-file.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-local-file.yaml
-    cp -r $output_dir/prometheus-server-targets.yaml ${PROMETHEUS_CONFIG_DIR}/prometheus-server-targets.yaml
-    cp -r $output_dir/prometheus-node-targets.yaml ${PROMETHEUS_CONFIG_DIR}/prometheus-node-targets.yaml
-}
-
-function update_local_dns() {
-  cp -r $output_dir/scrape-config-local-dns.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-local-dns.yaml
 }
 
 function update_local_consul() {
   cp -r $output_dir/scrape-config-local-consul.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-local-consul.yaml
+}
+
+function update_workspace_consul() {
+  cp -r $output_dir/scrape-config-workspace-consul.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-workspace-consul.yaml
 }
 
 function configure_prometheus() {
@@ -71,14 +52,20 @@ function configure_prometheus() {
     mkdir -p ${PROMETHEUS_CONFIG_DIR}
 
     sed -i "s#{%prometheus.home%}#${PROMETHEUS_HOME}#g" `grep "{%prometheus.home%}" -rl ${output_dir}`
+    sed -i "s#{%workspace.name%}#${CLOUDTIK_WORKSPACE}#g" `grep "{%workspace.name%}" -rl ${output_dir}`
     sed -i "s#{%cluster.name%}#${CLOUDTIK_CLUSTER}#g" `grep "{%cluster.name%}" -rl ${output_dir}`
 
-    if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "DNS" ]; then
-        update_local_dns
-    elif [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "CONSUL" ]; then
-        update_local_consul
-    elif [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "FILE" ]; then
-        update_local_file
+    if [ "${PROMETHEUS_SCRAPE_SCOPE}" == "workspace" ]; then
+        if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "CONSUL" ]; then
+            update_workspace_consul
+        fi
+    else
+        # local scope
+        if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "CONSUL" ]; then
+            update_local_consul
+        elif [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "FILE" ]; then
+            update_local_file
+        fi
     fi
 
     cp -r $output_dir/prometheus.yaml ${PROMETHEUS_CONFIG_DIR}/prometheus.yaml

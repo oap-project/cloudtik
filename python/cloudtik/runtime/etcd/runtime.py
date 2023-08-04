@@ -23,8 +23,7 @@ class EtcdRuntime(RuntimeBase):
         For example: {"ENV_NAME": value}
         """
         return _with_runtime_environment_variables(
-            self.runtime_config, config=config,
-            provider=provider, node_id=node_id)
+            self.runtime_config, config=config)
 
     def get_node_constraints(
             self, cluster_config: Dict[str, Any]) -> Tuple[bool, bool, bool]:

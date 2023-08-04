@@ -34,7 +34,7 @@ class ConsulRuntime(RuntimeBase):
         """
         return _with_runtime_environment_variables(
             self.server_mode, self.runtime_config,
-            config=config, provider=provider, node_id=node_id)
+            config=config)
 
     def get_runtime_endpoints(self, cluster_head_ip: str):
         return _get_runtime_endpoints(

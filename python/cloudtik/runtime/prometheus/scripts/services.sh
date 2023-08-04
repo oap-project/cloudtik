@@ -36,14 +36,6 @@ function get_service_port() {
     echo "${service_port}"
 }
 
-function get_node_exporter_port() {
-    local node_exporter_port=9100
-    if [ ! -z "${PROMETHEUS_NODE_EXPORTER_PORT}" ]; then
-        node_exporter_port=${PROMETHEUS_NODE_EXPORTER_PORT}
-    fi
-    echo "${node_exporter_port}"
-}
-
 case "$SERVICE_COMMAND" in
 start)
     if [ "${PROMETHEUS_HIGH_AVAILABILITY}" == "true" ] || [ "${IS_HEAD_NODE}" == "true" ]; then
@@ -57,17 +49,11 @@ start)
           --web.listen-address=${PROMETHEUS_LISTEN_ADDRESS} \
           --web.enable-lifecycle >${PROMETHEUS_HOME}/logs/prometheus.log 2>&1 &
     fi
-
-    NODE_EXPORTER_PORT=$(get_node_exporter_port)
-    NODE_EXPORTER_ADDRESS="${NODE_IP_ADDRESS}:${NODE_EXPORTER_PORT}"
-    nohup ${PROMETHEUS_HOME}/node_exporter/node_exporter \
-          --web.listen-address=${NODE_EXPORTER_ADDRESS} >${PROMETHEUS_HOME}/logs/node_exporter.log 2>&1 &
     ;;
 stop)
     if [ "${PROMETHEUS_HIGH_AVAILABILITY}" == "true" ] || [ "${IS_HEAD_NODE}" == "true" ]; then
         stop_process_by_name "prometheus"
     fi
-    stop_process_by_name "node_exporter"
     ;;
 -h|--help)
     echo "Usage: $0 start|stop --head" >&2

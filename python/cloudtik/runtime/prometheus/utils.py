@@ -1,11 +1,12 @@
 import os
 from typing import Any, Dict
 
+from cloudtik.core._private.runtime_utils import subscribe_runtime_config, load_and_save_yaml
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, \
     define_runtime_service_on_head_or_all, get_service_discovery_config
-from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
+from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, get_list_for_update
 
 RUNTIME_PROCESSES = [
         # The first element is the substring to filter.
@@ -18,8 +19,10 @@ RUNTIME_PROCESSES = [
 PROMETHEUS_RUNTIME_CONFIG_KEY = "prometheus"
 PROMETHEUS_SERVICE_PORT_CONFIG_KEY = "port"
 PROMETHEUS_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
-PROMETHEUS_SCRAPE_SCOPE_CONFIG_KEY = "scrape_scope"
 PROMETHEUS_SERVICE_DISCOVERY_CONFIG_KEY = "service_discovery"
+PROMETHEUS_SCRAPE_SCOPE_CONFIG_KEY = "scrape_scope"
+PROMETHEUS_SCRAPE_TAGS_CONFIG_KEY = "scrape_tags"
+PROMETHEUS_SCRAPE_LABELS_CONFIG_KEY = "scrape_labels"
 
 PROMETHEUS_SERVICE_NAME = "prometheus"
 PROMETHEUS_SERVICE_PORT_DEFAULT = 9090
@@ -162,3 +165,54 @@ def _get_runtime_services(
             metrics=True)
     }
     return services
+
+
+###################################
+# Calls from node when configuring
+###################################
+
+
+def _get_config_file(scrape_scope):
+    home_dir = _get_home_dir()
+    config_file_name = "scrape-config-workspace-consul.yaml" if (
+            scrape_scope == PROMETHEUS_SCRAPE_SCOPE_WORKSPACE) else (
+        "scrape-config-local-consul.yaml")
+    return os.path.join(home_dir, "conf", config_file_name)
+
+
+def configure_scrape():
+    runtime_config = subscribe_runtime_config()
+    prometheus_config = _get_config(runtime_config)
+
+    sd = os.environ.get("PROMETHEUS_SERVICE_DISCOVERY")
+    if sd == PROMETHEUS_SERVICE_DISCOVERY_CONSUL:
+        # tags and labels only support service discovery based scrape (consul)
+        tags = prometheus_config.get(PROMETHEUS_SCRAPE_TAGS_CONFIG_KEY)
+        labels = prometheus_config.get(PROMETHEUS_SCRAPE_LABELS_CONFIG_KEY)
+        if tags or labels:
+            scrape_scope = os.environ.get("PROMETHEUS_SCRAPE_SCOPE")
+            config_file = _get_config_file(scrape_scope)
+            update_scrape_config(config_file, tags, labels)
+
+
+def update_scrape_config(config_file, tags, labels):
+    def update_contents(config_object):
+        scrape_configs = config_object["scrape_configs"]
+        for scrape_config in scrape_configs:
+            if tags:
+                sd_configs = scrape_config["consul_sd_configs"]
+                for sd_config in sd_configs:
+                    base_tags = get_list_for_update(sd_config, "tags")
+                    base_tags.append(tags)
+            if labels:
+                relabel_configs = get_list_for_update(scrape_config, "relabel_configs")
+                for label_key, label_value in labels.items():
+                    relabel_config = {
+                        "action": "keep",
+                        "source_labels": ["__meta_consul_service_metadata_{}".format(
+                            label_key)],
+                        "regex": label_value
+                    }
+                    relabel_configs.append(relabel_config)
+
+    load_and_save_yaml(config_file, update_contents)

@@ -20,7 +20,7 @@ scrape_configs:
       # An optional list of tags used to filter nodes for a given service. Services must contain all tags in the list.
       - tags:
           - 'cloudtik-c-{%cluster.name%}'
-          - 'cloudtik-m-exporter'
+          - 'cloudtik-m-metrics'
 
         # A list of services for which targets are retrieved. If omitted, all services
         # are scraped.

@@ -1,0 +1,61 @@
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: "federation"
+
+    # Override the global default and scrape targets from this job every 10 seconds.
+    scrape_interval: 15s
+
+    # metrics_path defaults to '/metrics'
+    metrics_path: '/federate'
+
+    # scheme defaults to 'http'.
+
+    # honor_labels controls how Prometheus handles conflicts between labels that are
+    # already present in scraped data and labels that Prometheus would attach
+    # server-side
+
+    # If honor_labels is set to "true", label conflicts are resolved by keeping label
+    # values from the scraped data and ignoring the conflicting server-side labels.
+    #
+    # If honor_labels is set to "false", label conflicts are resolved by renaming
+    # conflicting labels in the scraped data to "exported_<original-label>" (for
+    # example "exported_instance", "exported_job") and then attaching server-side
+    # labels.
+    #
+    # Setting honor_labels to "true" is useful for use cases such as federation and
+    # scraping the Pushgateway, where all labels specified in the target should be
+    # preserved.
+    honor_labels: true
+
+    # Optional HTTP URL parameters.
+    params:
+      'match[]':
+        - '{job=~".+"}'
+
+    # List of target relabel configurations.
+    relabel_configs:
+      - source_labels: [ __meta_consul_service_metadata_cloudtik_cluster ]
+        regex: '{%cluster.name%}'
+        action: drop
+
+    # List of Consul service discovery configurations.
+    consul_sd_configs:
+      # An optional list of tags used to filter nodes for a given service. Services must contain all tags in the list.
+      - tags:
+          - 'cloudtik-m-metrics'
+
+        # A list of services for which targets are retrieved. If omitted, all services
+        # are scraped.
+        # For federation, default to scrape all the prometheus servers
+        # exclude the prometheus servers of this cluster
+        services:
+          - prometheus
+
+        # The information to access the Consul API. It is to be defined
+        # as the Consul documentation requires.
+        # [ server: <host> | default = "localhost:8500" ]
+
+        # The time after which the provided names are refreshed.
+        refresh_interval: 30s

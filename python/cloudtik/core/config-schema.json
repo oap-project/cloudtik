@@ -1275,6 +1275,22 @@
                                 }
                             }
                         },
+                        "scrape_exclude_labels": {
+                            "type": "object",
+                            "description": "The labels to exclude for the services to scrape",
+                            "patternProperties": {
+                                ".*":{
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "scrape_services": {
+                            "type": "array",
+                            "description": "The services to scrape. If not specified, all the services matched will be scraped.",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "scrape_tags": {
                             "type": "array",
                             "description": "The tags to match for the services to scrape",

@@ -41,6 +41,12 @@ function update_workspace_consul() {
   cp -r $output_dir/scrape-config-workspace-consul.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-workspace-consul.yaml
 }
 
+function update_federation_consul() {
+  # Federation will also scrape local cluster
+  update_local_consul
+  cp -r $output_dir/scrape-config-federation-consul.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-federation-consul.yaml
+}
+
 function configure_prometheus() {
     prepare_base_conf
     prometheus_output_dir=$output_dir
@@ -58,6 +64,10 @@ function configure_prometheus() {
     if [ "${PROMETHEUS_SCRAPE_SCOPE}" == "workspace" ]; then
         if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "CONSUL" ]; then
             update_workspace_consul
+        fi
+    elif [ "${PROMETHEUS_SCRAPE_SCOPE}" == "federation" ]; then
+        if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "CONSUL" ]; then
+            update_federation_consul
         fi
     else
         # local scope

@@ -1265,6 +1265,22 @@
                             "type": "string",
                             "default": "local",
                             "description": "The scrape scope for this server: local or workspace."
+                        },
+                        "scrape_labels": {
+                            "type": "object",
+                            "description": "The labels to match for the services to scrape",
+                            "patternProperties": {
+                                ".*":{
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "scrape_tags": {
+                            "type": "array",
+                            "description": "The tags to match for the services to scrape",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     }
                 },

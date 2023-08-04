@@ -31,9 +31,10 @@ BUILT_IN_RUNTIME_NGINX = "nginx"
 BUILT_IN_RUNTIME_HAPORXY = "haproxy"
 BUILT_IN_RUNTIME_ETCD = "etcd"
 BUILT_IN_RUNTIME_PROMETHEUS = "prometheus"
+BUILT_IN_RUNTIME_NODE_EXPORTER = "node_exporter"
 BUILT_IN_RUNTIME_GRAFANA = "grafana"
 
-DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_PROMETHEUS, BUILT_IN_RUNTIME_SPARK]
+DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_PROMETHEUS, BUILT_IN_RUNTIME_NODE_EXPORTER, BUILT_IN_RUNTIME_SPARK]
 
 
 def _import_spark():
@@ -116,6 +117,11 @@ def _import_prometheus():
     return PrometheusRuntime
 
 
+def _import_node_exporter():
+    from cloudtik.runtime.node_exporter.runtime import NodeExporterRuntime
+    return NodeExporterRuntime
+
+
 def _import_grafana():
     from cloudtik.runtime.grafana.runtime import GrafanaRuntime
     return GrafanaRuntime
@@ -138,6 +144,7 @@ _RUNTIMES = {
     "haproxy": _import_haproxy,
     "etcd": _import_etcd,
     "prometheus": _import_prometheus,
+    "node_exporter": _import_node_exporter,
     "grafana": _import_grafana,
 }
 

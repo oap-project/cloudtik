@@ -1256,15 +1256,27 @@
                             "default": 9090,
                             "description": "Prometheus server port."
                         },
-                        "node_exporter_port": {
-                            "type": "integer",
-                            "default": 9100,
-                            "description": "Prometheus node exporter port."
-                        },
                         "high_availability": {
                             "type": "boolean",
                             "default": false,
                             "description": "Whether to run a server on each node for high availability. Each server will scrape the same set of targets"
+                        },
+                        "scrape_scope": {
+                            "type": "string",
+                            "default": "local",
+                            "description": "The scrape scope for this server: local or workspace."
+                        }
+                    }
+                },
+                "node_exporter": {
+                    "type": "object",
+                    "description": "Prometheus node exporter runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 9100,
+                            "description": "Prometheus node exporter port."
                         }
                     }
                 },

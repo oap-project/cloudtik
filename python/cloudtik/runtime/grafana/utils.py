@@ -50,8 +50,7 @@ def _get_runtime_logs():
 
 
 def _with_runtime_environment_variables(
-        runtime_config, config,
-        provider, node_id: str):
+        runtime_config, config):
     runtime_envs = {}
 
     grafana_config = _get_config(runtime_config)

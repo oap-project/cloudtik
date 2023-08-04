@@ -5,11 +5,10 @@ from cloudtik.core._private.runtime_factory import _get_runtime, BUILT_IN_RUNTIM
 from cloudtik.core._private.service_discovery.utils import match_service_node, get_canonical_service_name, \
     define_runtime_service_on_head, get_service_discovery_config
 from cloudtik.core._private.utils import _get_node_type_specific_runtime_config, RUNTIME_TYPES_CONFIG_KEY, \
-    RUNTIME_CONFIG_KEY
-
+    RUNTIME_CONFIG_KEY, is_runtime_enabled
 
 CLOUDTIK_REDIS_SERVICE_NAME = "cloudtik-redis"
-CLOUDTIK_CLUSTER_CONTROLLER_METRICS_SERVICE_NAME = "cluster-controller-metrics"
+CLOUDTIK_CLUSTER_CONTROLLER_METRICS_SERVICE_NAME = "cloudtik-controller-metrics"
 
 CLOUDTIK_CLUSTER_CONTROLLER_METRICS_PORT = CLOUDTIK_METRIC_PORT
 CLOUDTIK_REDIS_SERVICE_PORT = CLOUDTIK_DEFAULT_PORT
@@ -69,3 +68,9 @@ def _get_built_in_services(config: Dict[str, Any], cluster_name):
             service_discovery_config, CLOUDTIK_REDIS_SERVICE_PORT),
     }
     return services
+
+
+def get_service_discovery_runtime(runtime_config):
+    if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_CONSUL):
+        return BUILT_IN_RUNTIME_CONSUL
+    return None

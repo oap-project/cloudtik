@@ -1,7 +1,8 @@
 import os
 from typing import Any, Dict, Optional
 
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
+    get_service_discovery_config
 from cloudtik.core._private.utils import get_node_type_config
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.ray.scaling_policy import RayScalingPolicy
@@ -112,10 +113,11 @@ def _get_scaling_policy(
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
     ray_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(ray_config)
     service_name = get_canonical_service_name(
-        ray_config, cluster_name, RAY_SERVICE_NAME)
+        service_discovery_config, cluster_name, RAY_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_head(
-            RAY_SERVICE_PORT),
+            service_discovery_config, RAY_SERVICE_PORT),
     }
     return services

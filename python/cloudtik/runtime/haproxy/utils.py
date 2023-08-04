@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service, \
+    get_service_discovery_config
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -72,7 +73,7 @@ def _with_runtime_environment_variables(
 
 
 def _with_runtime_envs_for_consul_dns(haproxy_config, runtime_envs):
-    backend_config = _get_backend_config(HAPROXY_BACKEND_CONFIG_KEY)
+    backend_config = _get_backend_config(haproxy_config)
     service_name = backend_config.get(HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY)
     if not service_name:
         raise ValueError("Backend service name is not configured for load balancer.")
@@ -116,11 +117,13 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
     haproxy_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(haproxy_config)
     service_name = get_canonical_service_name(
-        haproxy_config, cluster_name, HAPROXY_SERVICE_NAME)
+        service_discovery_config, cluster_name, HAPROXY_SERVICE_NAME)
     service_port = _get_service_port(haproxy_config)
     services = {
         service_name: define_runtime_service(
+            service_discovery_config,
             service_port),
     }
     return services

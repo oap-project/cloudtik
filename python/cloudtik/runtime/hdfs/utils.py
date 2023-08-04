@@ -2,7 +2,8 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_node_provider
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
+    get_service_discovery_config
 from cloudtik.core._private.utils import get_node_type_config
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 
@@ -96,10 +97,11 @@ def _get_runtime_services(
     # For in services backed by the collection of nodes of the cluster
     # service name is a combination of cluster_name + runtime_service_name
     hdfs_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(hdfs_config)
     service_name = get_canonical_service_name(
-        hdfs_config, cluster_name, HDFS_SERVICE_NAME)
+        service_discovery_config, cluster_name, HDFS_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_head(
-            HDFS_SERVICE_PORT),
+            service_discovery_config, HDFS_SERVICE_PORT),
     }
     return services

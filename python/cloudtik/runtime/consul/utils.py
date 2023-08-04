@@ -5,14 +5,15 @@ from typing import Any, Dict
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN, \
     CLOUDTIK_RUNTIME_ENV_HEAD_IP, CLOUDTIK_RUNTIME_ENV_CLUSTER
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL, _get_runtime
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
     get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, subscribe_nodes_info, sort_nodes_by_seq_id, \
     load_and_save_json
+from cloudtik.core._private.service_discovery.runtime_services import get_runtime_services
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PORT, \
-    SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_META, SERVICE_DISCOVERY_META_RUNTIME, \
-    SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_META_CLUSTER, \
-    match_service_node
+    SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_LABELS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
+    SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_LABEL_CLUSTER, \
+    SERVICE_DISCOVERY_METRICS
 from cloudtik.core._private.utils import \
     publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
     RUNTIME_CONFIG_KEY, get_config_for_update, get_list_for_update
@@ -40,6 +41,9 @@ CONSUL_SERVER_DNS_PORT = 8600
 SERVICE_CHECK_INTERVAL_DEFAULT = 10
 SERVICE_CHECK_TIMEOUT_DEFAULT = 5
 
+CONSUL_TAG_CLUSTER_NAME_FORMAT = "cloudtik-c-{}"
+CONSUL_TAG_METRICS = "cloudtik-m-metrics"
+
 
 def _get_config(runtime_config: Dict[str, Any]):
     return runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
@@ -58,6 +62,10 @@ def _is_agent_server_mode(runtime_config):
 def _get_consul_config_for_update(cluster_config):
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
     return get_config_for_update(runtime_config, CONSUL_RUNTIME_CONFIG_KEY)
+
+
+def _get_cluster_name_tag(cluster_name):
+    return CONSUL_TAG_CLUSTER_NAME_FORMAT.format(cluster_name)
 
 
 def _to_joint_list(endpoint_uri):
@@ -106,40 +114,22 @@ def _bootstrap_join_list(cluster_config: Dict[str, Any]):
 
 def _bootstrap_runtime_services(config: Dict[str, Any]):
     # for all the runtimes, query its services per node type
-    services_map = {}
+    service_configs = {}
     cluster_name = config["cluster_name"]
-    available_node_types = config["available_node_types"]
-    head_node_type = config["head_node_type"]
-    for node_type in available_node_types:
-        runtime_config = _get_node_type_specific_runtime_config(config, node_type)
-        if not runtime_config:
-            continue
+    services_map = get_runtime_services(config)
+    for node_type, services_for_node_type in services_map.items():
+        service_config_for_node_type = {}
+        for service_name, service in services_for_node_type.items():
+            runtime_type, runtime_service = service
+            service_config = _generate_service_config(
+                cluster_name, runtime_type, runtime_service)
+            service_config_for_node_type[service_name] = service_config
+        if service_config_for_node_type:
+            service_configs[node_type] = service_config_for_node_type
 
-        head = True if node_type == head_node_type else False
-
-        services_for_node_type = {}
-        runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
-        for runtime_type in runtime_types:
-            if runtime_type == BUILT_IN_RUNTIME_CONSUL:
-                continue
-
-            runtime = _get_runtime(runtime_type, runtime_config)
-            services = runtime.get_runtime_services(cluster_name)
-            if not services:
-                continue
-
-            for service_name, runtime_service in services.items():
-                if match_service_node(runtime_service, head):
-                    # conversion between the data formats
-                    service_config = _generate_service_config(
-                        cluster_name, runtime_type, runtime_service)
-                    services_for_node_type[service_name] = service_config
-        if services_for_node_type:
-            services_map[node_type] = services_for_node_type
-
-    if services_map:
+    if service_configs:
         consul_config = _get_consul_config_for_update(config)
-        consul_config[CONFIG_KEY_SERVICES] = services_map
+        consul_config[CONFIG_KEY_SERVICES] = service_configs
 
     return config
 
@@ -151,14 +141,21 @@ def _generate_service_config(cluster_name, runtime_type, runtime_service):
     # tags cluster name as tags
     tags = get_list_for_update(
         service_config, SERVICE_DISCOVERY_TAGS)
-    # TODO: check duplication
-    tags.append(cluster_name)
 
-    meta_config = get_config_for_update(
-        service_config, SERVICE_DISCOVERY_META)
+    # cluster name tag
+    cluster_name_tag = _get_cluster_name_tag(cluster_name)
+    tags.append(cluster_name_tag)
 
-    meta_config[SERVICE_DISCOVERY_META_CLUSTER] = cluster_name
-    meta_config[SERVICE_DISCOVERY_META_RUNTIME] = runtime_type
+    # metrics tag
+    metrics = service_config.get(SERVICE_DISCOVERY_METRICS, False)
+    if metrics:
+        tags.append(CONSUL_TAG_METRICS)
+
+    labels = get_config_for_update(
+        service_config, SERVICE_DISCOVERY_LABELS)
+
+    labels[SERVICE_DISCOVERY_LABEL_CLUSTER] = cluster_name
+    labels[SERVICE_DISCOVERY_LABEL_RUNTIME] = runtime_type
     return service_config
 
 
@@ -380,7 +377,7 @@ def _update_agent_config(join_list, cluster_name):
         config_object["retry_join"] = join_list
         if cluster_name:
             node_meta = get_config_for_update(config_object, "node_meta")
-            node_meta[SERVICE_DISCOVERY_META_CLUSTER] = cluster_name
+            node_meta[SERVICE_DISCOVERY_LABEL_CLUSTER] = cluster_name
 
     load_and_save_json(config_file, update_retry_join)
 
@@ -441,9 +438,9 @@ def _generate_service_def(service_name, service_config):
     if tags:
         service_def["tags"] = tags
 
-    meta = service_config.get(SERVICE_DISCOVERY_META)
-    if meta:
-        service_def["meta"] = meta
+    labels = service_config.get(SERVICE_DISCOVERY_LABELS)
+    if labels:
+        service_def["meta"] = labels
 
     return service_def
 

@@ -4,7 +4,8 @@ from typing import Any, Dict
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
+    get_service_discovery_config
 from cloudtik.core._private.utils import is_runtime_enabled, \
     get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config, get_config_for_update
 
@@ -198,10 +199,11 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
     presto_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(presto_config)
     service_name = get_canonical_service_name(
-        presto_config, cluster_name, PRESTO_SERVICE_NAME)
+        service_discovery_config, cluster_name, PRESTO_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_head(
-            PRESTO_SERVICE_PORT),
+            service_discovery_config, PRESTO_SERVICE_PORT),
     }
     return services

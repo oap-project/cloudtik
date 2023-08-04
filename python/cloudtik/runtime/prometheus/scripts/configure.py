@@ -13,7 +13,7 @@ def main():
 
     high_availability = os.environ.get("PROMETHEUS_HIGH_AVAILABILITY")
     if high_availability == "true" or args.head:
-        configure_scrape()
+        configure_scrape(args.head)
 
 
 if __name__ == "__main__":

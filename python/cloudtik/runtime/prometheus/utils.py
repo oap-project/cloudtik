@@ -1,7 +1,8 @@
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.runtime_utils import subscribe_runtime_config, load_and_save_yaml
+from cloudtik.core._private.runtime_utils import load_and_save_yaml, \
+    get_runtime_config_from_node
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, \
@@ -180,8 +181,8 @@ def _get_config_file(scrape_scope):
     return os.path.join(home_dir, "conf", config_file_name)
 
 
-def configure_scrape():
-    runtime_config = subscribe_runtime_config()
+def configure_scrape(head):
+    runtime_config = get_runtime_config_from_node(head)
     prometheus_config = _get_config(runtime_config)
 
     sd = os.environ.get("PROMETHEUS_SERVICE_DISCOVERY")

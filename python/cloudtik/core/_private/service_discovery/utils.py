@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional, Dict, Any
 
 # The standard keys and values used for service discovery
 
@@ -13,17 +14,23 @@ SERVICE_DISCOVERY_NODE_KIND_WORKER = "worker"
 SERVICE_DISCOVERY_NODE_KIND_NODE = "node"
 
 SERVICE_DISCOVERY_TAGS = "tags"
-SERVICE_DISCOVERY_META = "meta"
+SERVICE_DISCOVERY_LABELS = "labels"
 
-SERVICE_DISCOVERY_META_CLUSTER = "cloudtik-cluster"
-SERVICE_DISCOVERY_META_RUNTIME = "cloudtik-runtime"
+SERVICE_DISCOVERY_LABEL_CLUSTER = "cloudtik-cluster"
+SERVICE_DISCOVERY_LABEL_RUNTIME = "cloudtik-runtime"
 
 SERVICE_DISCOVERY_CHECK_INTERVAL = "check_interval"
 SERVICE_DISCOVERY_CHECK_TIMEOUT = "check_timeout"
 
+# A boolean value indicate whether this is a service for exporting metrics
+# for auto discovering the metrics services from collector server
+SERVICE_DISCOVERY_METRICS = "metrics"
 
 # Standard runtime configurations for service discovery
+SERVICE_DISCOVERY_CONFIG_SERVICE_DISCOVERY = "service"
 SERVICE_DISCOVERY_CONFIG_MEMBER_OF = "member_of"
+SERVICE_DISCOVERY_CONFIG_TAGS = "tags"
+SERVICE_DISCOVERY_CONFIG_LABELS = "labels"
 
 
 class ServiceScope(Enum):
@@ -38,10 +45,17 @@ class ServiceScope(Enum):
     CLUSTER = 2
 
 
+def get_service_discovery_config(config):
+    return config.get(SERVICE_DISCOVERY_CONFIG_SERVICE_DISCOVERY, {})
+
+
 def get_canonical_service_name(
-        config, cluster_name, runtime_service_name,
+        service_discovery_config: Optional[Dict[str, Any]],
+        cluster_name,
+        runtime_service_name,
         service_scope: ServiceScope = ServiceScope.WORKSPACE):
-    member_of = config.get(SERVICE_DISCOVERY_CONFIG_MEMBER_OF)
+    member_of = service_discovery_config.get(
+        SERVICE_DISCOVERY_CONFIG_MEMBER_OF)
     if member_of:
         # override the service name
         return member_of
@@ -53,29 +67,64 @@ def get_canonical_service_name(
             return "{}-{}".format(cluster_name, runtime_service_name)
 
 
-def define_runtime_service(service_port, node_kind=SERVICE_DISCOVERY_NODE_KIND_NODE):
-    return {
+def define_runtime_service(
+        service_discovery_config: Optional[Dict[str, Any]],
+        service_port,
+        node_kind=SERVICE_DISCOVERY_NODE_KIND_NODE,
+        metrics: bool = False):
+    service_def = {
         SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
         SERVICE_DISCOVERY_PORT: service_port,
-        SERVICE_DISCOVERY_NODE_KIND: node_kind
     }
 
+    if node_kind and node_kind != SERVICE_DISCOVERY_NODE_KIND_NODE:
+        service_def[SERVICE_DISCOVERY_NODE_KIND] = node_kind
 
-def define_runtime_service_on_worker(service_port):
+    tags = service_discovery_config.get(SERVICE_DISCOVERY_CONFIG_TAGS)
+    if tags:
+        service_def[SERVICE_DISCOVERY_TAGS] = tags
+    labels = service_discovery_config.get(SERVICE_DISCOVERY_CONFIG_LABELS)
+    if labels:
+        service_def[SERVICE_DISCOVERY_LABELS] = labels
+    if metrics:
+        service_def[SERVICE_DISCOVERY_METRICS] = metrics
+
+    return service_def
+
+
+def define_runtime_service_on_worker(
+        service_discovery_config: Optional[Dict[str, Any]],
+        service_port,
+        metrics: bool = False):
     return define_runtime_service(
-        service_port, SERVICE_DISCOVERY_NODE_KIND_WORKER)
+        service_discovery_config,
+        service_port,
+        node_kind=SERVICE_DISCOVERY_NODE_KIND_WORKER,
+        metrics=metrics)
 
 
-def define_runtime_service_on_head(service_port):
+def define_runtime_service_on_head(
+        service_discovery_config,
+        service_port,
+        metrics: bool = False):
     return define_runtime_service(
-        service_port, SERVICE_DISCOVERY_NODE_KIND_HEAD)
+        service_discovery_config,
+        service_port,
+        node_kind=SERVICE_DISCOVERY_NODE_KIND_HEAD,
+        metrics=metrics)
 
 
-def define_runtime_service_on_head_or_all(service_port, head_or_all):
+def define_runtime_service_on_head_or_all(
+        service_discovery_config,
+        service_port, head_or_all,
+        metrics: bool = False):
     node_kind = SERVICE_DISCOVERY_NODE_KIND_NODE \
         if head_or_all else SERVICE_DISCOVERY_NODE_KIND_HEAD
     return define_runtime_service(
-        service_port, node_kind)
+        service_discovery_config,
+        service_port,
+        node_kind=node_kind,
+        metrics=metrics)
 
 
 def match_service_node(runtime_service, head):

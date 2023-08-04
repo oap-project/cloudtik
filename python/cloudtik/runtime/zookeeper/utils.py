@@ -6,7 +6,8 @@ from typing import Any, Dict, List
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, \
     sort_nodes_by_seq_id
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
+    get_service_discovery_config
 from cloudtik.core._private.utils import \
     publish_cluster_variable, load_properties_file, save_properties_file
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
@@ -104,11 +105,12 @@ def _get_server_config(runtime_config: Dict[str, Any]):
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
     zookeeper_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(zookeeper_config)
     service_name = get_canonical_service_name(
-        zookeeper_config, cluster_name, ZOOKEEPER_SERVICE_NAME)
+        service_discovery_config, cluster_name, ZOOKEEPER_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_worker(
-            ZOOKEEPER_SERVICE_PORT),
+            service_discovery_config, ZOOKEEPER_SERVICE_PORT),
     }
     return services
 

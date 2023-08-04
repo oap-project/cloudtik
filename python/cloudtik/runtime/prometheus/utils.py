@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
-    define_runtime_service_on_head_or_all, ServiceScope
+    define_runtime_service_on_head_or_all, get_service_discovery_config
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, is_runtime_enabled
 
 RUNTIME_PROCESSES = [
@@ -24,7 +24,7 @@ PROMETHEUS_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
 PROMETHEUS_SERVICE_DISCOVERY_CONFIG_KEY = "service_discovery"
 
 PROMETHEUS_SERVICE_NAME = "prometheus"
-PROMETHEUS_NODE_EXPORTER_NAME = "exporter"
+PROMETHEUS_NODE_EXPORTER_NAME = "node-exporter"
 PROMETHEUS_SERVICE_PORT_DEFAULT = 9090
 PROMETHEUS_NODE_EXPORTER_PORT_DEFAULT = 9100
 
@@ -114,19 +114,19 @@ def _with_runtime_environment_variables(
 
 
 def _with_file_sd_environment_variables(
-        runtime_config, config, runtime_envs):
+        prometheus_config, config, runtime_envs):
     # TODO: discovery through file periodically updated by daemon
     pass
 
 
 def _with_dns_sd_environment_variables(
-        runtime_config, config, runtime_envs):
+        prometheus_config, config, runtime_envs):
     # TODO: export variables necessary for DNS service discovery
     pass
 
 
 def _with_consul_sd_environment_variables(
-        runtime_config, config, runtime_envs):
+        prometheus_config, config, runtime_envs):
     # TODO: export variables necessary for Consul service discovery
     pass
 
@@ -158,17 +158,20 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
     prometheus_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(prometheus_config)
     service_name = get_canonical_service_name(
-        prometheus_config, cluster_name, PROMETHEUS_SERVICE_NAME)
+        service_discovery_config, cluster_name, PROMETHEUS_SERVICE_NAME)
     node_exporter = get_canonical_service_name(
-        prometheus_config, cluster_name, PROMETHEUS_NODE_EXPORTER_NAME,
-        service_scope=ServiceScope.CLUSTER)
+        service_discovery_config, cluster_name, PROMETHEUS_NODE_EXPORTER_NAME)
     service_port = _get_service_port(prometheus_config)
     node_exporter_port = _get_node_exporter_port(prometheus_config)
     services = {
         service_name: define_runtime_service_on_head_or_all(
-            service_port, _is_high_availability(
-                prometheus_config)),
-        node_exporter: define_runtime_service(node_exporter_port),
+            service_discovery_config, service_port,
+            _is_high_availability(prometheus_config),
+            metrics=True),
+        node_exporter: define_runtime_service(
+            service_discovery_config, node_exporter_port,
+            metrics=True),
     }
     return services

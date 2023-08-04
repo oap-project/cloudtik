@@ -3,7 +3,8 @@ from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
+    get_service_discovery_config
 from cloudtik.core._private.utils import \
     subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, load_properties_file, \
     save_properties_file, get_config_for_update
@@ -126,10 +127,11 @@ def update_configurations():
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
     kafka_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(kafka_config)
     service_name = get_canonical_service_name(
-        kafka_config, cluster_name, KAFKA_SERVICE_NAME)
+        service_discovery_config, cluster_name, KAFKA_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_worker(
-            KAFKA_SERVICE_PORT),
+            service_discovery_config, KAFKA_SERVICE_PORT),
     }
     return services

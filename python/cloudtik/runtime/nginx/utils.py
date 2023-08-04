@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service, \
+    get_service_discovery_config
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -56,11 +57,12 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
     nginx_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(nginx_config)
     service_name = get_canonical_service_name(
-        nginx_config, cluster_name, NGINX_SERVICE_NAME)
+        service_discovery_config, cluster_name, NGINX_SERVICE_NAME)
     service_port = _get_service_port(runtime_config)
     services = {
         service_name: define_runtime_service(
-            service_port),
+            service_discovery_config, service_port),
     }
     return services

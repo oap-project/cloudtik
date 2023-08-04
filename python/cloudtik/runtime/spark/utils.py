@@ -8,7 +8,8 @@ from cloudtik.core._private.cluster.cluster_tunnel_request import _request_rest_
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
     BUILT_IN_RUNTIME_SPARK
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
+    get_service_discovery_config
 from cloudtik.core._private.utils import \
     is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
@@ -404,11 +405,12 @@ def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
     spark_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(spark_config)
     yarn_service_name = get_canonical_service_name(
-        spark_config, cluster_name, SPARK_YARN_SERVICE_NAME)
+        service_discovery_config, cluster_name, SPARK_YARN_SERVICE_NAME)
     services = {
         yarn_service_name: define_runtime_service_on_head(
-            SPARK_YARN_RESOURCE_MANAGER_PORT),
+            service_discovery_config, SPARK_YARN_RESOURCE_MANAGER_PORT),
     }
     return services
 

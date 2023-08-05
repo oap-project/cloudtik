@@ -29,7 +29,7 @@ from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for
 from cloudtik.core._private.cluster.node_availability_tracker import NodeAvailabilitySummary
 from cloudtik.core._private.cluster.resource_demand_scheduler import ResourceDict, \
     get_node_type_counts, get_unfulfilled_for_bundles
-from cloudtik.core._private.core_utils import kill_process_tree, double_quote, get_cloudtik_temp_dir, get_free_port, \
+from cloudtik.core._private.core_utils import stop_process_tree, double_quote, get_cloudtik_temp_dir, get_free_port, \
     memory_to_gb, memory_to_gb_string
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.runtime_factory import _get_runtime_cls
@@ -2370,7 +2370,7 @@ def _stop_proxy(config: Dict[str, Any]):
             cf.bold("The SOCKS5 proxy of cluster {} was not started."), cluster_name)
         return
 
-    kill_process_tree(pid)
+    stop_process_tree(pid)
     save_server_process(proxy_process_file, {})
     cli_logger.print(
         cf.bold("Successfully stopped the SOCKS5 proxy of cluster {}."), cluster_name)

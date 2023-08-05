@@ -63,7 +63,7 @@ class ConcurrentCounter:
         return self._lock
 
 
-def _load_class(path):
+def load_class(path):
     """Load a class at runtime given a full path.
 
     Example of the path: mypkg.mysubpkg.myclass
@@ -353,7 +353,7 @@ def kill_process_by_pid(pid):
         logger.info("There is no process with PID {}".format(pid))
 
 
-def kill_process_tree(pid, include_parent=True):
+def stop_process_tree(pid, include_parent=True, force=False):
     try:
         proc = psutil.Process(pid)
     except psutil.NoSuchProcess:
@@ -364,7 +364,10 @@ def kill_process_tree(pid, include_parent=True):
         children.append(proc)
     for p in children:
         try:
-            p.kill()
+            if force:
+                p.kill()
+            else:
+                p.terminate()
         except psutil.NoSuchProcess:  # pragma: no cover
             pass
 
@@ -817,3 +820,29 @@ def strip_quote(value):
     if value.endswith('"') or value.endswith("'"):
         value = value[:-1]
     return value
+
+
+def get_named_log_file_handles(logs_dir, name, redirect_output=None):
+    """Open log files with filenames unique by the name, returning the
+    file handles. If output redirection has been disabled, no files will
+    be opened and `(None, None)` will be returned.
+
+    Args:
+        logs_dir (str): The logs dir for storing the log files.
+        name (str): descriptive string for this log file.
+        redirect_output (bool): Whether to redirect
+
+    Returns:
+        A tuple of two file handles for redirecting (stdout, stderr), or
+        `(None, None)` if output redirection is disabled.
+    """
+    if redirect_output is None:
+        # Make the default behavior match that of glog.
+        redirect_output = os.getenv("GLOG_logtostderr") != "1"
+
+    if not redirect_output:
+        return None, None
+
+    log_stdout = os.path.join(logs_dir, f"{name}.out")
+    log_stderr = os.path.join(logs_dir, f"{name}.err")
+    return open_log(log_stdout), open_log(log_stderr)

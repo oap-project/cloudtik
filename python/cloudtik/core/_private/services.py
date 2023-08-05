@@ -36,7 +36,6 @@ if sys.platform != "win32":
 EXE_SUFFIX = ".exe" if sys.platform == "win32" else ""
 
 # Location of the redis server.
-CLOUDTIK_HOME = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "../..")
 CLOUDTIK_PATH = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 CLOUDTIK_CORE_PRIVATE_SERVICE = "core/_private/service"
 CLOUDTIK_REDIS_EXECUTABLE = os.path.join(
@@ -1136,17 +1135,18 @@ def start_log_monitor(redis_address,
     return process_info
 
 
-def start_cluster_controller(redis_address,
-                             logs_dir,
-                             stdout_file=None,
-                             stderr_file=None,
-                             cluster_scaling_config=None,
-                             redis_password=None,
-                             fate_share=None,
-                             logging_level=None,
-                             max_bytes=0,
-                             backup_count=0,
-                             controller_ip=None):
+def start_cluster_controller(
+        redis_address,
+        logs_dir,
+        stdout_file=None,
+        stderr_file=None,
+        cluster_scaling_config=None,
+        redis_password=None,
+        fate_share=None,
+        logging_level=None,
+        max_bytes=0,
+        backup_count=0,
+        controller_ip=None):
     """Run a process to control the cluster.
 
     Args:
@@ -1195,18 +1195,19 @@ def start_cluster_controller(redis_address,
     return process_info
 
 
-def start_node_monitor(head, redis_address,
-                          logs_dir,
-                          resource_spec,
-                          stdout_file=None,
-                          stderr_file=None,
-                          redis_password=None,
-                          fate_share=None,
-                          logging_level=None,
-                          max_bytes=0,
-                          backup_count=0,
-                          monitor_ip=None,
-                          runtimes=None):
+def start_node_monitor(
+        head, redis_address,
+        logs_dir,
+        resource_spec,
+        stdout_file=None,
+        stderr_file=None,
+        redis_password=None,
+        fate_share=None,
+        logging_level=None,
+        max_bytes=0,
+        backup_count=0,
+        monitor_ip=None,
+        runtimes=None):
     """Run a process to controller the other processes.
 
     Args:

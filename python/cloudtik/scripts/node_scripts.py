@@ -20,6 +20,7 @@ from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
 from cloudtik.core._private.node.node_services import NodeServicesStarter
 from cloudtik.core._private.parameter import StartParams
 from cloudtik.core._private.resource_spec import ResourceSpec
+from cloudtik.core._private.util.pull.pull_server import pull_server
 from cloudtik.core._private.utils import parse_resources_json, run_script
 from cloudtik.scripts.utils import NaturalOrderGroup
 
@@ -416,6 +417,47 @@ def resources(cpu, memory, in_mb):
         click.echo(static_resources)
 
 
+@node.command(context_settings={"ignore_unknown_options": True})
+@click.argument("identifier", required=True, type=str)
+@click.argument("command", required=True, type=str)
+@click.option(
+    "--pull-class",
+    required=False,
+    type=str,
+    help="The python module and class to run for pulling")
+@click.option(
+    "--pull-script",
+    required=False,
+    type=str,
+    help="The bash script or python script to run for pulling")
+@click.option(
+    "--interval",
+    required=False,
+    type=int,
+    help="The pulling interval in seconds.")
+@click.option(
+    "--logs-dir",
+    required=False,
+    default=None,
+    type=str,
+    help="Manually specify logs dir of this server process")
+@click.option(
+    "--no-redirect-output",
+    is_flag=True,
+    default=False,
+    help="Do not redirect stdout and stderr to files")
+@click.argument("script_args", nargs=-1)
+def pull(identifier, command,
+         pull_class, pull_script,
+         interval, logs_dir, no_redirect_output, script_args):
+    redirect_output = None if not no_redirect_output else True
+    pull_server(
+        identifier, command,
+        pull_class, pull_script, script_args,
+        interval=interval, logs_dir=logs_dir,
+        redirect_output=redirect_output)
+
+
 @node.command()
 @click.option(
     "--stream",
@@ -515,6 +557,7 @@ node.add_command(start)
 node.add_command(stop)
 node.add_command(run)
 node.add_command(resources)
+node.add_command(pull)
 
 # utility commands running on head or worker node for dump local data
 node.add_command(dump)

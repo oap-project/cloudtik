@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class NodeMonitor:
-    """Node Monitor for node management
+    """Node Monitor for node heartbeats and node status updates
     """
 
     def __init__(self,
@@ -80,7 +80,10 @@ class NodeMonitor:
 
     def _run(self):
         """Run the monitor loop."""
-        self.create_heart_beat_thread()
+        self._run_heartbeat()
+        self._update()
+
+    def _update(self):
         while True:
             if self.stop_event and self.stop_event.is_set():
                 break
@@ -104,13 +107,13 @@ class NodeMonitor:
                              "".join(traceback.format_stack(frame)))
         sys.exit(sig + 128)
 
-    def create_heart_beat_thread(self):
-        thread = threading.Thread(target=self.send_heart_beat)
+    def _run_heartbeat(self):
+        thread = threading.Thread(target=self._heartbeat)
         # ensure when node_monitor exits, the thread will stop automatically.
         thread.setDaemon(True)
         thread.start()
 
-    def send_heart_beat(self):
+    def _heartbeat(self):
         while True:
             time.sleep(constants.CLOUDTIK_HEARTBEAT_PERIOD_SECONDS)
             now = time.time()

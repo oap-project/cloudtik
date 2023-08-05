@@ -5,7 +5,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
-from cloudtik.core._private.core_utils import _load_class
+from cloudtik.core._private.core_utils import load_class
 from cloudtik.core.runtime import Runtime
 
 logger = logging.getLogger(__name__)
@@ -163,7 +163,7 @@ def _get_runtime_cls(runtime_type: str):
         # This is not a built-in runtime, it may be an external
         # try load external runtime: runtime_type is the full class name with package
         try:
-            runtime_cls = _load_class(runtime_type)
+            runtime_cls = load_class(runtime_type)
             return runtime_cls
         except (ModuleNotFoundError, ImportError) as e:
             raise NotImplementedError("Unsupported runtime: {}.".format(

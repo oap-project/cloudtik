@@ -1,4 +1,4 @@
-"""Node control loop daemon."""
+"""Pull server daemon."""
 
 import argparse
 import json
@@ -15,6 +15,7 @@ from cloudtik.core._private import constants
 from cloudtik.core._private.core_utils import load_class
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.util.pull.pull_job import ScriptPullJob
+from cloudtik.core._private.util.pull.pull_server import PROCESS_PULL_SERVER
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ def cmd_args_to_call_args(cmd_args):
     args = []
     kwargs = {}
     for arg in cmd_args:
-        if arg.count('=') > 1:
+        if arg.count('=') >= 1:
             key, value = arg.split('=', 1)
         else:
             key, value = None, arg
@@ -41,7 +42,9 @@ def cmd_args_to_call_args(cmd_args):
 
 
 class PullServer:
-    """Pull Server for do user pulling tasks with an interval.
+    """Pull Server for user to run pulling tasks with a specific interval.
+    The pulling tasks can be in the form of a PullJob class or python module,
+    python script, or shell script to run.
     """
 
     def __init__(self,
@@ -52,7 +55,7 @@ class PullServer:
         self.identifier = identifier
         self.pull_class = pull_class
         self.pull_script = pull_script
-        self.pull_args = pull_args,
+        self.pull_args = pull_args
         self.interval = interval
 
         # Can be used to signal graceful exit from main loop.
@@ -145,10 +148,10 @@ def main():
         "--logging-filename",
         required=False,
         type=str,
-        default=constants.LOG_FILE_NAME_NODE_MONITOR,
+        default=PROCESS_PULL_SERVER,
         help="Specify the name of log file, "
              "log to stdout if set empty, default is "
-             f"\"{constants.LOG_FILE_NAME_NODE_MONITOR}\"")
+             f"\"{PROCESS_PULL_SERVER}\"")
     parser.add_argument(
         "--logs-dir",
         required=True,
@@ -170,11 +173,7 @@ def main():
         default=constants.LOGGING_ROTATE_BACKUP_COUNT,
         help="Specify the backup count of rotated log file, default is "
              f"{constants.LOGGING_ROTATE_BACKUP_COUNT}.")
-    parser.add_argument(
-        'pull_args',
-        nargs=argparse.REMAINDER,
-        help='The puller arges to pass on.')
-    args = parser.parse_args()
+    args, argv = parser.parse_known_args()
     setup_component_logger(
         logging_level=args.logging_level,
         logging_format=args.logging_format,
@@ -192,8 +191,8 @@ def main():
         args.identifier,
         args.pull_class,
         args.pull_script,
-        args.pull_args,
-        args.interval
+        pull_args=argv,
+        interval=args.interval
     )
 
     pull_server.run()

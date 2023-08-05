@@ -1,0 +1,46 @@
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: "federation"
+
+    # Override the global default and scrape targets from this job every 10 seconds.
+    scrape_interval: 15s
+
+    # metrics_path defaults to '/metrics'
+    metrics_path: '/federate'
+
+    # scheme defaults to 'http'.
+
+    # honor_labels controls how Prometheus handles conflicts between labels that are
+    # already present in scraped data and labels that Prometheus would attach
+    # server-side
+
+    # If honor_labels is set to "true", label conflicts are resolved by keeping label
+    # values from the scraped data and ignoring the conflicting server-side labels.
+    #
+    # If honor_labels is set to "false", label conflicts are resolved by renaming
+    # conflicting labels in the scraped data to "exported_<original-label>" (for
+    # example "exported_instance", "exported_job") and then attaching server-side
+    # labels.
+    #
+    # Setting honor_labels to "true" is useful for use cases such as federation and
+    # scraping the Pushgateway, where all labels specified in the target should be
+    # preserved.
+    honor_labels: true
+
+    # Optional HTTP URL parameters.
+    params:
+      'match[]':
+        - '{job=~".+"}'
+
+    # List of target relabel configurations.
+    # relabel_configs:
+
+    # List of file service discovery configurations.
+    file_sd_configs:
+      # Patterns for files from which target groups are extracted.
+      - files:
+          - '{%prometheus.home%}/conf/federation-*targets.yaml'
+        # Refresh interval to re-read the files.
+        refresh_interval: 1d

@@ -35,7 +35,7 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
     CLOUDTIK_ENCRYPTION_PREFIX
-from cloudtik.core._private.core_utils import _load_class, double_quote, check_process_exists, get_cloudtik_temp_dir
+from cloudtik.core._private.core_utils import load_class, double_quote, check_process_exists, get_cloudtik_temp_dir
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
 from cloudtik.core.node_provider import NodeProvider
@@ -2921,7 +2921,7 @@ def _get_scaling_policy_cls(class_path):
     Returns:
         ScalingPolicy class
     """
-    scaling_policy_class = _load_class(path=class_path)
+    scaling_policy_class = load_class(path=class_path)
     if scaling_policy_class is None:
         raise NotImplementedError("Cannot load external scaling policy class: {}".format(class_path))
 
@@ -3174,7 +3174,7 @@ def with_verbose_option(cmds, call_context):
             cmds += ["-v" for _ in range(verbosity)]
 
 
-def run_script(script, script_args, with_output=False):
+def get_run_script_command(script, script_args):
     import cloudtik as cloudtik_home
     # import script registry here because it will search for all the packages for
     # registering scripts
@@ -3200,6 +3200,11 @@ def run_script(script, script_args, with_output=False):
     with_script_args(cmds, script_args)
 
     final_cmd = " ".join(cmds)
+    return final_cmd
+
+
+def run_script(script, script_args, with_output=False):
+    final_cmd = get_run_script_command(script, script_args)
     try:
         if with_output:
             return subprocess.check_output(final_cmd, shell=True)

@@ -390,6 +390,8 @@ def _configure_vpc(config, vpc_cli):
 
 def get_current_instance_region():
     try:
+        # TODO: should we use Popen or any other ways more proper for this?
+        # TODO: curl is installed by default on each node? or there is a better way such as using request?
         output = subprocess.Popen("curl http://100.100.100.200/latest/meta-data/region-id", shell=True)
         region_id = output.stdout.readline().decode()
         return region_id
@@ -401,6 +403,8 @@ def get_current_instance_region():
 
 def get_current_instance_owner_account_id():
     try:
+        # TODO: should we use Popen or any other ways more proper for this?
+        # TODO: curl is installed by default on each node? or there is a better way such as using request?
         output = subprocess.Popen("curl http://100.100.100.200/latest/meta-data/owner-account-id", shell=True)
         owner_account_id = output.stdout.readline().decode()
         return owner_account_id

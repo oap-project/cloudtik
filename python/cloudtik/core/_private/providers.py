@@ -6,7 +6,7 @@ import inspect
 import yaml
 
 from cloudtik.core._private.concurrent_cache import ConcurrentObjectCache
-from cloudtik.core._private.core_utils import _load_class
+from cloudtik.core._private.core_utils import load_class
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ def _load_huaweicloud_provider_home():
 
 
 def _import_external(provider_config):
-    provider_cls = _load_class(path=provider_config["provider_class"])
+    provider_cls = load_class(path=provider_config["provider_class"])
     return provider_cls
 
 

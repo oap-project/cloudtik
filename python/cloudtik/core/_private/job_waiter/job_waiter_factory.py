@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, Optional, List
 
-from cloudtik.core._private.core_utils import _load_class
+from cloudtik.core._private.core_utils import load_class
 from cloudtik.core._private.runtime_factory import _get_runtime
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 from cloudtik.core.job_waiter import JobWaiter
@@ -142,7 +142,7 @@ def _get_job_waiter_cls(class_path):
     Returns:
         JobWaiter class
     """
-    job_waiter_class = _load_class(path=class_path)
+    job_waiter_class = load_class(path=class_path)
     if job_waiter_class is None:
         raise NotImplementedError("Cannot load external job waiter class: {}".format(class_path))
 

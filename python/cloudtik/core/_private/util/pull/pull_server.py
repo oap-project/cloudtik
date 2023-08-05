@@ -10,7 +10,7 @@ from cloudtik.core._private.node.node_services import SESSION_LATEST
 from cloudtik.core._private.services import start_cloudtik_process
 from cloudtik.core._private.utils import save_server_process, get_server_process
 
-UTIL_PATH = os.path.abspath(os.path.dirname(__file__))
+PULL_PATH = os.path.abspath(os.path.dirname(__file__))
 PROCESS_PULL_SERVER = "cloudtik_pull_server"
 
 
@@ -42,8 +42,8 @@ def get_pull_server_process_file(identifier: str):
         get_cloudtik_temp_dir(), "cloudtik-pull-{}".format(identifier))
 
 
-def get_pull_server_pid(proxy_process_file: str):
-    server_process = get_server_process(proxy_process_file)
+def get_pull_server_pid(process_file: str):
+    server_process = get_server_process(process_file)
     if server_process is None:
         return None
     pid = server_process.get("pid")
@@ -87,7 +87,7 @@ def _start_pull_server(
     Returns:
         ProcessInfo for the process that was started.
     """
-    pull_server_path = os.path.join(UTIL_PATH, "pull", "cloudtik_pull_server.py")
+    pull_server_path = os.path.join(PULL_PATH, "cloudtik_pull_server.py")
     command = [
         sys.executable,
         "-u",
@@ -107,7 +107,7 @@ def _start_pull_server(
     if interval:
         command.append("--interval=" + str(interval))
     if pull_args:
-        command.append(pull_args)
+        command += list(pull_args)
 
     process_info = start_cloudtik_process(
         command,
@@ -123,6 +123,13 @@ def start_pull_server(
         pull_class, pull_script,
         pull_args, interval,
         logs_dir=None, redirect_output=True):
+    pull_server_process_file = get_pull_server_process_file(identifier)
+    pid = get_pull_server_pid(pull_server_process_file)
+    if pid is not None:
+        cli_logger.print("The pull server for {} is already running. "
+                         "If you want to restart, stop it first and start.", identifier)
+        return
+
     if not logs_dir:
         temp_dir = get_cloudtik_temp_dir()
         logs_dir = os.path.join(temp_dir, SESSION_LATEST, "logs")
@@ -155,7 +162,6 @@ def start_pull_server(
         backup_count=backup_count)
 
     pid = process_info.process.pid
-    pull_server_process_file = get_pull_server_process_file(identifier)
     pull_server_process = {"pid": pid}
     save_server_process(pull_server_process_file, pull_server_process)
 

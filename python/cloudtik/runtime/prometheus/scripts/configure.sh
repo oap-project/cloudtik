@@ -30,21 +30,32 @@ function check_prometheus_installed() {
 }
 
 function update_local_file() {
-    cp -r $output_dir/scrape-config-local-file.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-local-file.yaml
+    cp -r $output_dir/scrape-config-local-file.yaml \
+      ${PROMETHEUS_CONFIG_DIR}/scrape-config-local-file.yaml
 }
 
 function update_local_consul() {
-  cp -r $output_dir/scrape-config-local-consul.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-local-consul.yaml
+  cp -r $output_dir/scrape-config-local-consul.yaml \
+      ${PROMETHEUS_CONFIG_DIR}/scrape-config-local-consul.yaml
 }
 
 function update_workspace_consul() {
-  cp -r $output_dir/scrape-config-workspace-consul.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-workspace-consul.yaml
+  cp -r $output_dir/scrape-config-workspace-consul.yaml \
+      ${PROMETHEUS_CONFIG_DIR}/scrape-config-workspace-consul.yaml
 }
 
 function update_federation_consul() {
   # Federation will also scrape local cluster
   update_local_consul
-  cp -r $output_dir/scrape-config-federation-consul.yaml ${PROMETHEUS_CONFIG_DIR}/scrape-config-federation-consul.yaml
+  cp -r $output_dir/scrape-config-federation-consul.yaml \
+      ${PROMETHEUS_CONFIG_DIR}/scrape-config-federation-consul.yaml
+}
+
+function update_federation_file() {
+  # Federation will also scrape local cluster
+  update_local_file
+  cp -r $output_dir/scrape-config-federation-file.yaml \
+      ${PROMETHEUS_CONFIG_DIR}/scrape-config-federation-file.yaml
 }
 
 function configure_prometheus() {
@@ -68,6 +79,8 @@ function configure_prometheus() {
     elif [ "${PROMETHEUS_SCRAPE_SCOPE}" == "federation" ]; then
         if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "CONSUL" ]; then
             update_federation_consul
+        elif [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "FILE" ]; then
+            update_federation_file
         fi
     else
         # local scope

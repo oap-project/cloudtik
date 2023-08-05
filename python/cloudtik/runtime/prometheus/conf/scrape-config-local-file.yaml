@@ -21,6 +21,6 @@ scrape_configs:
     file_sd_configs:
       # Patterns for files from which target groups are extracted.
       - files:
-          - '{%prometheus.home%}/conf/local-*-targets.yaml'
+          - '{%prometheus.home%}/conf/local-*targets.yaml'
         # Refresh interval to re-read the files.
         refresh_interval: 5m

@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.runtime_utils import load_and_save_yaml, \
-    get_runtime_config_from_node
+    get_runtime_config_from_node, save_yaml
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, \
@@ -27,6 +27,8 @@ PROMETHEUS_SCRAPE_TAGS_CONFIG_KEY = "scrape_tags"
 PROMETHEUS_SCRAPE_LABELS_CONFIG_KEY = "scrape_labels"
 PROMETHEUS_SCRAPE_EXCLUDE_LABELS_CONFIG_KEY = "scrape_exclude_labels"
 
+# if consul is not used, static federation targets can be used
+PROMETHEUS_FEDERATION_TARGETS_CONFIG_KEY = "federation_targets"
 
 PROMETHEUS_SERVICE_NAME = "prometheus"
 PROMETHEUS_SERVICE_PORT_DEFAULT = 9090
@@ -46,6 +48,10 @@ def _get_config(runtime_config: Dict[str, Any]):
 def _get_service_port(prometheus_config: Dict[str, Any]):
     return prometheus_config.get(
         PROMETHEUS_SERVICE_PORT_CONFIG_KEY, PROMETHEUS_SERVICE_PORT_DEFAULT)
+
+def _get_federation_targets(prometheus_config: Dict[str, Any]):
+    return prometheus_config.get(
+        PROMETHEUS_FEDERATION_TARGETS_CONFIG_KEY)
 
 
 def _is_high_availability(prometheus_config: Dict[str, Any]):
@@ -88,6 +94,25 @@ def _with_runtime_environment_variables(
         else:
             sd = PROMETHEUS_SERVICE_DISCOVERY_FILE
 
+    scrape_scope = prometheus_config.get(PROMETHEUS_SCRAPE_SCOPE_CONFIG_KEY)
+    if scrape_scope == PROMETHEUS_SCRAPE_SCOPE_WORKSPACE:
+        # make sure
+        if not get_service_discovery_runtime(cluster_runtime_config):
+            raise RuntimeError(
+                "Service discovery service is needed for workspace scoped scrape.")
+        sd = PROMETHEUS_SERVICE_DISCOVERY_CONSUL
+    elif scrape_scope == PROMETHEUS_SCRAPE_SCOPE_FEDERATION:
+        federation_targets = _get_federation_targets(prometheus_config)
+        if federation_targets:
+            sd = PROMETHEUS_SERVICE_DISCOVERY_FILE
+        else:
+            if not get_service_discovery_runtime(cluster_runtime_config):
+                raise RuntimeError(
+                    "Service discovery service is needed for federation scoped scrape.")
+            sd = PROMETHEUS_SERVICE_DISCOVERY_CONSUL
+    elif not scrape_scope:
+        scrape_scope = PROMETHEUS_SCRAPE_SCOPE_LOCAL
+
     if sd == PROMETHEUS_SERVICE_DISCOVERY_FILE:
         _with_file_sd_environment_variables(
             prometheus_config, config, runtime_envs)
@@ -101,19 +126,6 @@ def _with_runtime_environment_variables(
                 sd,
                 PROMETHEUS_SERVICE_DISCOVERY_FILE,
                 PROMETHEUS_SERVICE_DISCOVERY_CONSUL))
-
-    scrape_scope = prometheus_config.get(PROMETHEUS_SCRAPE_SCOPE_CONFIG_KEY)
-    if scrape_scope == PROMETHEUS_SCRAPE_SCOPE_WORKSPACE:
-        # make sure
-        if not get_service_discovery_runtime(cluster_runtime_config):
-            raise RuntimeError("Service discovery service is needed for workspace scoped scrape.")
-        sd = PROMETHEUS_SERVICE_DISCOVERY_CONSUL
-    if scrape_scope == PROMETHEUS_SCRAPE_SCOPE_FEDERATION:
-        if not get_service_discovery_runtime(cluster_runtime_config):
-            raise RuntimeError("Service discovery service is needed for federation scoped scrape.")
-        sd = PROMETHEUS_SERVICE_DISCOVERY_CONSUL
-    elif not scrape_scope:
-        scrape_scope = PROMETHEUS_SCRAPE_SCOPE_LOCAL
 
     runtime_envs["PROMETHEUS_SERVICE_DISCOVERY"] = sd
     runtime_envs["PROMETHEUS_SCRAPE_SCOPE"] = scrape_scope
@@ -193,6 +205,7 @@ def configure_scrape(head):
     prometheus_config = _get_config(runtime_config)
 
     sd = os.environ.get("PROMETHEUS_SERVICE_DISCOVERY")
+    scrape_scope = os.environ.get("PROMETHEUS_SCRAPE_SCOPE")
     if sd == PROMETHEUS_SERVICE_DISCOVERY_CONSUL:
         # tags and labels only support service discovery based scrape (consul)
         services = prometheus_config.get(PROMETHEUS_SCRAPE_SERVICES_CONFIG_KEY)
@@ -201,13 +214,16 @@ def configure_scrape(head):
         exclude_labels = prometheus_config.get(PROMETHEUS_SCRAPE_EXCLUDE_LABELS_CONFIG_KEY)
 
         if tags or labels or exclude_labels or services:
-            scrape_scope = os.environ.get("PROMETHEUS_SCRAPE_SCOPE")
             config_file = _get_config_file(scrape_scope)
-            update_scrape_config(
+            _update_scrape_config(
                 config_file, services, tags, labels, exclude_labels)
+    elif sd == PROMETHEUS_SERVICE_DISCOVERY_FILE:
+        if scrape_scope == PROMETHEUS_SCRAPE_SCOPE_FEDERATION:
+            federation_targets = _get_federation_targets(prometheus_config)
+            _save_federation_targets(federation_targets)
 
 
-def update_scrape_config(config_file, services, tags, labels, exclude_labels):
+def _update_scrape_config(config_file, services, tags, labels, exclude_labels):
     def update_contents(config_object):
         scrape_configs = config_object["scrape_configs"]
         for scrape_config in scrape_configs:
@@ -243,3 +259,9 @@ def update_scrape_config(config_file, services, tags, labels, exclude_labels):
                     relabel_configs.append(relabel_config)
 
     load_and_save_yaml(config_file, update_contents)
+
+
+def _save_federation_targets(federation_targets):
+    home_dir = _get_home_dir()
+    config_file = os.path.join(home_dir, "conf", "federation-targets.yaml")
+    save_yaml(config_file, federation_targets)

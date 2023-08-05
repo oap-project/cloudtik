@@ -1264,7 +1264,7 @@
                         "scrape_scope": {
                             "type": "string",
                             "default": "local",
-                            "description": "The scrape scope for this server: local or workspace."
+                            "description": "The scrape scope for this server: local, workspace or federation."
                         },
                         "scrape_labels": {
                             "type": "object",
@@ -1296,6 +1296,31 @@
                             "description": "The tags to match for the services to scrape",
                             "items": {
                                 "type": "string"
+                            }
+                        },
+                        "federation_targets": {
+                            "type": "array",
+                            "description": "The Prometheus targets for federation to use if no service discovery deployed",
+                            "items": {
+                                "type": "object",
+                                "required": [
+                                    "targets"
+                                ],
+                                "properties": {
+                                    "targets": {
+                                        "type": "array",
+                                        "description": "The list of targets."
+                                    },
+                                    "labels": {
+                                        "type": "object",
+                                        "description": "The optional labels to add for the targets",
+                                        "patternProperties": {
+                                            ".*":{
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

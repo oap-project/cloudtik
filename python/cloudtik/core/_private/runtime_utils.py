@@ -120,7 +120,10 @@ def load_and_save_json(config_file, update_func):
         config_object = json.load(f)
 
     update_func(config_object)
+    save_json(config_file, config_object)
 
+
+def save_json(config_file, config_object):
     with open(config_file, "w") as f:
         f.write(json.dumps(config_object, indent=4))
 
@@ -131,6 +134,9 @@ def load_and_save_yaml(config_file, update_func):
         config_object = yaml.safe_load(f)
 
     update_func(config_object)
+    save_yaml(config_file, config_object)
 
+
+def save_yaml(config_file, config_object):
     with open(config_file, "w") as f:
         yaml.dump(config_object, f, default_flow_style=False)

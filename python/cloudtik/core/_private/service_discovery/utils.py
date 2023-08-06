@@ -32,6 +32,12 @@ SERVICE_DISCOVERY_CONFIG_MEMBER_OF = "member_of"
 SERVICE_DISCOVERY_CONFIG_TAGS = "tags"
 SERVICE_DISCOVERY_CONFIG_LABELS = "labels"
 
+# The config keys for a standard service selector
+SERVICE_SELECTOR_SERVICES = "services"
+SERVICE_SELECTOR_TAGS = "tags"
+SERVICE_SELECTOR_LABELS = "labels"
+SERVICE_SELECTOR_EXCLUDE_LABELS = "exclude_labels"
+
 
 class ServiceScope(Enum):
     """The service scope decide how the canonical service name is formed.

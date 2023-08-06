@@ -11,6 +11,44 @@
                 "type": "string",
                 "description": "shell command"
             }
+        },
+        "service_selector": {
+            "type": "object",
+            "description": "Defines a series match conditions of services",
+            "properties": {
+                "labels": {
+                    "type": "object",
+                    "description": "The labels to match for the services. All labels must match",
+                    "patternProperties": {
+                        ".*":{
+                            "type": "string"
+                        }
+                    }
+                },
+                "exclude_labels": {
+                    "type": "object",
+                    "description": "The labels to exclude for the services. Be excluded if include any these labels.",
+                    "patternProperties": {
+                        ".*":{
+                            "type": "string"
+                        }
+                    }
+                },
+                "services": {
+                    "type": "array",
+                    "description": "The services to discover. If not specified, match to all the services.",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tags": {
+                    "type": "array",
+                    "description": "The tags to match for the services. All tags must match",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
         }
     },
     "required": [
@@ -1266,37 +1304,9 @@
                             "default": "local",
                             "description": "The scrape scope for this server: local, workspace or federation."
                         },
-                        "scrape_labels": {
-                            "type": "object",
-                            "description": "The labels to match for the services to scrape",
-                            "patternProperties": {
-                                ".*":{
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "scrape_exclude_labels": {
-                            "type": "object",
-                            "description": "The labels to exclude for the services to scrape",
-                            "patternProperties": {
-                                ".*":{
-                                    "type": "string"
-                                }
-                            }
-                        },
                         "scrape_services": {
-                            "type": "array",
-                            "description": "The services to scrape. If not specified, all the services matched will be scraped.",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "scrape_tags": {
-                            "type": "array",
-                            "description": "The tags to match for the services to scrape",
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/service_selector",
+                            "description": "The selector for services to scrape."
                         },
                         "federation_targets": {
                             "type": "array",
@@ -1364,6 +1374,10 @@
                                 "type": "object",
                                 "description": "Grafana data source definition."
                             }
+                        },
+                        "data_sources_services": {
+                            "$ref": "#/definitions/service_selector",
+                            "description": "The selector for workspace services as data sources."
                         }
                     }
                 }

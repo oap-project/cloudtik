@@ -1,3 +1,4 @@
+import base64
 import collections
 import errno
 import hashlib
@@ -863,3 +864,15 @@ def get_string_hash(str_data):
     hasher = hashlib.sha1()
     hasher.update(str_data.encode("utf-8"))
     return hasher.hexdigest()
+
+
+def serialize_config(config):
+    json_str = json.dumps(config)
+    return base64.b64encode(
+        json_str.encode("utf-8")).decode("utf-8")
+
+
+def deserialize_config(config_str):
+    json_str = base64.b64decode(
+        config_str.encode('utf-8')).decode("utf-8")
+    return json.loads(json_str)

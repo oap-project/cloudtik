@@ -69,7 +69,7 @@ def get_expressions_of_service_selector(service_selector):
                 'ServiceMeta["{}"]!="{}"'.format(label_name, label_value))
         expressions.append(" and ".join(exclude_label_expressions))
 
-    return " and ".join(["({})".format(expr) for expr in expressions])
+    return " and ".join(["( {} )".format(expr) for expr in expressions])
 
 
 def query_services(service_selector):

@@ -193,7 +193,7 @@ class NodeMonitor:
     def _send_metrics(self):
         now = time.time()
         node_metrics = self.node_metrics
-        node_metrics["metrics_time"] = now
+        node_metrics[NODE_STATE_TIME] = now
         node_metrics_as_json = json.dumps(node_metrics)
         try:
             self.node_metrics_table.put(self.node_id, node_metrics_as_json)

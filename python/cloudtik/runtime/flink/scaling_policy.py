@@ -7,7 +7,7 @@ import urllib.error
 
 from cloudtik.core._private import constants
 from cloudtik.core._private.services import address_to_ip
-from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_ID, NODE_STATE_NODE_IP
+from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_ID, NODE_STATE_NODE_IP, NODE_STATE_TIME
 from cloudtik.core._private.utils import make_node_id, get_resource_demands_for_cpu, RUNTIME_CONFIG_KEY, \
     convert_nodes_to_cpus, get_resource_demands_for_memory, convert_nodes_to_memory
 from cloudtik.core.scaling_policy import ScalingPolicy, ScalingState
@@ -329,7 +329,7 @@ class FlinkScalingPolicy(ScalingPolicy):
                 node_resource_state = {
                     NODE_STATE_NODE_ID: node_id,
                     NODE_STATE_NODE_IP: node_ip,
-                    "resource_time": self.last_state_time,
+                    NODE_STATE_TIME: self.last_state_time,
                     "total_resources": total_resources,
                     "available_resources": free_resources,
                     "resource_load": resource_load

@@ -4065,12 +4065,12 @@ def do_core_health_check(redis_address, redis_password, with_details=False):
         sys.exit(1)
 
 
-def _index_node_states(raw_node_states):
+def _index_node_states(node_state_rows):
     node_states = {}
-    if raw_node_states:
+    if node_state_rows:
         current_time = time.time()
-        for raw_node_state in raw_node_states:
-            node_state = json.loads(raw_node_state)
+        for node_state_row in node_state_rows:
+            node_state = json.loads(node_state_row)
             if not is_alive_time_at(
                     node_state.get(NODE_STATE_HEARTBEAT_TIME, 0), current_time):
                 continue
@@ -4355,7 +4355,7 @@ def _get_nodes_metrics(node_metrics_rows):
             continue
 
         # Filter out the stale record in the node table
-        last_metrics_time = node_metrics.get("metrics_time", 0)
+        last_metrics_time = node_metrics.get(NODE_STATE_TIME, 0)
         delta = time.time() - last_metrics_time
         if delta >= constants.CLOUDTIK_HEARTBEAT_TIMEOUT_S:
             continue

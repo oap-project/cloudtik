@@ -7,7 +7,8 @@ import math
 from cloudtik.core import tags
 from cloudtik.core._private import constants
 from cloudtik.core._private.state.control_state import ControlState
-from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_ID, NODE_STATE_NODE_IP, NODE_STATE_NODE_KIND
+from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_ID, NODE_STATE_NODE_IP, NODE_STATE_NODE_KIND, \
+    NODE_STATE_TIME
 from cloudtik.core._private.utils import get_resource_demands_for_cpu, RUNTIME_CONFIG_KEY, \
     convert_nodes_to_cpus, get_resource_demands_for_memory, convert_nodes_to_memory, get_resource_requests_for_cpu, \
     _sum_min_workers
@@ -92,7 +93,7 @@ class ScalingWithResources(ScalingPolicy):
                 continue
 
             # Filter out the stale record in the node table
-            last_metrics_time = node_metrics.get("metrics_time", 0)
+            last_metrics_time = node_metrics.get(NODE_STATE_TIME, 0)
             delta = time.time() - last_metrics_time
             if delta >= constants.CLOUDTIK_HEARTBEAT_TIMEOUT_S:
                 lost_nodes[node_id] = node_ip
@@ -133,7 +134,7 @@ class ScalingWithResources(ScalingPolicy):
             node_resource_state = {
                 NODE_STATE_NODE_ID: node_id,
                 NODE_STATE_NODE_IP: node_ip,
-                "resource_time": last_metrics_time,
+                NODE_STATE_TIME: last_metrics_time,
                 "total_resources": total_resources,
                 "available_resources": free_resources,
                 "resource_load": resource_load
@@ -288,7 +289,7 @@ class ScalingWithLoad(ScalingWithResources):
         cluster_load_avg_all_1 = 0.0
         for node_metrics in all_node_metrics:
             # Filter out the stale record in the node table
-            last_metrics_time = node_metrics.get("metrics_time", 0)
+            last_metrics_time = node_metrics.get(NODE_STATE_TIME, 0)
             delta = time.time() - last_metrics_time
             if delta >= constants.CLOUDTIK_HEARTBEAT_TIMEOUT_S:
                 continue

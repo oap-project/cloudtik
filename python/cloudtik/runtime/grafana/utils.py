@@ -1,10 +1,12 @@
 import os
+from shlex import quote
 from typing import Any, Dict
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_CLUSTER
+from cloudtik.core._private.core_utils import exec_with_output, serialize_config
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_PROMETHEUS
 from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, get_runtime_value, get_runtime_head_ip, \
-    save_yaml
+    save_yaml, get_runtime_node_ip
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime, \
     get_services_of_runtime
 from cloudtik.core._private.service_discovery.utils import \
@@ -27,6 +29,7 @@ GRAFANA_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
 GRAFANA_DATA_SOURCES_SCOPE_CONFIG_KEY = "data_sources_scope"
 # statically configured data sources
 GRAFANA_DATA_SOURCES_CONFIG_KEY = "data_sources"
+GRAFANA_DATA_SOURCES_SERVICES_CONFIG_KEY = "data_sources_services"
 
 GRAFANA_SERVICE_NAME = "grafana"
 GRAFANA_SERVICE_PORT_DEFAULT = 3000
@@ -34,6 +37,8 @@ GRAFANA_SERVICE_PORT_DEFAULT = 3000
 GRAFANA_DATA_SOURCES_SCOPE_NONE = "none"
 GRAFANA_DATA_SOURCES_SCOPE_LOCAL = "local"
 GRAFANA_DATA_SOURCES_SCOPE_WORKSPACE = "workspace"
+
+GRAFANA_PULL_DATA_SOURCES_INTERVAL = 30
 
 
 def _get_config(runtime_config: Dict[str, Any]):
@@ -197,3 +202,52 @@ def _save_data_sources_config(data_sources):
         "datasources": data_sources
     }
     save_yaml(config_file, config_object)
+
+
+def _get_pull_identifier():
+    return "{}-pull".format(GRAFANA_SERVICE_NAME)
+
+
+def _get_grafana_api_endpoint(node_ip, grafana_port):
+    return "http://cloudtik:cloudtik@{}:{}".format(
+        node_ip, grafana_port)
+
+
+def _get_service_selector_str(service_selector):
+    if not service_selector:
+        return None
+    return serialize_config(service_selector)
+
+
+def start_pull_server(head):
+    runtime_config = get_runtime_config_from_node(head)
+    grafana_config = _get_config(runtime_config)
+    grafana_port = _get_service_port(grafana_config)
+
+    node_ip = get_runtime_node_ip()
+    address = _get_grafana_api_endpoint(node_ip, grafana_port)
+
+    service_selector = grafana_config.get(
+            GRAFANA_DATA_SOURCES_SERVICES_CONFIG_KEY, {})
+    service_selector_str = _get_service_selector_str(service_selector)
+
+    pull_identifier = _get_pull_identifier()
+
+    cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
+    cmd += ["--pull-class=cloudtik.runtime.grafana.pull_data_sources.PullDataSources"]
+    cmd += ["--interval={}".format(
+        GRAFANA_PULL_DATA_SOURCES_INTERVAL)]
+    # job parameters
+    cmd += ["grafana_endpoint={}".format(quote(address))]
+    if service_selector_str:
+        cmd += ["service_selector={}".format(service_selector_str)]
+
+    cmd_str = " ".join(cmd)
+    exec_with_output(cmd_str)
+
+
+def stop_pull_server():
+    pull_identifier = _get_pull_identifier()
+    cmd = ["cloudtik", "node", "pull", pull_identifier, "stop"]
+    cmd_str = " ".join(cmd)
+    exec_with_output(cmd_str)

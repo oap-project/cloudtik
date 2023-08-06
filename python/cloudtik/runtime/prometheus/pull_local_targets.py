@@ -90,22 +90,6 @@ class PullLocalTargets(PullJob):
         self.config_file = os.path.join(home_dir, "conf", "local-targets.yaml")
         self.last_local_targets_hash = None
 
-    def _get_live_nodes(self):
-        live_nodes_by_node_type = {}
-        now = time.time()
-        nodes_state_as_json = self.node_table.get_all().values()
-        for node_state_as_json in nodes_state_as_json:
-            node_state = json.loads(node_state_as_json)
-            # Filter out the stale record in the node table
-            delta = now - node_state.get(NODE_STATE_HEARTBEAT_TIME, 0)
-            if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
-                node_type = node_state[NODE_STATE_NODE_TYPE]
-                if node_type not in live_nodes_by_node_type:
-                    live_nodes_by_node_type[node_type] = []
-                nodes_of_node_type = live_nodes_by_node_type[node_type]
-                nodes_of_node_type.append(node_state[NODE_STATE_NODE_IP])
-        return live_nodes_by_node_type
-
     def pull(self):
         live_nodes_by_node_type = self._get_live_nodes()
 
@@ -123,3 +107,19 @@ class PullLocalTargets(PullJob):
             # save file only when data changed
             save_yaml(self.config_file, local_targets)
             self.last_local_targets_hash = local_targets_hash
+
+    def _get_live_nodes(self):
+        live_nodes_by_node_type = {}
+        now = time.time()
+        nodes_state_as_json = self.node_table.get_all().values()
+        for node_state_as_json in nodes_state_as_json:
+            node_state = json.loads(node_state_as_json)
+            # Filter out the stale record in the node table
+            delta = now - node_state.get(NODE_STATE_HEARTBEAT_TIME, 0)
+            if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
+                node_type = node_state[NODE_STATE_NODE_TYPE]
+                if node_type not in live_nodes_by_node_type:
+                    live_nodes_by_node_type[node_type] = []
+                nodes_of_node_type = live_nodes_by_node_type[node_type]
+                nodes_of_node_type.append(node_state[NODE_STATE_NODE_IP])
+        return live_nodes_by_node_type

@@ -2,14 +2,15 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private import constants
-from cloudtik.core._private.core_utils import exec_with_call
+from cloudtik.core._private.core_utils import exec_with_output
 from cloudtik.core._private.runtime_utils import load_and_save_yaml, \
     get_runtime_config_from_node, save_yaml, get_runtime_head_ip, get_runtime_value
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime, \
     get_runtime_services_by_node_type
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, \
-    define_runtime_service_on_head_or_all, get_service_discovery_config, is_service_for_metrics, SERVICE_DISCOVERY_PORT
+    define_runtime_service_on_head_or_all, get_service_discovery_config, is_service_for_metrics, SERVICE_DISCOVERY_PORT, \
+    SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, SERVICE_SELECTOR_LABELS, SERVICE_SELECTOR_EXCLUDE_LABELS
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, get_list_for_update, get_config_for_update
 
 RUNTIME_PROCESSES = [
@@ -26,9 +27,6 @@ PROMETHEUS_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
 PROMETHEUS_SERVICE_DISCOVERY_CONFIG_KEY = "service_discovery"
 PROMETHEUS_SCRAPE_SCOPE_CONFIG_KEY = "scrape_scope"
 PROMETHEUS_SCRAPE_SERVICES_CONFIG_KEY = "scrape_services"
-PROMETHEUS_SCRAPE_TAGS_CONFIG_KEY = "scrape_tags"
-PROMETHEUS_SCRAPE_LABELS_CONFIG_KEY = "scrape_labels"
-PROMETHEUS_SCRAPE_EXCLUDE_LABELS_CONFIG_KEY = "scrape_exclude_labels"
 
 # if consul is not used, static federation targets can be used
 PROMETHEUS_FEDERATION_TARGETS_CONFIG_KEY = "federation_targets"
@@ -253,10 +251,12 @@ def configure_scrape(head):
     scrape_scope = get_runtime_value("PROMETHEUS_SCRAPE_SCOPE")
     if sd == PROMETHEUS_SERVICE_DISCOVERY_CONSUL:
         # tags and labels only support service discovery based scrape (consul)
-        services = prometheus_config.get(PROMETHEUS_SCRAPE_SERVICES_CONFIG_KEY)
-        tags = prometheus_config.get(PROMETHEUS_SCRAPE_TAGS_CONFIG_KEY)
-        labels = prometheus_config.get(PROMETHEUS_SCRAPE_LABELS_CONFIG_KEY)
-        exclude_labels = prometheus_config.get(PROMETHEUS_SCRAPE_EXCLUDE_LABELS_CONFIG_KEY)
+        service_selector = prometheus_config.get(
+            PROMETHEUS_SCRAPE_SERVICES_CONFIG_KEY, {})
+        services = service_selector.get(SERVICE_SELECTOR_SERVICES)
+        tags = service_selector.get(SERVICE_SELECTOR_TAGS)
+        labels = service_selector.get(SERVICE_SELECTOR_LABELS)
+        exclude_labels = service_selector.get(SERVICE_SELECTOR_EXCLUDE_LABELS)
 
         if tags or labels or exclude_labels or services:
             config_file = _get_config_file(scrape_scope)
@@ -273,16 +273,20 @@ def _update_scrape_config(config_file, services, tags, labels, exclude_labels):
         scrape_configs = config_object["scrape_configs"]
         for scrape_config in scrape_configs:
             if services:
+                # Any services in the list (OR)
                 sd_configs = scrape_config["consul_sd_configs"]
                 for sd_config in sd_configs:
                     # replace the services if specified
                     sd_config["services"] = services
             if tags:
+                # Services must contain all the tags (AND)
                 sd_configs = scrape_config["consul_sd_configs"]
                 for sd_config in sd_configs:
                     base_tags = get_list_for_update(sd_config, "tags")
                     base_tags.append(tags)
             if labels:
+                # Drop targets for which regex does not match the concatenated source_labels.
+                # Any unmatch will drop (All the labels must match) (AND)
                 relabel_configs = get_list_for_update(scrape_config, "relabel_configs")
                 for label_key, label_value in labels.items():
                     relabel_config = {
@@ -293,6 +297,8 @@ def _update_scrape_config(config_file, services, tags, labels, exclude_labels):
                     }
                     relabel_configs.append(relabel_config)
             if exclude_labels:
+                # Drop targets for which regex matches the concatenated source_labels.
+                # Any match will drop (OR)
                 relabel_configs = get_list_for_update(scrape_config, "relabel_configs")
                 for label_key, label_value in exclude_labels.items():
                     relabel_config = {
@@ -351,11 +357,11 @@ def start_pull_server(head):
         constants.CLOUDTIK_REDIS_DEFAULT_PASSWORD)]
 
     cmd_str = " ".join(cmd)
-    exec_with_call(cmd_str)
+    exec_with_output(cmd_str)
 
 
 def stop_pull_server():
     pull_identifier = _get_pull_identifier()
     cmd = ["cloudtik", "node", "pull", pull_identifier, "stop"]
     cmd_str = " ".join(cmd)
-    exec_with_call(cmd_str)
+    exec_with_output(cmd_str)

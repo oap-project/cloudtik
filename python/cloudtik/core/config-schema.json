@@ -1351,6 +1351,19 @@
                             "type": "boolean",
                             "default": false,
                             "description": "Whether to run a server on each node for high availability."
+                        },
+                        "data_sources_scope": {
+                            "type": "string",
+                            "default": "local",
+                            "description": "The data sources scope from which to configure this server: local or workspace."
+                        },
+                        "data_sources": {
+                            "type": "array",
+                            "description": "Array of static data sources to be configured.",
+                            "items": {
+                                "type": "object",
+                                "description": "Grafana data source definition."
+                            }
                         }
                     }
                 }

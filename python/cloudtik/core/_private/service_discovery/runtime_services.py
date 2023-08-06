@@ -16,12 +16,12 @@ CLOUDTIK_REDIS_SERVICE_PORT = CLOUDTIK_DEFAULT_PORT
 
 def get_runtime_services_by_node_type(config: Dict[str, Any]):
     # for all the runtimes, query its services per node type
-    services_map = {}
     cluster_name = config["cluster_name"]
     available_node_types = config["available_node_types"]
     head_node_type = config["head_node_type"]
     built_in_services = _get_built_in_services(config, cluster_name)
 
+    services_map = {}
     for node_type in available_node_types:
         head = True if node_type == head_node_type else False
         services_for_node_type = {}
@@ -49,6 +49,19 @@ def get_runtime_services_by_node_type(config: Dict[str, Any]):
         if services_for_node_type:
             services_map[node_type] = services_for_node_type
     return services_map
+
+
+def get_services_of_runtime(config: Dict[str, Any], runtime_type):
+    cluster_name = config["cluster_name"]
+    if runtime_type == CLOUDTIK_RUNTIME_NAME:
+        built_in_services = _get_built_in_services(config, cluster_name)
+        return built_in_services
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
+    if not is_runtime_enabled(runtime_config, runtime_type):
+        return None
+
+    runtime = _get_runtime(runtime_type, runtime_config)
+    return runtime.get_runtime_services(cluster_name)
 
 
 def _get_built_in_services(config: Dict[str, Any], cluster_name):

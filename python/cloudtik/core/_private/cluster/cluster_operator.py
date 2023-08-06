@@ -36,7 +36,7 @@ from cloudtik.core._private.runtime_factory import _get_runtime_cls
 from cloudtik.core._private.services import validate_redis_address
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_IP, NODE_STATE_NODE_ID, NODE_STATE_NODE_KIND, \
-    NODE_STATE_HEARTBEAT_TIME
+    NODE_STATE_HEARTBEAT_TIME, NODE_STATE_TIME
 from cloudtik.core.job_waiter import JobWaiter
 
 try:  # py3
@@ -70,7 +70,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info, sum_worker_gpus, \
     sum_nodes_resource, get_gpus_of_node_info, get_resource_of_node_info, get_resource_info_of_node_type, \
     get_worker_node_type, save_server_process, get_resource_requests_for, _get_head_resource_requests, \
-    get_resource_list_str, with_verbose_option, run_script, NODE_INFO_NODE_ID
+    get_resource_list_str, with_verbose_option, run_script, NODE_INFO_NODE_ID, is_alive_time_at
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -2513,10 +2513,12 @@ def cluster_process_status_on_head(
     _, redis_ip_address, redis_port = validate_redis_address(redis_address)
     control_state.initialize_control_state(redis_ip_address, redis_port,
                                            redis_password)
-    node_table = control_state.get_node_table()
-    raw_node_states = node_table.get_all().values()
-    node_states = _index_node_states(raw_node_states)
-    cli_logger.print(cf.bold("Total {} live nodes reported."), len(node_states))
+    node_processes_table = control_state.get_node_processes_table()
+    node_processes_rows = node_processes_table.get_all().values()
+    node_processes_by_node_ip = _index_node_processes(node_processes_rows)
+
+    cli_logger.print(cf.bold(
+        "Total {} live nodes reported processes."), len(node_processes_by_node_ip))
 
     # checking worker node process
     nodes = provider.non_terminated_nodes({
@@ -2543,9 +2545,9 @@ def cluster_process_status_on_head(
 
         for node_info in nodes_info:
             node_ip = node_info[NODE_INFO_NODE_IP]
-            node_state = node_states.get(node_ip)
-            if node_state:
-                process_info = node_state["process"]
+            node_processes = node_processes_by_node_ip.get(node_ip)
+            if node_processes:
+                process_info = node_processes["process"]
             else:
                 process_info = {}
 
@@ -4063,15 +4065,31 @@ def do_core_health_check(redis_address, redis_password, with_details=False):
         sys.exit(1)
 
 
-def _index_node_states(raw_node_states):
+def _index_node_states(node_state_rows):
     node_states = {}
-    if raw_node_states:
-        for raw_node_state in raw_node_states:
-            node_state = eval(raw_node_state)
-            if not is_alive_time(node_state.get(NODE_STATE_HEARTBEAT_TIME, 0)):
+    if node_state_rows:
+        current_time = time.time()
+        for node_state_row in node_state_rows:
+            node_state = json.loads(node_state_row)
+            if not is_alive_time_at(
+                    node_state.get(NODE_STATE_HEARTBEAT_TIME, 0), current_time):
                 continue
             node_states[node_state[NODE_STATE_NODE_IP]] = node_state
     return node_states
+
+
+def _index_node_processes(node_processes_rows):
+    node_processes_by_node_ip = {}
+    if node_processes_rows:
+        current_time = time.time()
+        for node_processes_row in node_processes_rows:
+            node_processes = json.loads(node_processes_row)
+            if not is_alive_time_at(
+                    node_processes.get(NODE_STATE_TIME, 0), current_time):
+                continue
+            node_processes_by_node_ip[
+                node_processes[NODE_STATE_NODE_IP]] = node_processes
+    return node_processes_by_node_ip
 
 
 def do_nodes_health_check(redis_address, redis_password, with_details=False):
@@ -4094,15 +4112,15 @@ def do_nodes_health_check(redis_address, redis_password, with_details=False):
     _, redis_ip_address, redis_port = validate_redis_address(redis_address)
     control_state.initialize_control_state(redis_ip_address, redis_port,
                                            redis_password)
-    node_table = control_state.get_node_table()
-    raw_node_states = node_table.get_all().values()
-    node_states = _index_node_states(raw_node_states)
+    node_processes_table = control_state.get_node_processes_table()
+    node_processes_rows = node_processes_table.get_all().values()
+    node_processes_by_node_ip = _index_node_processes(node_processes_rows)
 
     # checking head node processes
     head_node_info = get_node_info(provider, head_node)
     node_process_ok = check_node_processes(
         config, provider, head_node_info,
-        node_states, with_details)
+        node_processes_by_node_ip, with_details)
     if not node_process_ok:
         cli_logger.warning("Head node is not healthy. One or more process are not running.")
         failed_nodes[head_node] = head_node
@@ -4117,10 +4135,11 @@ def do_nodes_health_check(redis_address, redis_password, with_details=False):
         worker = worker_info["node"]
         node_process_ok = check_node_processes(
             config, provider, worker_info,
-            node_states, with_details)
+            node_processes_by_node_ip, with_details)
         if not node_process_ok:
-            cli_logger.warning("Worker node {} is not healthy. One or more process are not running.",
-                             worker_info[NODE_INFO_NODE_IP])
+            cli_logger.warning(
+                "Worker node {} is not healthy. One or more process are not running.",
+                worker_info[NODE_INFO_NODE_IP])
             failed_nodes[worker] = worker
 
     return failed_nodes
@@ -4137,20 +4156,21 @@ def is_process_status_healthy(process_status):
 
 
 def check_node_processes(
-        config, provider, node_info, node_states, with_details=False):
+        config, provider, node_info,
+        node_processes_by_node_ip, with_details=False):
     node_process_ok = True
     node_ip = node_info[NODE_INFO_NODE_IP]
     node_kind = node_info[CLOUDTIK_TAG_NODE_KIND]
     node_kind_name = "Worker"
     if node_kind == NODE_KIND_HEAD:
         node_kind_name = "Head"
-    node_state = node_states.get(node_ip)
-    if not node_state:
-        cli_logger.warning("No states reported for {} node: {}.",
-                         node_kind, node_ip)
+    node_processes = node_processes_by_node_ip.get(node_ip)
+    if not node_processes:
+        cli_logger.warning("No node processes reported for {} node: {}.",
+                           node_kind, node_ip)
         return False
 
-    process_info = node_state["process"]
+    process_info = node_processes["process"]
     unhealthy_processes = []
 
     tb = pt.PrettyTable()
@@ -4299,7 +4319,7 @@ def get_cluster_metrics(
         redis_port, redis_password,
         on_head=False
 ):
-    def get_node_states(ip_address, port):
+    def request_node_metrics(ip_address, port):
         control_state = ControlState()
         control_state.initialize_control_state(
             ip_address, port, redis_password)
@@ -4310,7 +4330,7 @@ def get_cluster_metrics(
         config=config,
         target_port=redis_port,
         on_head=on_head,
-        request_fn=get_node_states
+        request_fn=request_node_metrics
     )
 
     # Organize the node resource state
@@ -4335,7 +4355,7 @@ def _get_nodes_metrics(node_metrics_rows):
             continue
 
         # Filter out the stale record in the node table
-        last_metrics_time = node_metrics.get("metrics_time", 0)
+        last_metrics_time = node_metrics.get(NODE_STATE_TIME, 0)
         delta = time.time() - last_metrics_time
         if delta >= constants.CLOUDTIK_HEARTBEAT_TIMEOUT_S:
             continue

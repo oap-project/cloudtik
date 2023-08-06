@@ -1956,11 +1956,13 @@ def is_alive_time(report_time):
     # TODO: We probably shouldn't rely on time here, but cloud providers
     # have very well synchronized NTP servers, so this should be fine in
     # practice.
-    cur_time = time.time()
+    current_time = time.time()
+    return is_alive_time_at(report_time, current_time)
 
+
+def is_alive_time_at(report_time, current_time):
     # If the status is too old, the service has probably already died.
-    delta = cur_time - report_time
-
+    delta = current_time - report_time
     return delta < constants.HEALTHCHECK_EXPIRATION_S
 
 

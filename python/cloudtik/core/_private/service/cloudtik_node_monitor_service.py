@@ -19,7 +19,7 @@ from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.metrics.metrics_collector import MetricsCollector
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_IP, NODE_STATE_NODE_ID, NODE_STATE_NODE_KIND, \
-    NODE_STATE_HEARTBEAT_TIME, NODE_STATE_NODE_TYPE
+    NODE_STATE_HEARTBEAT_TIME, NODE_STATE_NODE_TYPE, NODE_STATE_TIME
 from cloudtik.core._private.utils import get_runtime_processes, make_node_id
 
 logger = logging.getLogger(__name__)
@@ -50,13 +50,11 @@ class NodeMonitor:
         self.node_kind = node_kind
         self.node_type = node_type
         self.static_resource_list = static_resource_list
-        # node_info store the resource, process and other details of the current node
-        self.old_processes = {}
+        # node_info store the basic aliveness of the current node
         self.node_info = {
             NODE_STATE_NODE_ID: node_id,
             NODE_STATE_NODE_IP: node_ip,
             NODE_STATE_NODE_KIND: node_kind,
-            "process": self.old_processes
         }
         if node_type:
             self.node_info[NODE_STATE_NODE_TYPE] = node_type
@@ -67,6 +65,12 @@ class NodeMonitor:
             NODE_STATE_NODE_KIND: node_kind,
             "metrics": {},
         }
+        self.old_processes = {}
+        self.node_processes = {
+            NODE_STATE_NODE_ID: node_id,
+            NODE_STATE_NODE_IP: node_ip,
+            "process": self.old_processes
+        }
         self.metrics_collector = None
 
         # Can be used to signal graceful exit from monitor loop.
@@ -75,12 +79,12 @@ class NodeMonitor:
         self.control_state = ControlState()
         self.control_state.initialize_control_state(redis_ip, redis_port, redis_password)
         self.node_table = self.control_state.get_node_table()
+        self.node_processes_table = self.control_state.get_node_processes_table()
         self.node_metrics_table = self.control_state.get_node_metrics_table()
 
         self.processes_to_check = constants.CLOUDTIK_PROCESSES
         runtime_list = runtimes.split(",") if runtimes and len(runtimes) > 0 else None
         self.processes_to_check.extend(get_runtime_processes(runtime_list))
-        self.node_info_lock = threading.Lock()
 
         logger.info("Monitor: Started")
 
@@ -97,11 +101,12 @@ class NodeMonitor:
             # Wait for update interval before processing the next
             # round of messages.
             try:
-                self._update_process_status()
+                self._update_processes()
                 self._update_metrics()
-                self._send_node_metrics()
+                self._send_processes()
+                self._send_metrics()
             except Exception as e:
-                logger.exception("Error happened when checking processes: " + str(e))
+                logger.exception("Error happened when updating metrics or processes: " + str(e))
             time.sleep(constants.CLOUDTIK_UPDATE_INTERVAL_S)
 
     def _handle_failure(self, error):
@@ -123,17 +128,15 @@ class NodeMonitor:
         while True:
             time.sleep(constants.CLOUDTIK_HEARTBEAT_PERIOD_SECONDS)
             now = time.time()
-            with self.node_info_lock:
-                node_info = self.node_info.copy()
-            node_info.update({NODE_STATE_HEARTBEAT_TIME: now})
-            node_info_as_json = json.dumps(node_info)
+            self.node_info[NODE_STATE_HEARTBEAT_TIME] = now
+            node_info_as_json = json.dumps(self.node_info)
             try:
                 self.node_table.put(self.node_id, node_info_as_json)
             except Exception as e:
                 logger.exception("Failed sending heartbeat: " + str(e))
                 logger.exception(traceback.format_exc())
 
-    def _update_process_status(self):
+    def _update_processes(self):
         """check CloudTik runtime processes on the local machine."""
         process_infos = []
         for proc in psutil.process_iter(["name", "cmdline"]):
@@ -162,10 +165,9 @@ class NodeMonitor:
                     found_process[process_name] = proc.status()
 
         if found_process != self.old_processes:
-            logger.info("Cloudtik processes status changed, latest process information: {}".format(str(found_process)))
-            # lock write
-            with self.node_info_lock:
-                self.node_info["process"] = found_process
+            logger.info("Cloudtik processes status changed, latest process information: {}".format(
+                str(found_process)))
+            self.node_processes["process"] = found_process
             self.old_processes = found_process
 
     def _update_metrics(self):
@@ -177,10 +179,21 @@ class NodeMonitor:
             logger.debug("Metrics collected for node: {}".format(metrics))
         self.node_metrics["metrics"] = metrics
 
-    def _send_node_metrics(self):
+    def _send_processes(self):
+        now = time.time()
+        node_processes = self.node_processes
+        node_processes[NODE_STATE_TIME] = now
+        node_processes_as_json = json.dumps(node_processes)
+        try:
+            self.node_processes_table.put(self.node_id, node_processes_as_json)
+        except Exception as e:
+            logger.exception("Failed sending node processes: " + str(e))
+            logger.exception(traceback.format_exc())
+
+    def _send_metrics(self):
         now = time.time()
         node_metrics = self.node_metrics
-        node_metrics.update({"metrics_time": now})
+        node_metrics["metrics_time"] = now
         node_metrics_as_json = json.dumps(node_metrics)
         try:
             self.node_metrics_table.put(self.node_id, node_metrics_as_json)

@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 # If the key in storage has this, it'll contain namespace
 __NS_START_CHAR = b"@namespace_"
 
+NODE_PROCESSES_TABLE = "node_processes_table"
+NODE_METRICS_TABLE = "node_metrics_table"
+
 
 def _make_key(namespace: Optional[str], key: bytes) -> bytes:
     if namespace is None:
@@ -92,7 +95,7 @@ class StateClient:
         logger.debug(f"internal_kv_keys {prefix} {namespace}")
         prefix = _make_key(namespace, prefix)
         try:
-            return [_get_key(key) for key in self._redis_client.scan_iter(prefix + "*")]
+            return [_get_key(key) for key in self._redis_client.scan_iter(prefix + b"*")]
         except Exception:
             raise RuntimeError(f"Failed to list prefix {prefix}")
 
@@ -212,10 +215,16 @@ class ControlState:
         node_table = self.control_state_accessor.get_node_table()
         return node_table
 
+    def get_node_processes_table(self):
+        self._check_connected()
+        node_processes_table = self.control_state_accessor.get_user_state_table(
+            NODE_PROCESSES_TABLE)
+        return node_processes_table
+
     def get_node_metrics_table(self):
         self._check_connected()
         node_metrics_table = self.control_state_accessor.get_user_state_table(
-            "node_metrics_table")
+            NODE_METRICS_TABLE)
         return node_metrics_table
 
     def get_user_state_table(self, table_name):

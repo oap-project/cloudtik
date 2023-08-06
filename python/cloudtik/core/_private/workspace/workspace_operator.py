@@ -1,9 +1,7 @@
 import copy
-import hashlib
 import json
 import logging
 import os
-import tempfile
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -12,7 +10,7 @@ import prettytable as pt
 import yaml
 
 from cloudtik.core._private.cluster.cluster_operator import _get_cluster_info
-from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
+from cloudtik.core._private.core_utils import get_cloudtik_temp_dir, get_json_object_hash
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS
 from cloudtik.core.workspace_provider import Existence, CLOUDTIK_MANAGED_CLOUD_STORAGE, \
     CLOUDTIK_MANAGED_CLOUD_STORAGE_URI
@@ -404,11 +402,10 @@ def _bootstrap_workspace_config(config: Dict[str, Any],
     config = prepare_workspace_config(config)
     # Note: delete workspace only need to contain workspace_name
 
-    hasher = hashlib.sha1()
-    hasher.update(json.dumps([config], sort_keys=True).encode("utf-8"))
+    config_hash = get_json_object_hash([config])
     config_cache_dir = os.path.join(get_cloudtik_temp_dir(), "configs")
     cache_key = os.path.join(config_cache_dir,
-                             "cloudtik-workspace-config-{}".format(hasher.hexdigest()))
+                             "cloudtik-workspace-config-{}".format(config_hash))
 
     provider_cls = _get_workspace_provider_cls(config["provider"])
 

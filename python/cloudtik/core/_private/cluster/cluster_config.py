@@ -1,12 +1,10 @@
-import hashlib
 import json
 import os
-import tempfile
 from typing import Any, Dict, Optional
 from functools import partial
 import yaml
 
-from cloudtik.core._private.core_utils import get_cloudtik_temp_dir
+from cloudtik.core._private.core_utils import get_cloudtik_temp_dir, get_json_object_hash
 from cloudtik.core._private.debug import log_once
 from cloudtik.core._private.utils import prepare_config, decrypt_config, runtime_prepare_config, validate_config, \
     verify_config, encrypt_config, RUNTIME_CONFIG_KEY, runtime_bootstrap_config
@@ -48,11 +46,10 @@ def _bootstrap_config(config: Dict[str, Any],
     config = prepare_config(config)
     # NOTE: multi-node-type cluster scaler is guaranteed to be in use after this.
 
-    hasher = hashlib.sha1()
-    hasher.update(json.dumps([config], sort_keys=True).encode("utf-8"))
+    config_hash = get_json_object_hash([config])
     config_cache_dir = os.path.join(get_cloudtik_temp_dir(), "configs")
     cache_key = os.path.join(config_cache_dir,
-                             "cloudtik-config-{}".format(hasher.hexdigest()))
+                             "cloudtik-config-{}".format(config_hash))
 
     if os.path.exists(cache_key) and not no_config_cache:
         with open(cache_key) as f:

@@ -1,13 +1,16 @@
 import os
-from typing import Any, Dict
+from typing import Any, Dict, List
 
+from cloudtik.core._private import constants
+from cloudtik.core._private.core_utils import exec_with_call
 from cloudtik.core._private.runtime_utils import load_and_save_yaml, \
-    get_runtime_config_from_node, save_yaml
-from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
+    get_runtime_config_from_node, save_yaml, get_runtime_head_ip
+from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime, \
+    get_runtime_services_by_node_type
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, \
-    define_runtime_service_on_head_or_all, get_service_discovery_config
-from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, get_list_for_update
+    define_runtime_service_on_head_or_all, get_service_discovery_config, is_service_for_metrics
+from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, get_list_for_update, get_config_for_update
 
 RUNTIME_PROCESSES = [
         # The first element is the substring to filter.
@@ -30,6 +33,10 @@ PROMETHEUS_SCRAPE_EXCLUDE_LABELS_CONFIG_KEY = "scrape_exclude_labels"
 # if consul is not used, static federation targets can be used
 PROMETHEUS_FEDERATION_TARGETS_CONFIG_KEY = "federation_targets"
 
+# This is used for local pull service targets
+PROMETHEUS_PULL_SERVICES_CONFIG_KEY = "pull_services"
+
+
 PROMETHEUS_SERVICE_NAME = "prometheus"
 PROMETHEUS_SERVICE_PORT_DEFAULT = 9090
 
@@ -40,6 +47,8 @@ PROMETHEUS_SCRAPE_SCOPE_LOCAL = "local"
 PROMETHEUS_SCRAPE_SCOPE_WORKSPACE = "workspace"
 PROMETHEUS_SCRAPE_SCOPE_FEDERATION = "federation"
 
+PROMETHEUS_PULL_LOCAL_TARGETS_INTERVAL = 15
+
 
 def _get_config(runtime_config: Dict[str, Any]):
     return runtime_config.get(PROMETHEUS_RUNTIME_CONFIG_KEY, {})
@@ -48,6 +57,7 @@ def _get_config(runtime_config: Dict[str, Any]):
 def _get_service_port(prometheus_config: Dict[str, Any]):
     return prometheus_config.get(
         PROMETHEUS_SERVICE_PORT_CONFIG_KEY, PROMETHEUS_SERVICE_PORT_DEFAULT)
+
 
 def _get_federation_targets(prometheus_config: Dict[str, Any]):
     return prometheus_config.get(
@@ -71,6 +81,30 @@ def _get_runtime_logs():
     home_dir = _get_home_dir()
     logs_dir = os.path.join(home_dir, "logs")
     return {"prometheus": logs_dir}
+
+
+def _get_config_for_update(cluster_config):
+    runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
+    return get_config_for_update(runtime_config, PROMETHEUS_RUNTIME_CONFIG_KEY)
+
+
+def _bootstrap_runtime_services(config: Dict[str, Any]):
+    # for all the runtimes, query its services per node type
+    pull_services = {}
+    services_map = get_runtime_services_by_node_type(config)
+    for node_type, services_for_node_type in services_map.items():
+        for service_name, service in services_for_node_type.items():
+            runtime_type, runtime_service = service
+            # check whether this service provide metric or not
+            if is_service_for_metrics(runtime_service):
+                node_types_of_service = get_list_for_update(pull_services, service_name)
+                node_types_of_service.append(node_type)
+
+    if pull_services:
+        prometheus_config = _get_config_for_update(config)
+        prometheus_config[PROMETHEUS_PULL_SERVICES_CONFIG_KEY] = pull_services
+
+    return config
 
 
 def _with_runtime_environment_variables(
@@ -134,7 +168,7 @@ def _with_runtime_environment_variables(
 
 def _with_file_sd_environment_variables(
         prometheus_config, config, runtime_envs):
-    # TODO: discovery through file periodically updated by daemon
+    # discovery through file periodically updated by daemon
     pass
 
 
@@ -265,3 +299,46 @@ def _save_federation_targets(federation_targets):
     home_dir = _get_home_dir()
     config_file = os.path.join(home_dir, "conf", "federation-targets.yaml")
     save_yaml(config_file, federation_targets)
+
+
+def _get_pull_identifier():
+    return "{}-pull".format(PROMETHEUS_SERVICE_NAME)
+
+
+def _get_pull_services_str(pull_services: Dict[str, List[str]]) -> str:
+    # Format in a form like 'service-1:head,service-2:worker'
+    return ",".join([":".join(
+        [service_name] + node_types) for service_name, node_types in pull_services.items()])
+
+
+def start_pull_server(head):
+    runtime_config = get_runtime_config_from_node(head)
+    prometheus_config = _get_config(runtime_config)
+    pull_services = prometheus_config.get(PROMETHEUS_PULL_SERVICES_CONFIG_KEY)
+
+    pull_identifier = _get_pull_identifier()
+
+    redis_ip = get_runtime_head_ip(head)
+    redis_address = "{}:{}".format(redis_ip, constants.CLOUDTIK_DEFAULT_PORT)
+
+    cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
+    cmd += ["--pull_class=cloudtik.runtime.prometheus.pull_local_targets.PullLocalTargets"]
+    cmd += ["--interval={}".format(
+        PROMETHEUS_PULL_LOCAL_TARGETS_INTERVAL)]
+    # job parameters
+    if pull_services:
+        pull_services_str = _get_pull_services_str(pull_services)
+        cmd += ["services={}".format(pull_services_str)]
+    cmd += ["redis_address={}".format(redis_address)]
+    cmd += ["redis_password={}".format(
+        constants.CLOUDTIK_REDIS_DEFAULT_PASSWORD)]
+
+    cmd_str = " ".join(cmd)
+    exec_with_call(cmd_str)
+
+
+def stop_pull_server():
+    pull_identifier = _get_pull_identifier()
+    cmd = ["cloudtik", "node", "pull", pull_identifier, "stop"]
+    cmd_str = " ".join(cmd)
+    exec_with_call(cmd_str)

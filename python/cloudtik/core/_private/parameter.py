@@ -57,6 +57,7 @@ class StartParams:
         redirect_output (bool): True if stdout and stderr for non-worker
             processes should be redirected to files and false otherwise.
         runtimes: Runtimes enabled on this node.
+        node_type: The node type of this node.
         no_controller: No controller to start on the head.
     """
 
@@ -84,6 +85,7 @@ class StartParams:
                  memory=None,
                  redirect_output=None,
                  runtimes=None,
+                 node_type=None,
                  no_controller=False
                  ):
         self.external_addresses = external_addresses
@@ -108,6 +110,7 @@ class StartParams:
         self.redirect_output = redirect_output
         self.resources = resources
         self.runtimes = runtimes
+        self.node_type = node_type
         self.no_controller = no_controller
         self._check_usage()
 

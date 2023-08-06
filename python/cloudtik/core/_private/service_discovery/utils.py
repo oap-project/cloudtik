@@ -139,3 +139,7 @@ def match_service_node(runtime_service, head):
             return True
 
     return False
+
+
+def is_service_for_metrics(runtime_service):
+    return runtime_service.get(SERVICE_DISCOVERY_METRICS, False)

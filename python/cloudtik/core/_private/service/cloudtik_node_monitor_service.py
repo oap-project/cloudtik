@@ -18,6 +18,8 @@ from cloudtik.core._private import constants
 from cloudtik.core._private.logging_utils import setup_component_logger
 from cloudtik.core._private.metrics.metrics_collector import MetricsCollector
 from cloudtik.core._private.state.control_state import ControlState
+from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_IP, NODE_STATE_NODE_ID, NODE_STATE_NODE_KIND, \
+    NODE_STATE_HEARTBEAT_TIME, NODE_STATE_NODE_TYPE
 from cloudtik.core._private.utils import get_runtime_processes, make_node_id
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,7 @@ class NodeMonitor:
     def __init__(self,
                  node_id,
                  node_ip,
+                 node_kind,
                  node_type,
                  redis_address,
                  redis_password=None,
@@ -44,21 +47,24 @@ class NodeMonitor:
         self.redis_address = redis_address
         self.redis_password = redis_password
         self.node_ip = node_ip
+        self.node_kind = node_kind
         self.node_type = node_type
         self.static_resource_list = static_resource_list
         # node_info store the resource, process and other details of the current node
         self.old_processes = {}
         self.node_info = {
-            "node_id": node_id,
-            "node_ip": node_ip,
-            "node_type": node_type,
+            NODE_STATE_NODE_ID: node_id,
+            NODE_STATE_NODE_IP: node_ip,
+            NODE_STATE_NODE_KIND: node_kind,
             "process": self.old_processes
         }
+        if node_type:
+            self.node_info[NODE_STATE_NODE_TYPE] = node_type
 
         self.node_metrics = {
-            "node_id": node_id,
-            "node_ip": node_ip,
-            "node_type": node_type,
+            NODE_STATE_NODE_ID: node_id,
+            NODE_STATE_NODE_IP: node_ip,
+            NODE_STATE_NODE_KIND: node_kind,
             "metrics": {},
         }
         self.metrics_collector = None
@@ -119,7 +125,7 @@ class NodeMonitor:
             now = time.time()
             with self.node_info_lock:
                 node_info = self.node_info.copy()
-            node_info.update({"last_heartbeat_time": now})
+            node_info.update({NODE_STATE_HEARTBEAT_TIME: now})
             node_info_as_json = json.dumps(node_info)
             try:
                 self.node_table.put(self.node_id, node_info_as_json)
@@ -137,8 +143,8 @@ class NodeMonitor:
                 pass
 
         found_process = {}
-        for keyword, filter_by_cmd, process_name, node_type in self.processes_to_check:
-            if (self.node_type != node_type) and ("node" != node_type):
+        for keyword, filter_by_cmd, process_name, node_kind in self.processes_to_check:
+            if (self.node_kind != node_kind) and ("node" != node_kind):
                 continue
 
             if filter_by_cmd and len(keyword) > 15:
@@ -197,10 +203,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Parse the arguments of the Node Monitor")
     parser.add_argument(
-        "--node-type",
+        "--node-kind",
         required=True,
         type=str,
-        help="the node type of the current node")
+        help="the node kind of the current node: head or worker")
+    parser.add_argument(
+        "--node-type",
+        required=False,
+        type=str,
+        default=None,
+        help="the node type of the this node")
     parser.add_argument(
         "--redis-address",
         required=True,
@@ -295,10 +307,11 @@ if __name__ == "__main__":
     node_monitor = NodeMonitor(
         args.node_id,
         args.monitor_ip,
+        args.node_kind,
         args.node_type,
         args.redis_address,
         redis_password=args.redis_password,
         static_resource_list=args.static_resource_list,
-        runtimes=args.runtimes)
+        runtimes=args.runtimes,)
 
     node_monitor.run()

@@ -293,14 +293,6 @@ class NodeServicesStarter:
         return self._metrics_export_port
 
     @property
-    def socket(self):
-        """Get the socket reserving the node manager's port"""
-        try:
-            return self._socket
-        except AttributeError:
-            return None
-
-    @property
     def logging_config(self):
         """Get the logging config of the current node."""
         return {
@@ -609,7 +601,8 @@ class NodeServicesStarter:
             max_bytes=self.max_bytes,
             backup_count=self.backup_count,
             monitor_ip=self._node_ip_address,
-            runtimes=self._start_params.runtimes
+            runtimes=self._start_params.runtimes,
+            node_type=self._start_params.node_type,
         )
         assert constants.PROCESS_TYPE_NODE_MONITOR not in self.all_processes
         self.all_processes[constants.PROCESS_TYPE_NODE_MONITOR] = [process_info]

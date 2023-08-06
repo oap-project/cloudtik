@@ -1207,7 +1207,8 @@ def start_node_monitor(
         max_bytes=0,
         backup_count=0,
         monitor_ip=None,
-        runtimes=None):
+        runtimes=None,
+        node_type=None):
     """Run a process to controller the other processes.
 
     Args:
@@ -1220,6 +1221,7 @@ def start_node_monitor(
         stderr_file: A file handle opened for writing to redirect stderr to. If
             no redirection should happen, then this should be None.
         redis_password (str): The password of the redis server.
+        fate_share (bool): Whether the fate share with parent process.
         logging_level (str): The logging level to use for the process.
         max_bytes (int): Log rotation parameter. Corresponding to
             RotatingFileHandler's maxBytes.
@@ -1228,6 +1230,7 @@ def start_node_monitor(
         monitor_ip (str): IP address of the machine that the monitor will be
             run on. Can be excluded, but required for scaler metrics.
         runtimes (str): List of runtimes to pass to Node Monitor
+        node_type (str): The node type to pass to Node Monitor
     Returns:
         ProcessInfo for the process that was started.
     """
@@ -1244,8 +1247,8 @@ def start_node_monitor(
     if logging_level:
         command.append("--logging-level=" + logging_level)
 
-    node_type = tags.NODE_KIND_HEAD if head else tags.NODE_KIND_WORKER
-    command.append("--node-type=" + node_type)
+    node_kind = tags.NODE_KIND_HEAD if head else tags.NODE_KIND_WORKER
+    command.append("--node-kind=" + node_kind)
 
     if redis_password:
         command.append("--redis-password=" + redis_password)
@@ -1261,6 +1264,9 @@ def start_node_monitor(
 
     if runtimes and len(runtimes) > 0:
         command.append("--runtimes=" + quote(runtimes))
+
+    if node_type:
+        command.append("--node-type=" + node_type)
 
     process_info = start_cloudtik_process(
         command,

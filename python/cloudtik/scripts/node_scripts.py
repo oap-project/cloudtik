@@ -132,6 +132,13 @@ def node():
     hidden=True,
     help="Runtimes enabled for process monitoring purposes")
 @click.option(
+    "--node-type",
+    required=False,
+    type=str,
+    default=None,
+    hidden=True,
+    help="The node type for this node.")
+@click.option(
     "--no-controller",
     is_flag=True,
     hidden=True,
@@ -143,7 +150,7 @@ def start(node_ip_address, address, port, head,
           redis_password, redis_shard_ports, redis_max_memory,
           memory, num_cpus, num_gpus, resources,
           cluster_scaling_config, temp_dir, metrics_export_port,
-          no_redirect_output, runtimes, no_controller):
+          no_redirect_output, runtimes, node_type, no_controller):
     """Start the main daemon processes on the local machine."""
     # Convert hostnames to numerical IP address.
     if node_ip_address is not None:
@@ -162,6 +169,7 @@ def start(node_ip_address, address, port, head,
         metrics_export_port=metrics_export_port,
         redirect_output=redirect_output,
         runtimes=runtimes,
+        node_type=node_type,
         no_controller=no_controller,
     )
     if head:

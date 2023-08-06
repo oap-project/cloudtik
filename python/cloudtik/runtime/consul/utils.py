@@ -9,11 +9,11 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
     get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, subscribe_nodes_info, sort_nodes_by_seq_id, \
     load_and_save_json
-from cloudtik.core._private.service_discovery.runtime_services import get_runtime_services
+from cloudtik.core._private.service_discovery.runtime_services import get_runtime_services_by_node_type
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_LABELS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
     SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_LABEL_CLUSTER, \
-    SERVICE_DISCOVERY_METRICS
+    SERVICE_DISCOVERY_METRICS, is_service_for_metrics
 from cloudtik.core._private.utils import \
     publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
     RUNTIME_CONFIG_KEY, get_config_for_update, get_list_for_update
@@ -116,7 +116,7 @@ def _bootstrap_runtime_services(config: Dict[str, Any]):
     # for all the runtimes, query its services per node type
     service_configs = {}
     cluster_name = config["cluster_name"]
-    services_map = get_runtime_services(config)
+    services_map = get_runtime_services_by_node_type(config)
     for node_type, services_for_node_type in services_map.items():
         service_config_for_node_type = {}
         for service_name, service in services_for_node_type.items():
@@ -147,7 +147,7 @@ def _generate_service_config(cluster_name, runtime_type, runtime_service):
     tags.append(cluster_name_tag)
 
     # metrics tag
-    metrics = service_config.get(SERVICE_DISCOVERY_METRICS, False)
+    metrics = is_service_for_metrics(service_config)
     if metrics:
         tags.append(CONSUL_TAG_METRICS)
 

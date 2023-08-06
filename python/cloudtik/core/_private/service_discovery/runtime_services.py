@@ -14,7 +14,7 @@ CLOUDTIK_CLUSTER_CONTROLLER_METRICS_PORT = CLOUDTIK_METRIC_PORT
 CLOUDTIK_REDIS_SERVICE_PORT = CLOUDTIK_DEFAULT_PORT
 
 
-def get_runtime_services(config: Dict[str, Any]):
+def get_runtime_services_by_node_type(config: Dict[str, Any]):
     # for all the runtimes, query its services per node type
     services_map = {}
     cluster_name = config["cluster_name"]

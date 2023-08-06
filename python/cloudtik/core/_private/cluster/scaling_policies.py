@@ -7,6 +7,7 @@ import math
 from cloudtik.core import tags
 from cloudtik.core._private import constants
 from cloudtik.core._private.state.control_state import ControlState
+from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_ID, NODE_STATE_NODE_IP, NODE_STATE_NODE_KIND
 from cloudtik.core._private.utils import get_resource_demands_for_cpu, RUNTIME_CONFIG_KEY, \
     convert_nodes_to_cpus, get_resource_demands_for_memory, convert_nodes_to_memory, get_resource_requests_for_cpu, \
     _sum_min_workers
@@ -85,8 +86,8 @@ class ScalingWithResources(ScalingPolicy):
         lost_nodes = {}
 
         for node_metrics in all_node_metrics:
-            node_id = node_metrics["node_id"]
-            node_ip = node_metrics["node_ip"]
+            node_id = node_metrics[NODE_STATE_NODE_ID]
+            node_ip = node_metrics[NODE_STATE_NODE_IP]
             if not node_id or not node_ip:
                 continue
 
@@ -130,8 +131,8 @@ class ScalingWithResources(ScalingPolicy):
                 "in_use": True if load_avg_per_cpu_1 > self.in_use_cpu_load_threshold else False
             }
             node_resource_state = {
-                "node_id": node_id,
-                "node_ip": node_ip,
+                NODE_STATE_NODE_ID: node_id,
+                NODE_STATE_NODE_IP: node_ip,
                 "resource_time": last_metrics_time,
                 "total_resources": total_resources,
                 "available_resources": free_resources,
@@ -151,7 +152,7 @@ class ScalingWithResources(ScalingPolicy):
         for node_metrics_as_json in node_metrics_rows:
             node_metrics = json.loads(node_metrics_as_json)
             # filter out the head node
-            if node_metrics["node_type"] == tags.NODE_KIND_HEAD:
+            if node_metrics[NODE_STATE_NODE_KIND] == tags.NODE_KIND_HEAD:
                 continue
 
             all_node_metrics.append(node_metrics)

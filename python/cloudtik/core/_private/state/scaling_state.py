@@ -6,6 +6,7 @@ from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUD
     CLOUDTIK_NODE_RESOURCE_STATE_TIMEOUT_S
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.state.kv_store import kv_put, kv_get
+from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_ID, NODE_STATE_NODE_IP, NODE_STATE_HEARTBEAT_TIME
 from cloudtik.core.scaling_policy import ScalingState
 
 CLOUDTIK_AUTOSCALING_INSTRUCTIONS = "autoscaling_instructions"
@@ -45,11 +46,12 @@ class ScalingStateClient:
         for node_info_as_json in node_table.get_all().values():
             node_info = json.loads(node_info_as_json)
             # Filter out the stale record in the node table
-            delta = time.time() - node_info.get("last_heartbeat_time", 0)
+            delta = time.time() - node_info.get(NODE_STATE_HEARTBEAT_TIME, 0)
             if delta < CLOUDTIK_HEARTBEAT_TIMEOUT_S:
-                node_id = node_info["node_id"]
+                node_id = node_info[NODE_STATE_NODE_ID]
                 node_heartbeat_state = NodeHeartbeatState(
-                    node_id, node_info["node_ip"], node_info.get("last_heartbeat_time"))
+                    node_id, node_info[NODE_STATE_NODE_IP],
+                    node_info.get(NODE_STATE_HEARTBEAT_TIME))
                 cluster_heartbeat_state.add_heartbeat_state(node_id, node_heartbeat_state)
         return cluster_heartbeat_state
 
@@ -74,7 +76,7 @@ class ScalingStateClient:
             resource_time = resource_state.get("resource_time", 0)
             delta = now - resource_time
             if delta < CLOUDTIK_NODE_RESOURCE_STATE_TIMEOUT_S:
-                node_id = resource_state["node_id"]
+                node_id = resource_state[NODE_STATE_NODE_ID]
                 scaling_state.add_node_resource_state(node_id, resource_state)
         return scaling_state
 

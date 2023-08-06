@@ -6,6 +6,7 @@ import pytest
 
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
 from cloudtik.core._private.cluster.scaling_policies import ScalingWithTime
+from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_ID, NODE_STATE_NODE_IP
 from cloudtik.core._private.utils import merge_scaling_state
 from cloudtik.core.scaling_policy import ScalingState, ScalingPolicy
 
@@ -23,8 +24,8 @@ autoscaling_instructions = {
 
 node_resource_states = {
     "node-1.1.1.1": {
-        "node_id": "node-1.1.1.1",
-        "node_ip": "1.1.1.1",
+        NODE_STATE_NODE_ID: "node-1.1.1.1",
+        NODE_STATE_NODE_IP: "1.1.1.1",
         "resource_time": test_now,
         "total_resources": {
             "CPU": 4

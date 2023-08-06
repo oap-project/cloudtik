@@ -4,6 +4,7 @@ import time
 from typing import Any, Dict, Optional
 
 from cloudtik.core._private.services import address_to_ip
+from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_ID, NODE_STATE_NODE_IP
 from cloudtik.core._private.utils import make_node_id, RUNTIME_CONFIG_KEY
 from cloudtik.core.scaling_policy import ScalingPolicy, ScalingState
 
@@ -155,8 +156,8 @@ class RayScalingPolicy(ScalingPolicy):
             node_id = make_node_id(node_ip)
 
             node_resource_state = {
-                "node_id": node_id,
-                "node_ip": node_ip,
+                NODE_STATE_NODE_ID: node_id,
+                NODE_STATE_NODE_IP: node_ip,
                 "resource_time": self.last_state_time,
                 "total_resources": total_resources,
                 "available_resources": available_resources,

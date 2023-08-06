@@ -111,6 +111,7 @@ RUNTIME_TYPES_CONFIG_KEY = "types"
 
 PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key"]
 
+NODE_INFO_NODE_ID = "node_id"
 NODE_INFO_NODE_IP = "private_ip"
 NODE_INFO_PUBLIC_IP = "public_ip"
 
@@ -1089,7 +1090,7 @@ def get_cloudtik_head_start_command(config) -> str:
         start_command += " --no-controller"
     else:
         start_command += " --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml"
-    start_command += " --runtimes=$CLOUDTIK_RUNTIMES"
+    start_command += " --runtimes=$CLOUDTIK_RUNTIMES --node-type=$CLOUDTIK_NODE_TYPE"
     return start_command
 
 
@@ -1097,7 +1098,8 @@ def get_cloudtik_worker_start_command(config) -> str:
     # ulimit -n 65536; cloudtik node start --node-ip-address=$CLOUDTIK_NODE_IP --address=$CLOUDTIK_HEAD_IP:6789
     # --runtimes=$CLOUDTIK_RUNTIMES
     start_command = "ulimit -n 65536; cloudtik node start --node-ip-address=$CLOUDTIK_NODE_IP"
-    start_command += " --address=$CLOUDTIK_HEAD_IP:6789 --runtimes=$CLOUDTIK_RUNTIMES"
+    start_command += " --address=$CLOUDTIK_HEAD_IP:6789"
+    start_command += " --runtimes=$CLOUDTIK_RUNTIMES --node-type=$CLOUDTIK_NODE_TYPE"
     return start_command
 
 

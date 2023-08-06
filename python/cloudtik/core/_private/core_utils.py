@@ -751,10 +751,11 @@ def get_cloudtik_temp_dir():
 
 
 def exec_with_output(cmd):
-    return subprocess.check_output(
-        cmd,
-        shell=True,
-    )
+    return subprocess.check_output(cmd, shell=True)
+
+
+def exec_with_call(cmd):
+    return subprocess.check_call(cmd, shell=True)
 
 
 def is_private_ip(ip_addr):

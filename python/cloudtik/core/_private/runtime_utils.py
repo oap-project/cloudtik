@@ -5,7 +5,7 @@ from typing import Dict, Any
 import yaml
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_NODE_IP, \
-    CLOUDTIK_RUNTIME_ENV_SECRETS
+    CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_RUNTIME_ENV_HEAD_IP
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.utils import load_head_cluster_config, _get_node_type_specific_runtime_config, \
     get_runtime_config_key, _get_key_from_kv, decode_cluster_secrets, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE
@@ -33,9 +33,23 @@ def get_runtime_node_ip():
     node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_IP)
     if not node_ip:
         raise RuntimeError(
-            "Environment variable {} is not set.".format(CLOUDTIK_RUNTIME_ENV_NODE_IP))
-
+            "Environment variable {} is not set.".format(
+                CLOUDTIK_RUNTIME_ENV_NODE_IP))
     return node_ip
+
+
+def get_runtime_head_ip(head):
+    if head:
+        return get_runtime_node_ip()
+    else:
+        # worker node should always get head ip set
+        head_ip = \
+            os.environ.get(CLOUDTIK_RUNTIME_ENV_HEAD_IP)
+        if not head_ip:
+            raise RuntimeError(
+                "Environment variable {} is not set.".format(
+                    CLOUDTIK_RUNTIME_ENV_HEAD_IP))
+        return head_ip
 
 
 def retrieve_runtime_config(node_type: str = None):

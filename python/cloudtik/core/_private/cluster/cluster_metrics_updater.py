@@ -9,6 +9,7 @@ from cloudtik.core._private.cluster.event_summarizer import EventSummarizer
 from cloudtik.core._private.constants import CLOUDTIK_RESOURCE_REQUESTS
 from cloudtik.core._private.state.kv_store import kv_initialized, kv_get
 from cloudtik.core._private.state.scaling_state import ScalingStateClient
+from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_IP
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class ClusterMetricsUpdater:
             node_resource_states = {}
 
         for node_id, node_resource_state in node_resource_states.items():
-            ip = node_resource_state["node_ip"]
+            ip = node_resource_state[NODE_STATE_NODE_IP]
             resource_time = node_resource_state["resource_time"]
             # Node resource state
             total_resources = node_resource_state["total_resources"]

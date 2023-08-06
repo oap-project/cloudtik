@@ -35,6 +35,8 @@ from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_wait
 from cloudtik.core._private.runtime_factory import _get_runtime_cls
 from cloudtik.core._private.services import validate_redis_address
 from cloudtik.core._private.state import kv_store
+from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_IP, NODE_STATE_NODE_ID, NODE_STATE_NODE_KIND, \
+    NODE_STATE_HEARTBEAT_TIME
 from cloudtik.core.job_waiter import JobWaiter
 
 try:  # py3
@@ -68,7 +70,7 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info, sum_worker_gpus, \
     sum_nodes_resource, get_gpus_of_node_info, get_resource_of_node_info, get_resource_info_of_node_type, \
     get_worker_node_type, save_server_process, get_resource_requests_for, _get_head_resource_requests, \
-    get_resource_list_str, with_verbose_option, run_script
+    get_resource_list_str, with_verbose_option, run_script, NODE_INFO_NODE_ID
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -2112,7 +2114,7 @@ def _show_cluster_status(config: Dict[str, Any]) -> None:
     tb.field_names = ["node-id", "node-ip", "node-type", "node-status", "instance-type",
                       "public-ip", "instance-status"]
     for node_info in nodes_info:
-        tb.add_row([node_info["node_id"], node_info[NODE_INFO_NODE_IP], node_info[CLOUDTIK_TAG_NODE_KIND],
+        tb.add_row([node_info[NODE_INFO_NODE_ID], node_info[NODE_INFO_NODE_IP], node_info[CLOUDTIK_TAG_NODE_KIND],
                     node_info[CLOUDTIK_TAG_NODE_STATUS], node_info["instance_type"], node_info["public_ip"],
                     node_info["instance_status"]
                     ])
@@ -4066,9 +4068,9 @@ def _index_node_states(raw_node_states):
     if raw_node_states:
         for raw_node_state in raw_node_states:
             node_state = eval(raw_node_state)
-            if not is_alive_time(node_state.get("last_heartbeat_time", 0)):
+            if not is_alive_time(node_state.get(NODE_STATE_HEARTBEAT_TIME, 0)):
                 continue
-            node_states[node_state["node_ip"]] = node_state
+            node_states[node_state[NODE_STATE_NODE_IP]] = node_state
     return node_states
 
 
@@ -4274,14 +4276,14 @@ def show_cluster_metrics(
     nodes_resource_metrics = resource_metrics["nodes"]
 
     def node_resource_sort(node_resource):
-        node_ip = node_resource["node_ip"]
-        return node_resource["node_type"] + node_ip
+        node_ip = node_resource[NODE_STATE_NODE_IP]
+        return node_resource[NODE_STATE_NODE_KIND] + node_ip
 
     nodes_resource_metrics.sort(key=node_resource_sort)
 
     for node_resource_metrics in nodes_resource_metrics:
         tb.add_row(
-            [node_resource_metrics["node_ip"], node_resource_metrics["node_type"],
+            [node_resource_metrics[NODE_STATE_NODE_IP], node_resource_metrics[NODE_STATE_NODE_KIND],
              node_resource_metrics["total_cpus"], node_resource_metrics["used_cpus"],
              node_resource_metrics["available_cpus"], node_resource_metrics["cpu_load"],
              memory_to_gb_string(node_resource_metrics["total_memory"]),
@@ -4327,8 +4329,8 @@ def _get_nodes_metrics(node_metrics_rows):
     nodes_metrics = []
     for node_metrics_row in node_metrics_rows:
         node_metrics = json.loads(node_metrics_row)
-        node_id = node_metrics["node_id"]
-        node_ip = node_metrics["node_ip"]
+        node_id = node_metrics[NODE_STATE_NODE_ID]
+        node_ip = node_metrics[NODE_STATE_NODE_IP]
         if not node_id or not node_ip:
             continue
 
@@ -4350,8 +4352,8 @@ def _get_nodes_metrics(node_metrics_rows):
 def get_nodes_resource_metrics(nodes_metrics):
     nodes_resource_metrics = []
     for node_metrics in nodes_metrics:
-        node_ip = node_metrics["node_ip"]
-        node_type = node_metrics["node_type"]
+        node_ip = node_metrics[NODE_STATE_NODE_IP]
+        node_kind = node_metrics[NODE_STATE_NODE_KIND]
         metrics = node_metrics["metrics"]
 
         cpu_counts = metrics.get("cpus")
@@ -4367,8 +4369,8 @@ def get_nodes_resource_metrics(nodes_metrics):
         (total_memory, available_memory, percent_memory, used_memory) = memory
 
         node_resource_metrics = {
-            "node_ip": node_ip,
-            "node_type": node_type,
+            NODE_STATE_NODE_IP: node_ip,
+            NODE_STATE_NODE_KIND: node_kind,
             "total_cpus": total_cpus,
             "used_cpus": used_cpus,
             "available_cpus": max(0, total_cpus - used_cpus),
@@ -4391,7 +4393,7 @@ def get_cluster_resource_metrics(nodes_metrics):
     cluster_load_avg_all_1 = 0.0
     for node_metrics in nodes_metrics:
         # filter out the head node
-        if node_metrics["node_type"] == tags.NODE_KIND_HEAD:
+        if node_metrics[NODE_STATE_NODE_KIND] == tags.NODE_KIND_HEAD:
             continue
 
         metrics = node_metrics["metrics"]

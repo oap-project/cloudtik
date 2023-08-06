@@ -1,10 +1,10 @@
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from cloudtik.core._private import constants
 from cloudtik.core._private.core_utils import exec_with_call
 from cloudtik.core._private.runtime_utils import load_and_save_yaml, \
-    get_runtime_config_from_node, save_yaml, get_runtime_head_ip
+    get_runtime_config_from_node, save_yaml, get_runtime_head_ip, get_runtime_value
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime, \
     get_runtime_services_by_node_type
 from cloudtik.core._private.service_discovery.utils import \
@@ -249,8 +249,8 @@ def configure_scrape(head):
     runtime_config = get_runtime_config_from_node(head)
     prometheus_config = _get_config(runtime_config)
 
-    sd = os.environ.get("PROMETHEUS_SERVICE_DISCOVERY")
-    scrape_scope = os.environ.get("PROMETHEUS_SCRAPE_SCOPE")
+    sd = get_runtime_value("PROMETHEUS_SERVICE_DISCOVERY")
+    scrape_scope = get_runtime_value("PROMETHEUS_SCRAPE_SCOPE")
     if sd == PROMETHEUS_SERVICE_DISCOVERY_CONSUL:
         # tags and labels only support service discovery based scrape (consul)
         services = prometheus_config.get(PROMETHEUS_SCRAPE_SERVICES_CONFIG_KEY)

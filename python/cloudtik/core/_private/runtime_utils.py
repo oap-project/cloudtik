@@ -18,9 +18,13 @@ RUNTIME_NODE_QUORUM_ID = "quorum_id"
 RUNTIME_NODE_QUORUM_JOIN = "quorum_join"
 
 
+def get_runtime_value(name):
+    return os.environ.get(name)
+
+
 def get_runtime_node_type():
     # Node type should always be set as env
-    node_type = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_TYPE)
+    node_type = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_TYPE)
     if not node_type:
         raise RuntimeError(
             "Environment variable {} is not set.".format(CLOUDTIK_RUNTIME_ENV_NODE_TYPE))
@@ -30,7 +34,7 @@ def get_runtime_node_type():
 
 def get_runtime_node_ip():
     # Node type should always be set as env
-    node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_IP)
+    node_ip = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_IP)
     if not node_ip:
         raise RuntimeError(
             "Environment variable {} is not set.".format(
@@ -44,7 +48,7 @@ def get_runtime_head_ip(head):
     else:
         # worker node should always get head ip set
         head_ip = \
-            os.environ.get(CLOUDTIK_RUNTIME_ENV_HEAD_IP)
+            get_runtime_value(CLOUDTIK_RUNTIME_ENV_HEAD_IP)
         if not head_ip:
             raise RuntimeError(
                 "Environment variable {} is not set.".format(
@@ -60,7 +64,7 @@ def retrieve_runtime_config(node_type: str = None):
         return None
 
     # Decrypt
-    encoded_secrets = os.environ[CLOUDTIK_RUNTIME_ENV_SECRETS]
+    encoded_secrets = get_runtime_value(CLOUDTIK_RUNTIME_ENV_SECRETS)
     secrets = decode_cluster_secrets(encoded_secrets)
     cipher = AESCipher(secrets)
     runtime_config_str = cipher.decrypt(encrypted_runtime_config)
@@ -76,7 +80,7 @@ def subscribe_runtime_config():
     if CLOUDTIK_RUNTIME_ENV_SECRETS not in os.environ:
         raise RuntimeError("Not able to subscribe runtime config in lack of secrets.")
 
-    node_type = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_TYPE)
+    node_type = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_TYPE)
     if node_type:
         # Try getting node type specific runtime config
         runtime_config = retrieve_runtime_config(node_type)

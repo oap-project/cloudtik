@@ -56,6 +56,9 @@ function configure_grafana() {
     mkdir -p ${GRAFANA_HOME}/logs
     mkdir -p ${GRAFANA_HOME}/plugins
 
+    GRAFANA_CONFIG_DIR=${GRAFANA_HOME}/conf
+    mkdir -p ${GRAFANA_CONFIG_DIR}
+
     sed -i "s#{%server.address%}#${NODE_IP_ADDRESS}#g" ${config_template_file}
 
     local SERVER_PORT=$(get_service_port)
@@ -73,9 +76,7 @@ function configure_grafana() {
     local PROVISIONING_DIR=${GRAFANA_HOME}/conf/provisioning
     sed -i "s#{%provisioning.dir%}#${PROVISIONING_DIR}#g" ${config_template_file}
 
-    GRAFANA_CONFIG_DIR=${GRAFANA_HOME}/conf
-    mkdir -p ${GRAFANA_CONFIG_DIR}
-    cp -r $output_dir/* ${GRAFANA_CONFIG_DIR}/
+    cp -r ${config_template_file} ${GRAFANA_CONFIG_DIR}/grafana.ini
 }
 
 set_head_option "$@"

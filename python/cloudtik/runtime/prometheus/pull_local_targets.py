@@ -77,7 +77,7 @@ class PullLocalTargets(PullJob):
 
         (redis_ip, redis_port) = redis_address.split(":")
 
-        self.services = _parse_services(services)
+        self.pull_services = _parse_services(services)
         self.redis_address = redis_address
         self.redis_password = redis_password
 
@@ -110,7 +110,7 @@ class PullLocalTargets(PullJob):
         live_nodes_by_node_type = self._get_live_nodes()
 
         local_targets = []
-        for service_name, pull_service in self.services.items():
+        for service_name, pull_service in self.pull_services.items():
             service_port, service_node_types = pull_service
             service_targets = _get_service_targets(
                 service_name, service_port,

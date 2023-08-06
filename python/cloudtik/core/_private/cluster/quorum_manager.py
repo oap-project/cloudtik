@@ -3,6 +3,7 @@ import json
 import logging
 from typing import Optional, List
 
+from cloudtik.core._private.core_utils import get_json_object_hash
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, RUNTIME_NODE_ID, \
     RUNTIME_NODE_QUORUM_JOIN, RUNTIME_NODE_QUORUM_ID
 from cloudtik.core._private.state.kv_store import kv_put
@@ -193,11 +194,7 @@ class QuorumManager:
             if quorum_nodes:
                 nodes_info_to_publish = quorum_nodes
 
-        nodes_info_data = json.dumps(nodes_info_to_publish, sort_keys=True)
-
-        hasher = hashlib.sha1()
-        hasher.update(nodes_info_data.encode("utf-8"))
-        new_nodes_info_hash = hasher.hexdigest()
+        new_nodes_info_hash = get_json_object_hash(nodes_info_to_publish)
 
         if quorum_nodes:
             # Commit the new quorum with the quorum id from quorum nodes info digest

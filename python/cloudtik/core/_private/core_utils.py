@@ -1,6 +1,8 @@
 import collections
 import errno
+import hashlib
 import importlib
+import json
 import logging
 import multiprocessing
 import os
@@ -847,3 +849,17 @@ def get_named_log_file_handles(logs_dir, name, redirect_output=None):
     log_stdout = os.path.join(logs_dir, f"{name}.out")
     log_stderr = os.path.join(logs_dir, f"{name}.err")
     return open_log(log_stdout), open_log(log_stderr)
+
+
+def get_json_object_hash(json_object):
+    if json_object is None:
+        json_data = ""
+    else:
+        json_data = json.dumps(json_object, sort_keys=True)
+    return get_string_hash(json_data)
+
+
+def get_string_hash(str_data):
+    hasher = hashlib.sha1()
+    hasher.update(str_data.encode("utf-8"))
+    return hasher.hexdigest()

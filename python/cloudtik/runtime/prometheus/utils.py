@@ -9,7 +9,7 @@ from cloudtik.core._private.service_discovery.runtime_services import get_servic
     get_runtime_services_by_node_type
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, \
-    define_runtime_service_on_head_or_all, get_service_discovery_config, is_service_for_metrics
+    define_runtime_service_on_head_or_all, get_service_discovery_config, is_service_for_metrics, SERVICE_DISCOVERY_PORT
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, get_list_for_update, get_config_for_update
 
 RUNTIME_PROCESSES = [
@@ -35,6 +35,7 @@ PROMETHEUS_FEDERATION_TARGETS_CONFIG_KEY = "federation_targets"
 
 # This is used for local pull service targets
 PROMETHEUS_PULL_SERVICES_CONFIG_KEY = "pull_services"
+PROMETHEUS_PULL_NODE_TYPES_CONFIG_KEY = "node_types"
 
 
 PROMETHEUS_SERVICE_NAME = "prometheus"
@@ -97,8 +98,18 @@ def _bootstrap_runtime_services(config: Dict[str, Any]):
             runtime_type, runtime_service = service
             # check whether this service provide metric or not
             if is_service_for_metrics(runtime_service):
-                node_types_of_service = get_list_for_update(pull_services, service_name)
-                node_types_of_service.append(node_type)
+                if service_name not in pull_services:
+                    service_port = runtime_service[SERVICE_DISCOVERY_PORT]
+                    pull_service = {
+                        SERVICE_DISCOVERY_PORT: service_port,
+                        PROMETHEUS_PULL_NODE_TYPES_CONFIG_KEY: [node_type]
+                    }
+                    pull_services[service_name] = pull_service
+                else:
+                    pull_service = pull_services[service_name]
+                    node_types_of_service = get_list_for_update(
+                        pull_service, PROMETHEUS_PULL_NODE_TYPES_CONFIG_KEY)
+                    node_types_of_service.append(node_type)
 
     if pull_services:
         prometheus_config = _get_config_for_update(config)
@@ -305,10 +316,16 @@ def _get_pull_identifier():
     return "{}-pull".format(PROMETHEUS_SERVICE_NAME)
 
 
-def _get_pull_services_str(pull_services: Dict[str, List[str]]) -> str:
-    # Format in a form like 'service-1:head,service-2:worker'
-    return ",".join([":".join(
-        [service_name] + node_types) for service_name, node_types in pull_services.items()])
+def _get_pull_services_str(pull_services: Dict[str, Any]) -> str:
+    # Format in a form like 'service-1:port1:node_type_1,...'
+    pull_service_str_list = []
+    for service_name, pull_service in pull_services.items():
+        service_port = pull_service[SERVICE_DISCOVERY_PORT]
+        node_types = pull_service[PROMETHEUS_PULL_NODE_TYPES_CONFIG_KEY]
+        pull_service_str = ":".join([service_name, str(service_port)] + node_types)
+        pull_service_str_list.append(pull_service_str)
+
+    return ",".join(pull_service_str_list)
 
 
 def start_pull_server(head):
@@ -322,7 +339,7 @@ def start_pull_server(head):
     redis_address = "{}:{}".format(redis_ip, constants.CLOUDTIK_DEFAULT_PORT)
 
     cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
-    cmd += ["--pull_class=cloudtik.runtime.prometheus.pull_local_targets.PullLocalTargets"]
+    cmd += ["--pull-class=cloudtik.runtime.prometheus.pull_local_targets.PullLocalTargets"]
     cmd += ["--interval={}".format(
         PROMETHEUS_PULL_LOCAL_TARGETS_INTERVAL)]
     # job parameters

@@ -22,7 +22,7 @@ from cloudtik.core._private.cluster.cluster_metrics_updater import ClusterMetric
 from cloudtik.core._private.cluster.node_availability_tracker import NodeAvailabilitySummary, NodeAvailabilityTracker
 from cloudtik.core._private.cluster.quorum_manager import QuorumManager
 from cloudtik.core._private.cluster.resource_scaling_policy import ResourceScalingPolicy
-from cloudtik.core._private.core_utils import ConcurrentCounter
+from cloudtik.core._private.core_utils import ConcurrentCounter, get_string_hash
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.state.kv_store import kv_put, kv_del, kv_initialized
 try:
@@ -1031,14 +1031,11 @@ class ClusterScaler:
         if node_type is None:
             node_type = ""
 
-        hasher = hashlib.sha1()
         if runtime_config:
             runtime_config_str = json.dumps(runtime_config, sort_keys=True)
         else:
             runtime_config_str = ""
-
-        hasher.update(runtime_config_str.encode("utf-8"))
-        new_runtime_config_hash = hasher.hexdigest()
+        new_runtime_config_hash = get_string_hash(runtime_config_str)
 
         published_runtime_config_hash = self.published_runtime_config_hashes.get(node_type)
         if published_runtime_config_hash and new_runtime_config_hash == published_runtime_config_hash:

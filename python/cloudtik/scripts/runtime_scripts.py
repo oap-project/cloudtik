@@ -29,17 +29,21 @@ def _get_runtime_script_path(runtime_type: str, script_name: str):
 
 
 def _run_runtime_bash_script(script_path, command, head, script_args):
-    args = [command] if command else []
+    args = []
     if head:
         args += ["--head"]
+    if command:
+        args += [command]
     run_args = " ".join(args)
     run_bash_scripts(script_path, run_args, script_args)
 
 
 def _run_runtime_python_script(script_path, command, head, script_args):
-    args = [command] if command else []
+    args = []
     if head:
         args += ["--head"]
+    if command:
+        args += [command]
     run_args = " ".join(args)
 
     cmds = [

@@ -2,9 +2,10 @@ import json
 import logging
 import os
 import time
-from typing import Dict, List
+from typing import Dict, Any
 
 from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S
+from cloudtik.core._private.core_utils import get_json_object_hash
 from cloudtik.core._private.runtime_utils import save_yaml
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_IP, \
@@ -15,31 +16,35 @@ from cloudtik.runtime.prometheus.utils import _get_home_dir
 logger = logging.getLogger(__name__)
 
 
-def _parse_services(service_list_str) -> Dict[str, List[str]]:
-    services = {}
+def _parse_services(service_list_str) -> Dict[str, Any]:
+    pull_services = {}
     if not service_list_str:
-        return services
+        return pull_services
 
     service_list = [x.strip() for x in service_list_str.split(",")]
     for service_str in service_list:
         service_parts = [x.strip() for x in service_str.split(":")]
-        if len(service_parts) < 2:
+        if len(service_parts) < 3:
             raise ValueError(
                 "Invalid service specification. "
-                "Format: service_name:node_type_1:node_type_2")
+                "Format: service_name:service_port:node_type_1,...")
         service_name = service_parts[0]
-        service_node_types = service_parts[1:]
-        services[service_name] = service_node_types
-    return services
+        service_port = int(service_parts[1])
+        service_node_types = service_parts[2:]
+        pull_services[service_name] = (service_port, service_node_types)
+    return pull_services
 
 
 def _get_service_targets(
-        service_name, service_node_types, live_nodes_by_node_type):
-    targets = _get_targets_of_node_types(
+        service_name, service_port,
+        service_node_types, live_nodes_by_node_type):
+    nodes_of_service = _get_targets_of_node_types(
         live_nodes_by_node_type, service_node_types)
-    if not targets:
+    if not nodes_of_service:
         return None
 
+    targets = ["{}:{}".format(
+        node, service_port) for node in nodes_of_service]
     service_targets = {
         "labels": {
             "service": service_name
@@ -83,6 +88,7 @@ class PullLocalTargets(PullJob):
 
         home_dir = _get_home_dir()
         self.config_file = os.path.join(home_dir, "conf", "local-targets.yaml")
+        self.last_local_targets_hash = None
 
     def _get_live_nodes(self):
         live_nodes_by_node_type = {}
@@ -104,9 +110,16 @@ class PullLocalTargets(PullJob):
         live_nodes_by_node_type = self._get_live_nodes()
 
         local_targets = []
-        for service_name, service_node_types in self.services.items():
+        for service_name, pull_service in self.services.items():
+            service_port, service_node_types = pull_service
             service_targets = _get_service_targets(
-                service_name, service_node_types, live_nodes_by_node_type)
+                service_name, service_port,
+                service_node_types, live_nodes_by_node_type)
             if service_targets:
                 local_targets.append(service_targets)
-        save_yaml(self.config_file, local_targets)
+
+        local_targets_hash = get_json_object_hash(local_targets)
+        if local_targets_hash != self.last_local_targets_hash:
+            # save file only when data changed
+            save_yaml(self.config_file, local_targets)
+            self.last_local_targets_hash = local_targets_hash

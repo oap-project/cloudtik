@@ -14,6 +14,10 @@ PULL_PATH = os.path.abspath(os.path.dirname(__file__))
 PROCESS_PULL_SERVER = "cloudtik_pull_server"
 
 
+def _get_logging_name(identifier):
+    return f"{PROCESS_PULL_SERVER}_{identifier}"
+
+
 def pull_server(
         identifier, command,
         pull_class, pull_script,
@@ -61,6 +65,7 @@ def _start_pull_server(
         pull_args,
         interval,
         logs_dir,
+        logging_name,
         stdout_file=None,
         stderr_file=None,
         logging_level=None,
@@ -95,6 +100,7 @@ def _start_pull_server(
         f"--logs-dir={logs_dir}",
         f"--logging-rotate-bytes={max_bytes}",
         f"--logging-rotate-backup-count={backup_count}",
+        f"--logging-filename={logging_name}.log",
     ]
     if logging_level:
         command.append("--logging-level=" + logging_level)
@@ -134,8 +140,9 @@ def start_pull_server(
         temp_dir = get_cloudtik_temp_dir()
         logs_dir = os.path.join(temp_dir, SESSION_LATEST, "logs")
 
+    logging_name = _get_logging_name(identifier)
     stdout_file, stderr_file = get_named_log_file_handles(
-        logs_dir, "cloudtik_pull_server",
+        logs_dir, logging_name,
         redirect_output=redirect_output)
 
     # Configure log parameters.
@@ -155,6 +162,7 @@ def start_pull_server(
         pull_args,
         interval,
         logs_dir,
+        logging_name,
         stdout_file=stdout_file,
         stderr_file=stderr_file,
         logging_level=logging_level,

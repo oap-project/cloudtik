@@ -65,8 +65,8 @@ def _get_targets_of_node_types(live_nodes_by_node_type, node_types):
         return nodes
 
 
-class PullLocalTargets(PullJob):
-    """Pulling job for local cluster nodes if service discovery is not available"""
+class DiscoverLocalTargets(PullJob):
+    """Pulling job for discovering local cluster nodes if service discovery is not available"""
 
     def __init__(self,
                  services=None,

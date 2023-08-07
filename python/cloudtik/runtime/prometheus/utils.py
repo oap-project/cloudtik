@@ -10,7 +10,9 @@ from cloudtik.core._private.service_discovery.runtime_services import get_servic
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, \
     define_runtime_service_on_head_or_all, get_service_discovery_config, is_service_for_metrics, SERVICE_DISCOVERY_PORT, \
-    SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, SERVICE_SELECTOR_LABELS, SERVICE_SELECTOR_EXCLUDE_LABELS
+    SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, SERVICE_SELECTOR_LABELS, SERVICE_SELECTOR_EXCLUDE_LABELS, \
+    SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_CLUSTERS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
+    SERVICE_DISCOVERY_LABEL_CLUSTER
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, get_list_for_update, get_config_for_update
 
 RUNTIME_PROCESSES = [
@@ -257,18 +259,38 @@ def configure_scrape(head):
         tags = service_selector.get(SERVICE_SELECTOR_TAGS)
         labels = service_selector.get(SERVICE_SELECTOR_LABELS)
         exclude_labels = service_selector.get(SERVICE_SELECTOR_EXCLUDE_LABELS)
+        runtimes = service_selector.get(SERVICE_SELECTOR_RUNTIMES)
+        clusters = service_selector.get(SERVICE_SELECTOR_CLUSTERS)
 
-        if tags or labels or exclude_labels or services:
+        if services or tags or labels or exclude_labels:
             config_file = _get_config_file(scrape_scope)
             _update_scrape_config(
-                config_file, services, tags, labels, exclude_labels)
+                config_file, services, tags, labels, exclude_labels,
+                runtimes, clusters)
     elif sd == PROMETHEUS_SERVICE_DISCOVERY_FILE:
         if scrape_scope == PROMETHEUS_SCRAPE_SCOPE_FEDERATION:
             federation_targets = _get_federation_targets(prometheus_config)
             _save_federation_targets(federation_targets)
 
 
-def _update_scrape_config(config_file, services, tags, labels, exclude_labels):
+def _add_label_match_list(scrape_config, label_name, values):
+    # Drop targets doesn't belong any of these runtimes
+    relabel_configs = get_list_for_update(scrape_config, "relabel_configs")
+    match_values = "({})".format(
+        "|".join(values)
+    )
+    relabel_config = {
+        "source_labels": ["__meta_consul_service_metadata_{}".format(
+            label_name)],
+        "regex": match_values,
+        "action": "keep",
+    }
+    relabel_configs.append(relabel_config)
+
+
+def _update_scrape_config(
+        config_file, services, tags, labels, exclude_labels,
+        runtimes, clusters):
     def update_contents(config_object):
         scrape_configs = config_object["scrape_configs"]
         for scrape_config in scrape_configs:
@@ -308,6 +330,12 @@ def _update_scrape_config(config_file, services, tags, labels, exclude_labels):
                         "action": "drop",
                     }
                     relabel_configs.append(relabel_config)
+            if runtimes:
+                _add_label_match_list(
+                    scrape_config, SERVICE_DISCOVERY_LABEL_RUNTIME, runtimes)
+            if clusters:
+                _add_label_match_list(
+                    scrape_config, SERVICE_DISCOVERY_LABEL_CLUSTER, clusters)
 
     load_and_save_yaml(config_file, update_contents)
 
@@ -345,7 +373,7 @@ def start_pull_server(head):
     redis_address = "{}:{}".format(redis_ip, constants.CLOUDTIK_DEFAULT_PORT)
 
     cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
-    cmd += ["--pull-class=cloudtik.runtime.prometheus.pull_local_targets.PullLocalTargets"]
+    cmd += ["--pull-class=cloudtik.runtime.prometheus.discover_local_targets.DiscoverLocalTargets"]
     cmd += ["--interval={}".format(
         PROMETHEUS_PULL_LOCAL_TARGETS_INTERVAL)]
     # job parameters

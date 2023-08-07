@@ -4,7 +4,8 @@ from cloudtik.core._private.core_utils import deserialize_config
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_PROMETHEUS
 from cloudtik.core._private.service_discovery.utils import SERVICE_SELECTOR_RUNTIMES
 from cloudtik.core._private.util.pull.pull_job import PullJob
-from cloudtik.core._private.util.rest_api import rest_api_get_json, rest_api_post_json, rest_api_delete_json
+from cloudtik.core._private.util.rest_api import rest_api_get_json, rest_api_post_json, rest_api_delete_json, \
+    REST_API_AUTH_TYPE, REST_API_AUTH_BASIC, REST_API_AUTH_BASIC_USERNAME, REST_API_AUTH_BASIC_PASSWORD
 from cloudtik.core._private.utils import get_list_for_update
 from cloudtik.runtime.common.service_discovery.consul import query_services, query_service_nodes, get_service_name, \
     get_service_address, get_service_cluster
@@ -91,6 +92,11 @@ class DiscoverDataSources(PullJob):
             service_selector)
         self.grafana_endpoint = grafana_endpoint
         self._apply_data_source_runtime_selector()
+        self.auth = {
+            REST_API_AUTH_TYPE: REST_API_AUTH_BASIC,
+            REST_API_AUTH_BASIC_USERNAME: "cloudtik",
+            REST_API_AUTH_BASIC_PASSWORD: "cloudtik"
+        }
 
     def pull(self):
         selected_services = self._query_services()
@@ -139,7 +145,8 @@ class DiscoverDataSources(PullJob):
         endpoint_url = "{}{}".format(
             self.grafana_endpoint, REST_API_ENDPOINT_DATA_SOURCES)
         # The response is a list of data sources
-        data_sources = rest_api_get_json(endpoint_url)
+        data_sources = rest_api_get_json(
+            endpoint_url, auth=self.auth)
         # filter all the data sources that added by us
         return {
             data_source["name"]: data_sources
@@ -158,7 +165,8 @@ class DiscoverDataSources(PullJob):
             self.grafana_endpoint, REST_API_ENDPOINT_DATA_SOURCES)
         # The response is response object with data_source in it
         # is there an exception when error?
-        response_for_add = rest_api_post_json(endpoint_url, data_source)
+        response_for_add = rest_api_post_json(
+            endpoint_url, data_source, auth=self.auth)
         added_data_source = response_for_add.get("datasource")
         if added_data_source:
             logger.info("Data source {} created: {}".format(
@@ -174,7 +182,8 @@ class DiscoverDataSources(PullJob):
         endpoint_url = "{}{}".format(
             self.grafana_endpoint, endpoint)
         # is there an exception when error?
-        response_for_delete = rest_api_delete_json(endpoint_url)
+        response_for_delete = rest_api_delete_json(
+            endpoint_url, auth=self.auth)
         if response_for_delete:
             logger.info("Data source {} deleted successfully.".format(
                 data_source_name))

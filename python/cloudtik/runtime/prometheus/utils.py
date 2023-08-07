@@ -347,7 +347,7 @@ def _save_federation_targets(federation_targets):
 
 
 def _get_pull_identifier():
-    return "{}-pull".format(PROMETHEUS_SERVICE_NAME)
+    return "{}-discovery".format(PROMETHEUS_SERVICE_NAME)
 
 
 def _get_pull_services_str(pull_services: Dict[str, Any]) -> str:

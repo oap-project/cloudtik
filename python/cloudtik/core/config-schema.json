@@ -16,6 +16,20 @@
             "type": "object",
             "description": "Defines a series match conditions of services",
             "properties": {
+                "services": {
+                    "type": "array",
+                    "description": "The services to discover. If not specified, match to all the services.",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tags": {
+                    "type": "array",
+                    "description": "The tags to match for the services. All tags must match",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "labels": {
                     "type": "object",
                     "description": "The labels to match for the services. All labels must match",
@@ -34,16 +48,16 @@
                         }
                     }
                 },
-                "services": {
+                "runtimes": {
                     "type": "array",
-                    "description": "The services to discover. If not specified, match to all the services.",
+                    "description": "Services of any of the runtimes.",
                     "items": {
                         "type": "string"
                     }
                 },
-                "tags": {
+                "clusters": {
                     "type": "array",
-                    "description": "The tags to match for the services. All tags must match",
+                    "description": "Services of any of the clusters.",
                     "items": {
                         "type": "string"
                     }

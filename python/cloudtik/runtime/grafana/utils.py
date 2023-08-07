@@ -41,6 +41,14 @@ GRAFANA_DATA_SOURCES_SCOPE_WORKSPACE = "workspace"
 GRAFANA_PULL_DATA_SOURCES_INTERVAL = 30
 
 
+def get_data_source_name(service_name, cluster_name):
+    # WARNING: if a service has many nodes form a load balancer in a single cluster
+    # it should be filtered by service selector using service name ,tags or labels
+    # or a load balancer should be exposed with a new service
+    return "{}-{}".format(
+        service_name, cluster_name) if cluster_name else service_name
+
+
 def _get_config(runtime_config: Dict[str, Any]):
     return runtime_config.get(GRAFANA_RUNTIME_CONFIG_KEY, {})
 
@@ -174,6 +182,7 @@ def configure_data_sources(head):
     prometheus_port = get_runtime_value("GRAFANA_LOCAL_PROMETHEUS_PORT")
     if data_sources_scope == GRAFANA_DATA_SOURCES_SCOPE_LOCAL and prometheus_port:
         # add a local data resource for prometheus
+        # use cluster_name + service_name as the data source name
         cluster_name = get_runtime_value(CLOUDTIK_RUNTIME_ENV_CLUSTER)
         head_ip = get_runtime_head_ip(head)
         url = "http://{}:{}".format(head_ip, prometheus_port)

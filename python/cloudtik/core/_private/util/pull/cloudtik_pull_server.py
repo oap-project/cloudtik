@@ -20,6 +20,7 @@ from cloudtik.core._private.util.pull.pull_server import PROCESS_PULL_SERVER
 logger = logging.getLogger(__name__)
 
 DEFAULT_PULL_INTERVAL = 10
+LOG_FILE_NAME_PULL_SERVER = f"{PROCESS_PULL_SERVER}.log"
 
 
 def cmd_args_to_call_args(cmd_args):
@@ -148,10 +149,10 @@ def main():
         "--logging-filename",
         required=False,
         type=str,
-        default=PROCESS_PULL_SERVER,
+        default=LOG_FILE_NAME_PULL_SERVER,
         help="Specify the name of log file, "
              "log to stdout if set empty, default is "
-             f"\"{PROCESS_PULL_SERVER}\"")
+             f"\"{LOG_FILE_NAME_PULL_SERVER}\"")
     parser.add_argument(
         "--logs-dir",
         required=True,

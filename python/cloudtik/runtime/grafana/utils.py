@@ -243,7 +243,7 @@ def start_pull_server(head):
     pull_identifier = _get_pull_identifier()
 
     cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
-    cmd += ["--pull-class=cloudtik.runtime.grafana.pull_data_sources.PullDataSources"]
+    cmd += ["--pull-class=cloudtik.runtime.grafana.discover_data_sources.DiscoverDataSources"]
     cmd += ["--interval={}".format(
         GRAFANA_PULL_DATA_SOURCES_INTERVAL)]
     # job parameters

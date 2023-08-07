@@ -40,7 +40,7 @@ def get_expressions_of_service_selector(service_selector):
         # Any services in the list (OR)
         service_expressions = []
         for service_name in services:
-            service_expressions.append('ServiceName=="{}"'.format(service_name))
+            service_expressions.append('ServiceName == "{}"'.format(service_name))
         expressions.append(" or ".join(service_expressions))
 
     if tags:
@@ -71,7 +71,7 @@ def get_expressions_of_service_selector(service_selector):
         runtime_expressions = []
         for runtime in runtimes:
             runtime_expressions.append(
-                'ServiceMeta["cloudtik-runtime"]=="{}"'.format(runtime))
+                'ServiceMeta["cloudtik-runtime"] == "{}"'.format(runtime))
         expressions.append(" or ".join(runtime_expressions))
 
     if clusters:
@@ -79,7 +79,7 @@ def get_expressions_of_service_selector(service_selector):
         cluster_expressions = []
         for cluster in clusters:
             cluster_expressions.append(
-                'ServiceMeta["cloudtik-cluster"]=="{}"'.format(cluster))
+                'ServiceMeta["cloudtik-cluster"] == "{}"'.format(cluster))
         expressions.append(" or ".join(cluster_expressions))
 
     return " and ".join(["( {} )".format(expr) for expr in expressions])

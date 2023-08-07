@@ -78,8 +78,8 @@ def _get_delete_data_sources(data_sources, existing_data_sources):
     return delete_data_sources
 
 
-class PullDataSources(PullJob):
-    """Pulling job for data sources from service discovery"""
+class DiscoverDataSources(PullJob):
+    """Pulling job for discovering data sources through service discovery"""
 
     def __init__(self,
                  grafana_endpoint=None,

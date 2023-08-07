@@ -38,7 +38,8 @@ function get_service_port() {
 
 case "$SERVICE_COMMAND" in
 start)
-    if [ "${PROMETHEUS_HIGH_AVAILABILITY}" == "true" ] || [ "${IS_HEAD_NODE}" == "true" ]; then
+    if [ "${PROMETHEUS_HIGH_AVAILABILITY}" == "true" ] \
+        || [ "${IS_HEAD_NODE}" == "true" ]; then
         PROMETHEUS_CONFIG_FILE=${PROMETHEUS_HOME}/conf/prometheus.yaml
         PROMETHEUS_DATA_PATH=$(get_data_dir)
         SERVICE_PORT=$(get_service_port)
@@ -51,7 +52,8 @@ start)
     fi
     ;;
 stop)
-    if [ "${PROMETHEUS_HIGH_AVAILABILITY}" == "true" ] || [ "${IS_HEAD_NODE}" == "true" ]; then
+    if [ "${PROMETHEUS_HIGH_AVAILABILITY}" == "true" ] \
+        || [ "${IS_HEAD_NODE}" == "true" ]; then
         stop_process_by_name "prometheus"
     fi
     ;;

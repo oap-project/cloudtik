@@ -1394,6 +1394,64 @@
                             "description": "The selector for workspace services as data sources."
                         }
                     }
+                },
+                "haproxy": {
+                    "type": "object",
+                    "description": "HAProxy runtime related configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 80,
+                            "description": "The frontend server port."
+                        },
+                        "protocol": {
+                            "type": "string",
+                            "default": "tcp",
+                            "description": "The frontend protocol: tcp or http."
+                        },
+                        "high_availability": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to run a server on each node for high availability."
+                        },
+                        "backend": {
+                            "type": "object",
+                            "description": "Backend configurations",
+                            "properties": {
+                                "config_mode": {
+                                    "type": "string",
+                                    "default": "dynamic",
+                                    "description": "How the backend is configured: dns, static, dynamic"
+                                },
+                                "max_servers": {
+                                    "type": "integer",
+                                    "default": 128,
+                                    "description": "The max number of servers. This is needed only for HAProxy server template."
+                                },
+                                "service_name": {
+                                    "type": "string",
+                                    "description": "The service name used for DNS discovery."
+                                },
+                                "service_tag": {
+                                    "type": "string",
+                                    "description": "The service tag used for DNS discovery."
+                                },
+                                "static.servers": {
+                                    "type": "array",
+                                    "description": "Array of static servers for the backend.",
+                                    "items": {
+                                        "type": "string",
+                                        "description": "Server entry."
+                                    }
+                                },
+                                "dynamic.service": {
+                                    "$ref": "#/definitions/service_selector",
+                                    "description": "The selector for service for the backend."
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

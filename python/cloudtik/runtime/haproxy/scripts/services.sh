@@ -15,10 +15,16 @@ set_service_command "$@"
 
 case "$SERVICE_COMMAND" in
 start)
-    sudo service haproxy start
+    if [ "${HAPROXY_HIGH_AVAILABILITY}" == "true" ] \
+        || [ "${IS_HEAD_NODE}" == "true" ]; then
+        sudo service haproxy start
+    fi
     ;;
 stop)
-    sudo service haproxy stop
+    if [ "${HAPROXY_HIGH_AVAILABILITY}" == "true" ] \
+        || [ "${IS_HEAD_NODE}" == "true" ]; then
+        sudo service haproxy stop
+    fi
     ;;
 -h|--help)
     echo "Usage: $0 start|stop --head" >&2

@@ -39,6 +39,7 @@ GRAFANA_DATA_SOURCES_SCOPE_LOCAL = "local"
 GRAFANA_DATA_SOURCES_SCOPE_WORKSPACE = "workspace"
 
 GRAFANA_PULL_DATA_SOURCES_INTERVAL = 30
+GRAFANA_DATA_SOURCE_AUTO_CREATED = "autoCreated"
 
 
 def get_data_source_name(service_name, cluster_name):
@@ -165,6 +166,21 @@ def _get_runtime_services(
     return services
 
 
+def get_prometheus_data_source(name, url, is_default=False):
+    prometheus_data_source = {
+        "name": name,
+        "type": "prometheus",
+        "access": "proxy",
+        "url": url,
+        "isDefault": is_default,
+        "editable": True,
+        "jsonData": {
+            GRAFANA_DATA_SOURCE_AUTO_CREATED: True
+        }
+    }
+    return prometheus_data_source
+
+
 ###################################
 # Calls from node when configuring
 ###################################
@@ -183,16 +199,13 @@ def configure_data_sources(head):
     if data_sources_scope == GRAFANA_DATA_SOURCES_SCOPE_LOCAL and prometheus_port:
         # add a local data resource for prometheus
         # use cluster_name + service_name as the data source name
-        cluster_name = get_runtime_value(CLOUDTIK_RUNTIME_ENV_CLUSTER)
+        name = get_data_source_name(
+            BUILT_IN_RUNTIME_PROMETHEUS,
+            get_runtime_value(CLOUDTIK_RUNTIME_ENV_CLUSTER))
         head_ip = get_runtime_head_ip(head)
         url = "http://{}:{}".format(head_ip, prometheus_port)
-        prometheus_data_source = {
-            "name": cluster_name,
-            "type": "prometheus",
-            "access": "proxy",
-            "url": url,
-            "isDefault": True,
-        }
+        prometheus_data_source = get_prometheus_data_source(
+            name, url, is_default=True)
         data_sources.append(prometheus_data_source)
 
     if data_sources:

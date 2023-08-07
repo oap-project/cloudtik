@@ -9,14 +9,14 @@ from cloudtik.core._private.util.rest_api import rest_api_get_json, rest_api_pos
 from cloudtik.core._private.utils import get_list_for_update
 from cloudtik.runtime.common.service_discovery.consul import query_services, query_service_nodes, get_service_name, \
     get_service_address, get_service_cluster
-from cloudtik.runtime.grafana.utils import get_data_source_name
+from cloudtik.runtime.grafana.utils import get_data_source_name, get_prometheus_data_source, \
+    GRAFANA_DATA_SOURCE_AUTO_CREATED
 
 logger = logging.getLogger(__name__)
 
 
 REST_API_ENDPOINT_DATA_SOURCES = "/api/datasources"
 REST_API_ENDPOINT_DATA_SOURCES_BY_NAME = REST_API_ENDPOINT_DATA_SOURCES + "/name"
-AUTO_CREATED = "autoCreated"
 DATA_SOURCE_RUNTIMES = [
     BUILT_IN_RUNTIME_PROMETHEUS,
 ]
@@ -36,25 +36,14 @@ def _get_prometheus_data_source(service_node):
     name = get_data_source_name(service_name, cluster_name)
     service_host, service_port = get_service_address(service_node)
     url = "http://{}:{}".format(service_host, service_port)
-    prometheus_data_source = {
-        "name": name,
-        "type": "prometheus",
-        "access": "proxy",
-        "url": url,
-        "isDefault": False,
-        "editable": True,
-        "jsonData": {
-            AUTO_CREATED: True
-        }
-    }
-    return prometheus_data_source
+    return get_prometheus_data_source(name, url, is_default=False)
 
 
 def _is_auto_created(data_source):
     meta = data_source.get("jsonData")
     if not meta:
         return False
-    return meta.get(AUTO_CREATED, False)
+    return meta.get(GRAFANA_DATA_SOURCE_AUTO_CREATED, False)
 
 
 def _get_new_data_sources(data_sources, existing_data_sources):

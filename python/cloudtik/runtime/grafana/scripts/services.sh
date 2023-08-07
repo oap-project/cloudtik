@@ -20,7 +20,8 @@ GRAFANA_HOME=$RUNTIME_PATH/grafana
 
 case "$SERVICE_COMMAND" in
 start)
-    if [ "${GRAFANA_HIGH_AVAILABILITY}" == "true" ] || [ "${IS_HEAD_NODE}" == "true" ]; then
+    if [ "${GRAFANA_HIGH_AVAILABILITY}" == "true" ] \
+        || [ "${IS_HEAD_NODE}" == "true" ]; then
         GRAFANA_CONFIG_FILE=${GRAFANA_HOME}/conf/grafana.ini
         GRAFANA_PID_FILE=${GRAFANA_HOME}/grafana.pid
         nohup ${GRAFANA_HOME}/bin/grafana server \
@@ -30,7 +31,8 @@ start)
     fi
     ;;
 stop)
-    if [ "${GRAFANA_HIGH_AVAILABILITY}" == "true" ] || [ "${IS_HEAD_NODE}" == "true" ]; then
+    if [ "${GRAFANA_HIGH_AVAILABILITY}" == "true" ] \
+        || [ "${IS_HEAD_NODE}" == "true" ]; then
         stop_process_by_name "grafana"
     fi
     ;;

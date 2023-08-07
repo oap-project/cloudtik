@@ -29,7 +29,10 @@ start)
     CONSUL_CONFIG_DIR=${CONSUL_HOME}/consul.d
     CONSUL_LOG_FILE=${CONSUL_HOME}/logs/consul-agent.log
     # Run server or client agent on each node
-    nohup consul agent -config-dir=${CONSUL_CONFIG_DIR} -log-file=${CONSUL_LOG_FILE} -pid-file=${CONSUL_PID_FILE} > /dev/null 2>&1 &
+    nohup consul agent \
+        -config-dir=${CONSUL_CONFIG_DIR} \
+        -log-file=${CONSUL_LOG_FILE} \
+        -pid-file=${CONSUL_PID_FILE} >/dev/null 2>&1 &
     ;;
 stop)
     # Stop server or client agent

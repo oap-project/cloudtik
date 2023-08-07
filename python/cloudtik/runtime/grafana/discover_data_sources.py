@@ -149,7 +149,7 @@ class DiscoverDataSources(PullJob):
             endpoint_url, auth=self.auth)
         # filter all the data sources that added by us
         return {
-            data_source["name"]: data_sources
+            data_source["name"]: data_source
             for data_source in data_sources}
 
     def _add_data_sources(self, new_data_sources):

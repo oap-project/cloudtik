@@ -214,11 +214,11 @@ def _save_data_sources_config(data_sources):
 
 
 def _get_pull_identifier():
-    return "{}-pull".format(GRAFANA_SERVICE_NAME)
+    return "{}-discovery".format(GRAFANA_SERVICE_NAME)
 
 
 def _get_grafana_api_endpoint(node_ip, grafana_port):
-    return "http://cloudtik:cloudtik@{}:{}".format(
+    return "http://{}:{}".format(
         node_ip, grafana_port)
 
 

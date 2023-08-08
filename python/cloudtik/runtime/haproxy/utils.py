@@ -46,6 +46,7 @@ HAPROXY_CONFIG_MODE_STATIC = "static"
 HAPROXY_CONFIG_MODE_DYNAMIC = "dynamic"
 
 HAPROXY_DISCOVER_BACKEND_SERVERS_INTERVAL = 15
+HAPROXY_BACKEND_NAME_DEFAULT = "servers"
 HAPROXY_BACKEND_SERVER_BASE_NAME = "server"
 
 
@@ -258,6 +259,7 @@ def start_pull_server(head):
     cmd += ["--interval={}".format(
         HAPROXY_DISCOVER_BACKEND_SERVERS_INTERVAL)]
     # job parameters
+    cmd += ["backend_name={}".format(HAPROXY_BACKEND_NAME_DEFAULT)]
     if service_selector_str:
         cmd += ["service_selector={}".format(service_selector_str)]
 

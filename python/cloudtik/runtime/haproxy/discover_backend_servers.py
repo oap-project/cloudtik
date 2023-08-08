@@ -153,11 +153,12 @@ class DiscoverBackendServers(PullJob):
     """Pulling job for discovering backend targets and update HAProxy using Runtime API"""
 
     def __init__(self,
+                 backend_name=None,
                  service_selector=None,
-                 backend_name=None):
+                 ):
+        self.backend_name = backend_name
         self.service_selector = deserialize_service_selector(
             service_selector)
-        self.backend_name = backend_name
 
     def pull(self):
         selected_services = self._query_services()

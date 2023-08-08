@@ -116,30 +116,16 @@ def query_service_nodes(service_name, service_selector):
     return consul_api_get(query_endpoint)
 
 
-def _get_service_lan_address(service_node):
-    return service_node.get(
-        "ServiceTaggedAddresses", {}).get("lan")
-
-
-def _get_node_lan_address(service_node):
-    node_ip = service_node.get(
-        "TaggedAddresses", {}).get("lan")
-    return {"address": node_ip}
-
-
 def get_service_name(service_node):
     return service_node["ServiceName"]
 
 
 def get_service_address(service_node):
-    service_address = _get_service_lan_address(service_node)
-    if not service_address:
-        service_address = _get_node_lan_address(service_node)
-    address = service_address["address"]
-    port = service_address.get("port")
-    if not port:
-        port = service_node["ServicePort"]
-    return address, port
+    service_host = service_node.get("ServiceAddress")
+    if not service_host:
+        service_host = service_node.get("Address")
+    port = service_node["ServicePort"]
+    return service_host, port
 
 
 def get_service_cluster(service_node):

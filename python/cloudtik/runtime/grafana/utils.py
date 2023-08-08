@@ -11,7 +11,7 @@ from cloudtik.core._private.service_discovery.runtime_services import get_servic
     get_services_of_runtime
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service_on_head_or_all, get_service_discovery_config, \
-    SERVICE_DISCOVERY_PORT
+    SERVICE_DISCOVERY_PORT, serialize_service_selector
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
@@ -235,12 +235,6 @@ def _get_grafana_api_endpoint(node_ip, grafana_port):
         node_ip, grafana_port)
 
 
-def _get_service_selector_str(service_selector):
-    if not service_selector:
-        return None
-    return serialize_config(service_selector)
-
-
 def start_pull_server(head):
     runtime_config = get_runtime_config_from_node(head)
     grafana_config = _get_config(runtime_config)
@@ -251,7 +245,7 @@ def start_pull_server(head):
 
     service_selector = grafana_config.get(
             GRAFANA_DATA_SOURCES_SERVICES_CONFIG_KEY, {})
-    service_selector_str = _get_service_selector_str(service_selector)
+    service_selector_str = serialize_service_selector(service_selector)
 
     pull_identifier = _get_pull_identifier()
 

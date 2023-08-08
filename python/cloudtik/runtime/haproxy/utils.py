@@ -1,10 +1,12 @@
 import os
+import shutil
 from typing import Any, Dict
 
+from cloudtik.core._private.core_utils import exec_with_output
 from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, get_runtime_value
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service, \
-    get_service_discovery_config
+    get_service_discovery_config, serialize_service_selector
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
@@ -27,14 +29,14 @@ HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY = "config_mode"
 HAPROXY_BACKEND_MAX_SERVERS_CONFIG_KEY = "max_servers"
 HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY = "service_name"
 HAPROXY_BACKEND_SERVICE_TAG_CONFIG_KEY = "service_tag"
-HAPROXY_BACKEND_STATIC_SERVERS_CONFIG_KEY = "static.servers"
-HAPROXY_BACKEND_DYNAMIC_SERVICE_CONFIG_KEY = "dynamic.service"
+HAPROXY_BACKEND_STATIC_SERVERS_CONFIG_KEY = "static_servers"
+HAPROXY_BACKEND_DYNAMIC_SERVICES_CONFIG_KEY = "dynamic_services"
 
 
 HAPROXY_SERVICE_NAME = "haproxy"
 HAPROXY_SERVICE_PORT_DEFAULT = 80
 HAPROXY_SERVICE_PROTOCOL_DEFAULT = "tcp"
-HAPROXY_BACKEND_MAX_SERVERS_DEFAULT = 128
+HAPROXY_BACKEND_MAX_SERVERS_DEFAULT = 32
 
 HAPROXY_FRONTEND_MODE_LOAD_BALANCER = "load-balancer"
 HAPROXY_FRONTEND_MODE_GATEWAY = "gateway"
@@ -42,6 +44,13 @@ HAPROXY_FRONTEND_MODE_GATEWAY = "gateway"
 HAPROXY_CONFIG_MODE_DNS = "dns"
 HAPROXY_CONFIG_MODE_STATIC = "static"
 HAPROXY_CONFIG_MODE_DYNAMIC = "dynamic"
+
+HAPROXY_DISCOVER_BACKEND_SERVERS_INTERVAL = 15
+HAPROXY_BACKEND_SERVER_BASE_NAME = "server"
+
+
+def get_backend_server_name(server_id):
+    return "{}{}".format(HAPROXY_BACKEND_SERVER_BASE_NAME, server_id)
 
 
 def _get_config(runtime_config: Dict[str, Any]):
@@ -224,6 +233,71 @@ def _configure_backend_static(haproxy_config):
         config_file = os.path.join(
             home_dir, "conf", "haproxy.cfg")
         with open(config_file, "a") as f:
-            for index, server in enumerate(servers, start=1):
-                f.write("    server server{} {}\n".format(
-                    index, server))
+            for server_id, server in enumerate(servers, start=1):
+                server_name = get_backend_server_name(server_id)
+                f.write("    server {} {} check\n".format(
+                    server_name, server))
+
+
+def _get_pull_identifier():
+    return "{}-discovery".format(HAPROXY_SERVICE_NAME)
+
+
+def start_pull_server(head):
+    runtime_config = get_runtime_config_from_node(head)
+    haproxy_config = _get_config(runtime_config)
+
+    service_selector = haproxy_config.get(
+            HAPROXY_BACKEND_DYNAMIC_SERVICES_CONFIG_KEY, {})
+    service_selector_str = serialize_service_selector(service_selector)
+
+    pull_identifier = _get_pull_identifier()
+
+    cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
+    cmd += ["--pull-class=cloudtik.runtime.haproxy.discover_backend_servers.DiscoverBackendServers"]
+    cmd += ["--interval={}".format(
+        HAPROXY_DISCOVER_BACKEND_SERVERS_INTERVAL)]
+    # job parameters
+    if service_selector_str:
+        cmd += ["service_selector={}".format(service_selector_str)]
+
+    cmd_str = " ".join(cmd)
+    exec_with_output(cmd_str)
+
+
+def stop_pull_server():
+    pull_identifier = _get_pull_identifier()
+    cmd = ["cloudtik", "node", "pull", pull_identifier, "stop"]
+    cmd_str = " ".join(cmd)
+    exec_with_output(cmd_str)
+
+
+def update_configuration(backend_servers):
+    backend_block = ""
+    i = 0
+    for backend_server in backend_servers:
+        i += 1
+        server_name = get_backend_server_name(i)
+        backend_block += "    server %s %s:%s check\n" % (
+            server_name,
+            backend_server[0], backend_server[1])
+    for disabled_slot in range(0, HAPROXY_BACKEND_MAX_SERVERS_DEFAULT):
+        i += 1
+        server_name = get_backend_server_name(i)
+        backend_block += "    server %s 0.0.0.0:80 check disabled\n" % (
+            server_name)
+    # write haproxy config file
+    conf_dir = os.path.join(_get_home_dir(), "conf")
+    template_file = os.path.join(
+        conf_dir, "haproxy-static.cfg")
+    working_file = os.path.join(
+        conf_dir, "haproxy-working.cfg")
+    shutil.copyfile(template_file, working_file)
+
+    with open(working_file, "a") as f:
+        f.write(backend_block)
+
+    config_file = os.path.join(
+        conf_dir, "haproxy.cfg")
+    # move overwritten
+    shutil.move(working_file, config_file)

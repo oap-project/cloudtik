@@ -30,7 +30,7 @@ function check_haproxy_installed() {
     fi
 }
 
-function configure_haproxy_with_dns_consul() {
+function configure_dns_backend() {
     # configure a load balancer based on Consul DNS interface
     local config_template_file=${output_dir}/haproxy-dns-consul.cfg
 
@@ -48,11 +48,23 @@ function configure_haproxy_with_dns_consul() {
     cp ${config_template_file} ${HAPROXY_CONFIG_DIR}/haproxy.cfg
 }
 
-function configure_haproxy_with_static() {
+function configure_static_backend() {
     # configure a load balancer with static address
     local config_template_file=${output_dir}/haproxy-static.cfg
     # python configure script will write the list of static servers
     cp ${config_template_file} ${HAPROXY_CONFIG_DIR}/haproxy.cfg
+}
+
+function configure_dynamic_backend() {
+    # configure a load balancer with static address
+    local config_template_file=${output_dir}/haproxy-dynamic.cfg
+
+    sed -i "s#{%backend.max.servers%}#${HAPROXY_BACKEND_MAX_SERVERS}#g" ${config_template_file}
+
+    cp ${config_template_file} ${HAPROXY_CONFIG_DIR}/haproxy.cfg
+    # This is used as the template to generate the configuration file
+    # with dynamic list of servers
+    cp ${output_dir}/haproxy-static.cfg ${HAPROXY_CONFIG_DIR}/haproxy-static.cfg
 }
 
 function configure_haproxy() {
@@ -73,9 +85,11 @@ function configure_haproxy() {
     sed -i "s#{%frontend.protocol%}#${HAPROXY_FRONTEND_PROTOCOL}#g" `grep "{%frontend.protocol%}" -rl ${output_dir}`
 
     if [ "${HAPROXY_CONFIG_MODE}" == "dns" ]; then
-        configure_haproxy_with_dns_consul
+        configure_dns_backend
     elif [ "${HAPROXY_CONFIG_MODE}" == "static" ]; then
-        configure_haproxy_with_static
+        configure_static_backend
+    elif [ "${HAPROXY_CONFIG_MODE}" == "dynamic" ]; then
+        configure_dynamic_backend
     else
         echo "WARNING: Unsupported configure mode: ${HAPROXY_CONFIG_MODE}"
     fi

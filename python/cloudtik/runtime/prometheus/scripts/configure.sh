@@ -73,20 +73,20 @@ function configure_prometheus() {
     sed -i "s#{%cluster.name%}#${CLOUDTIK_CLUSTER}#g" `grep "{%cluster.name%}" -rl ${output_dir}`
 
     if [ "${PROMETHEUS_SCRAPE_SCOPE}" == "workspace" ]; then
-        if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "CONSUL" ]; then
+        if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "consul" ]; then
             update_workspace_consul
         fi
     elif [ "${PROMETHEUS_SCRAPE_SCOPE}" == "federation" ]; then
-        if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "CONSUL" ]; then
+        if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "consul" ]; then
             update_federation_consul
-        elif [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "FILE" ]; then
+        elif [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "file" ]; then
             update_federation_file
         fi
     else
         # local scope
-        if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "CONSUL" ]; then
+        if [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "consul" ]; then
             update_local_consul
-        elif [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "FILE" ]; then
+        elif [ "${PROMETHEUS_SERVICE_DISCOVERY}" == "file" ]; then
             update_local_file
         fi
     fi

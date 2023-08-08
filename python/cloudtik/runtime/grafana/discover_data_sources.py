@@ -1,8 +1,7 @@
 import logging
 
-from cloudtik.core._private.core_utils import deserialize_config
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_PROMETHEUS
-from cloudtik.core._private.service_discovery.utils import SERVICE_SELECTOR_RUNTIMES
+from cloudtik.core._private.service_discovery.utils import SERVICE_SELECTOR_RUNTIMES, deserialize_service_selector
 from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.core._private.util.rest_api import rest_api_get_json, rest_api_post_json, rest_api_delete_json, \
     REST_API_AUTH_TYPE, REST_API_AUTH_BASIC, REST_API_AUTH_BASIC_USERNAME, REST_API_AUTH_BASIC_PASSWORD
@@ -20,12 +19,6 @@ REST_API_ENDPOINT_DATA_SOURCES_BY_NAME = REST_API_ENDPOINT_DATA_SOURCES + "/name
 DATA_SOURCE_RUNTIMES = [
     BUILT_IN_RUNTIME_PROMETHEUS,
 ]
-
-
-def _get_service_selector_from_str(service_selector_str):
-    if not service_selector_str:
-        return None
-    return deserialize_config(service_selector_str)
 
 
 def _get_prometheus_data_source(service_node):
@@ -77,7 +70,7 @@ class DiscoverDataSources(PullJob):
         if not grafana_endpoint:
             raise RuntimeError("Grafana endpoint is needed for pulling data sources.")
 
-        self.service_selector = _get_service_selector_from_str(
+        self.service_selector = deserialize_service_selector(
             service_selector)
         self.grafana_endpoint = grafana_endpoint
         self._apply_data_source_runtime_selector()

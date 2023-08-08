@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Optional, Dict, Any
 
+from cloudtik.core._private.core_utils import deserialize_config, serialize_config
+
 # The standard keys and values used for service discovery
 
 SERVICE_DISCOVERY_PROTOCOL = "protocol"
@@ -151,3 +153,15 @@ def match_service_node(runtime_service, head):
 
 def is_service_for_metrics(runtime_service):
     return runtime_service.get(SERVICE_DISCOVERY_METRICS, False)
+
+
+def serialize_service_selector(service_selector):
+    if not service_selector:
+        return None
+    return serialize_config(service_selector)
+
+
+def deserialize_service_selector(service_selector_str):
+    if not service_selector_str:
+        return None
+    return deserialize_config(service_selector_str)

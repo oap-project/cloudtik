@@ -1437,7 +1437,7 @@
                                     "type": "string",
                                     "description": "The service tag used for DNS discovery."
                                 },
-                                "static.servers": {
+                                "static_servers": {
                                     "type": "array",
                                     "description": "Array of static servers for the backend.",
                                     "items": {
@@ -1445,7 +1445,7 @@
                                         "description": "Server entry."
                                     }
                                 },
-                                "dynamic.service": {
+                                "dynamic_services": {
                                     "$ref": "#/definitions/service_selector",
                                     "description": "The selector for service for the backend."
                                 }

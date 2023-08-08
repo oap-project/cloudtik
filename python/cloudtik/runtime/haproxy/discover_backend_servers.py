@@ -18,7 +18,7 @@ def _update_backend(backend_name, backend_servers):
     # Now update each HAProxy server with the backends
     for haproxy_server in HAPROXY_SERVERS:
         active_servers, inactive_servers = list_backend_servers(
-            backend_name, haproxy_server)
+            haproxy_server, backend_name)
         total_server_slots = len(active_servers) + len(inactive_servers)
 
         missing_backend_servers = []

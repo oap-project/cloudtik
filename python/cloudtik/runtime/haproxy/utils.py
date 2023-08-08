@@ -90,9 +90,8 @@ def _get_runtime_processes():
 def _validate_config(config: Dict[str, Any]):
     runtime_config = config.get(RUNTIME_CONFIG_KEY)
     haproxy_config = _get_config(runtime_config)
-
-    config_mode = haproxy_config.get(HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY)
     backend_config = _get_backend_config(haproxy_config)
+    config_mode = backend_config.get(HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY)
     if config_mode == HAPROXY_CONFIG_MODE_STATIC:
         if not backend_config.get(
                 HAPROXY_BACKEND_STATIC_SERVERS_CONFIG_KEY):
@@ -121,9 +120,9 @@ def _with_runtime_environment_variables(
     # 1. DNS (given static service name and optionally service tag)
     # 2. Static: a static list of servers
     # 3. Dynamic: a dynamic discovered service (services)
-    config_mode = haproxy_config.get(HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY)
+    backend_config = _get_backend_config(haproxy_config)
+    config_mode = backend_config.get(HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY)
     if not config_mode:
-        backend_config = _get_backend_config(haproxy_config)
         if backend_config.get(
                 HAPROXY_BACKEND_STATIC_SERVERS_CONFIG_KEY):
             # if there are static servers configured
@@ -167,8 +166,10 @@ def _with_runtime_envs_for_static(haproxy_config, runtime_envs):
 
 
 def _with_runtime_envs_for_dynamic(haproxy_config, runtime_envs):
-    # TODO
-    pass
+    backend_config = _get_backend_config(haproxy_config)
+    runtime_envs["HAPROXY_BACKEND_MAX_SERVERS"] = backend_config.get(
+        HAPROXY_BACKEND_MAX_SERVERS_CONFIG_KEY,
+        HAPROXY_BACKEND_MAX_SERVERS_DEFAULT)
 
 
 def _get_runtime_endpoints(runtime_config: Dict[str, Any], cluster_head_ip):

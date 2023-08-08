@@ -31,17 +31,14 @@ def send_haproxy_command(haproxy_server, command):
     haproxy_sock.settimeout(10)
     try:
         haproxy_sock.connect(haproxy_server)
-        haproxy_sock.send(command)
+        haproxy_sock.send(command.encode("utf-8"))
         retval = ""
         while True:
             buf = haproxy_sock.recv(16)
             if buf:
-                retval += buf
+                retval += buf.decode("utf-8")
             else:
                 break
-        haproxy_sock.close()
-    except Exception:
-        retval = ""
     finally:
         haproxy_sock.close()
     return retval

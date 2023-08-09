@@ -23,7 +23,7 @@ def _update_backend(backend_name, backend_servers):
 
         missing_backend_servers = []
         for backend_server in backend_servers:
-            server_address = "%s:%s" % (backend_server[0], backend_server[1])
+            server_address = "%s:%d" % (backend_server[0], backend_server[1])
             if server_address in active_servers:
                 # Ignore backends already set
                 del active_servers[server_address]

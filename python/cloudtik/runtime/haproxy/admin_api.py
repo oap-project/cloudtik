@@ -58,7 +58,7 @@ def add_backend_slot(
     # add a new dynamic server with address and enable it
     send_haproxy_command(
         haproxy_server,
-        "add server %s/%s %s:%s check enabled\n" % (
+        "add server %s/%s %s:%d check enabled\n" % (
             backend_name, server_name,
             backend_server[0], backend_server[1]))
 

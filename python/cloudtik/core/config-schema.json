@@ -1423,6 +1423,11 @@
                                     "type": "string",
                                     "default": "dynamic",
                                     "description": "How the backend is configured: dns, static, dynamic"
+                                },,
+                                "balance": {
+                                    "type": "string",
+                                    "default": "roundrobin",
+                                    "description": "The balance method of backend: roundrobin, leastconn, first, or random."
                                 },
                                 "max_servers": {
                                     "type": "integer",

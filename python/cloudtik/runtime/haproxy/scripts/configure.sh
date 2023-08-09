@@ -83,6 +83,7 @@ function configure_haproxy() {
     sed -i "s#{%frontend.ip%}#${NODE_IP_ADDRESS}#g" `grep "{%frontend.ip%}" -rl ${output_dir}`
     sed -i "s#{%frontend.port%}#${HAPROXY_FRONTEND_PORT}#g" `grep "{%frontend.port%}" -rl ${output_dir}`
     sed -i "s#{%frontend.protocol%}#${HAPROXY_FRONTEND_PROTOCOL}#g" `grep "{%frontend.protocol%}" -rl ${output_dir}`
+    sed -i "s#{%backend.balance%}#${HAPROXY_BACKEND_BALANCE}#g" `grep "{%backend.balance%}" -rl ${output_dir}`
 
     if [ "${HAPROXY_CONFIG_MODE}" == "dns" ]; then
         configure_dns_backend

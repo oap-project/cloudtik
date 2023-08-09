@@ -8,6 +8,7 @@ from cloudtik.core._private.service_discovery.runtime_services import get_servic
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service, \
     get_service_discovery_config, serialize_service_selector
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
+from cloudtik.runtime.haproxy.admin_api import get_backend_server_name
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -26,6 +27,7 @@ HAPROXY_FRONTEND_MODE_CONFIG_KEY = "frontend_mode"
 
 HAPROXY_BACKEND_CONFIG_KEY = "backend"
 HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY = "config_mode"
+HAPROXY_BACKEND_BALANCE_CONFIG_KEY = "balance"
 HAPROXY_BACKEND_MAX_SERVERS_CONFIG_KEY = "max_servers"
 HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY = "service_name"
 HAPROXY_BACKEND_SERVICE_TAG_CONFIG_KEY = "service_tag"
@@ -37,6 +39,7 @@ HAPROXY_SERVICE_NAME = "haproxy"
 HAPROXY_SERVICE_PORT_DEFAULT = 80
 HAPROXY_SERVICE_PROTOCOL_DEFAULT = "tcp"
 HAPROXY_BACKEND_MAX_SERVERS_DEFAULT = 32
+HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS = 8
 
 HAPROXY_FRONTEND_MODE_LOAD_BALANCER = "load-balancer"
 HAPROXY_FRONTEND_MODE_GATEWAY = "gateway"
@@ -45,13 +48,20 @@ HAPROXY_CONFIG_MODE_DNS = "dns"
 HAPROXY_CONFIG_MODE_STATIC = "static"
 HAPROXY_CONFIG_MODE_DYNAMIC = "dynamic"
 
+# roundrobin, leastconn, first, or random
+HAPROXY_BACKEND_BALANCE_ROUNDROBIN = "roundrobin"
+HAPROXY_BACKEND_BALANCE_LEASTCONN = "leastconn"
+HAPROXY_BACKEND_BALANCE_FIRST = "first"
+HAPROXY_BACKEND_BALANCE_RANDOM = "random"
+
 HAPROXY_DISCOVER_BACKEND_SERVERS_INTERVAL = 15
 HAPROXY_BACKEND_NAME_DEFAULT = "servers"
 HAPROXY_BACKEND_SERVER_BASE_NAME = "server"
 
 
-def get_backend_server_name(server_id):
-    return "{}{}".format(HAPROXY_BACKEND_SERVER_BASE_NAME, server_id)
+def get_default_server_name(server_id):
+    return get_backend_server_name(
+        HAPROXY_BACKEND_SERVER_BASE_NAME, server_id)
 
 
 def _get_config(runtime_config: Dict[str, Any]):
@@ -138,8 +148,12 @@ def _with_runtime_environment_variables(
         _with_runtime_envs_for_static(haproxy_config, runtime_envs)
     else:
         _with_runtime_envs_for_dynamic(haproxy_config, runtime_envs)
-
     runtime_envs["HAPROXY_CONFIG_MODE"] = config_mode
+
+    balance = backend_config.get(HAPROXY_BACKEND_BALANCE_CONFIG_KEY)
+    if not balance:
+        balance = HAPROXY_BACKEND_BALANCE_ROUNDROBIN
+    runtime_envs["HAPROXY_BACKEND_BALANCE"] = balance
     return runtime_envs
 
 
@@ -236,7 +250,7 @@ def _configure_backend_static(haproxy_config):
             home_dir, "conf", "haproxy.cfg")
         with open(config_file, "a") as f:
             for server_id, server in enumerate(servers, start=1):
-                server_name = get_backend_server_name(server_id)
+                server_name = get_default_server_name(server_id)
                 f.write("    server {} {} check\n".format(
                     server_name, server))
 
@@ -280,13 +294,13 @@ def update_configuration(backend_servers):
     i = 0
     for backend_server in backend_servers:
         i += 1
-        server_name = get_backend_server_name(i)
+        server_name = get_default_server_name(i)
         backend_block += "    server %s %s:%s check\n" % (
             server_name,
             backend_server[0], backend_server[1])
-    for disabled_slot in range(0, HAPROXY_BACKEND_MAX_SERVERS_DEFAULT):
+    for disabled_slot in range(0, HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS):
         i += 1
-        server_name = get_backend_server_name(i)
+        server_name = get_default_server_name(i)
         backend_block += "    server %s 0.0.0.0:80 check disabled\n" % (
             server_name)
     # write haproxy config file

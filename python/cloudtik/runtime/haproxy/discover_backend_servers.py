@@ -5,8 +5,9 @@ from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.runtime.common.service_discovery.consul \
     import query_services, query_service_nodes, get_service_address
 from cloudtik.runtime.haproxy.admin_api import list_backend_servers, enable_backend_slot, disable_backend_slot, \
-    add_backend_slot, get_backend_server_address
-from cloudtik.runtime.haproxy.utils import update_configuration, get_backend_server_name
+    add_backend_slot, get_backend_server_address, get_backend_server_id, delete_backend_slot
+from cloudtik.runtime.haproxy.utils import update_configuration, get_default_server_name, \
+    HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS
 
 logger = logging.getLogger(__name__)
 
@@ -50,15 +51,29 @@ def _update_backend(backend_name, backend_servers):
                     server_name, backend_server)
 
         if missing_backend_servers:
-            num = len(missing_backend_servers)
+            num_adds = len(missing_backend_servers)
             logger.info(
-                "Not enough free server slots in backend. Add {} slots.".format(num))
-            for slot_id, backend_server in enumerate(
+                "Not enough free server slots in backend. Add {} slots.".format(num_adds))
+            for server_id, backend_server in enumerate(
                     missing_backend_servers, start=total_server_slots + 1):
-                server_name = get_backend_server_name(slot_id)
+                server_name = get_default_server_name(server_id)
                 add_backend_slot(
                     haproxy_server, backend_name,
                     server_name, backend_server)
+        else:
+            num_deletes = len(inactive_servers) - HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS
+            if num_deletes > 0:
+                # if there are more inactive servers, check the spare limit for last server ids
+                for server_id in range(total_server_slots,
+                                       total_server_slots - num_deletes, -1):
+                    server_name = get_default_server_name(server_id)
+                    if server_name in inactive_servers:
+                        delete_backend_slot(
+                            haproxy_server, backend_name,
+                            server_name)
+                    else:
+                        # this make sure only delete the last ones so that
+                        break
 
 
 class DiscoverBackendServers(PullJob):

@@ -5,6 +5,15 @@ def get_backend_server_address(backend_server):
     return "{}:{}".format(backend_server[0], backend_server[1])
 
 
+def get_backend_server_name(server_base_name, server_id):
+    return "{}{}".format(server_base_name, server_id)
+
+
+def get_backend_server_id(server_name, server_base_name):
+    str_server_id = server_name[len(server_base_name):]
+    return int(str_server_id)
+
+
 def _parse_server_slots(backend_name, stat_string):
     server_slots = stat_string.split('\n')
     active_servers = {}
@@ -65,6 +74,8 @@ def add_backend_slot(
         "add server %s/%s %s check enabled\n" % (
             backend_name, server_name,
             get_backend_server_address(backend_server)))
+    enable_health_check(
+        haproxy_server, backend_name, server_name)
 
 
 def add_disabled_backend_slot(
@@ -76,7 +87,7 @@ def add_disabled_backend_slot(
             backend_name, server_name))
 
 
-def del_backend_slot(
+def delete_backend_slot(
         haproxy_server, backend_name, server_name):
     # delete a dynamic server (the server need to be in maintenance mode)
     send_haproxy_command(
@@ -102,4 +113,12 @@ def disable_backend_slot(
     send_haproxy_command(
         haproxy_server,
         "set server %s/%s state maint\n" % (
+            backend_name, server_name))
+
+
+def enable_health_check(
+        haproxy_server, backend_name, server_name):
+    send_haproxy_command(
+        haproxy_server,
+        "enable health %s/%s\n" % (
             backend_name, server_name))

@@ -35,7 +35,7 @@ def _update_backend(backend_name, backend_servers):
                         server_name, backend_server)
                 else:
                     # we need a reload of the configuration after
-                    missing_backend_servers.append(server_address)
+                    missing_backend_servers.append(backend_server)
 
         # mark inactive for remaining servers in active servers set but not appearing
         for remaining_server, server_name in active_servers.items():
@@ -52,7 +52,7 @@ def _update_backend(backend_name, backend_servers):
         if missing_backend_servers:
             num = len(missing_backend_servers)
             logger.info(
-                "Not enough free server slots in backend. Adding {} slots.".format(num))
+                "Not enough free server slots in backend. Add {} slots.".format(num))
             for slot_id, backend_server in enumerate(
                     missing_backend_servers, start=total_server_slots + 1):
                 server_name = get_backend_server_name(slot_id)

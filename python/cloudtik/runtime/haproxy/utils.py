@@ -2,11 +2,14 @@ import os
 import shutil
 from typing import Any, Dict
 
+from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_CLUSTER
 from cloudtik.core._private.core_utils import exec_with_output
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HAPROXY
 from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, get_runtime_value
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service, \
-    get_service_discovery_config, serialize_service_selector
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, \
+    get_service_discovery_config, serialize_service_selector, define_runtime_service_on_head_or_all, \
+    _exclude_runtime_of_cluster
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 from cloudtik.runtime.haproxy.admin_api import get_backend_server_name
 
@@ -219,9 +222,9 @@ def _get_runtime_services(
         service_discovery_config, cluster_name, HAPROXY_SERVICE_NAME)
     service_port = _get_service_port(haproxy_config)
     services = {
-        service_name: define_runtime_service(
-            service_discovery_config,
-            service_port),
+        service_name: define_runtime_service_on_head_or_all(
+            service_discovery_config, service_port,
+            _is_high_availability(haproxy_config))
     }
     return services
 
@@ -265,6 +268,10 @@ def start_pull_server(head):
 
     service_selector = haproxy_config.get(
             HAPROXY_BACKEND_DYNAMIC_SERVICES_CONFIG_KEY, {})
+    cluster_name = get_runtime_value(CLOUDTIK_RUNTIME_ENV_CLUSTER)
+    _exclude_runtime_of_cluster(
+        service_selector, BUILT_IN_RUNTIME_HAPROXY, cluster_name)
+
     service_selector_str = serialize_service_selector(service_selector)
 
     pull_identifier = _get_pull_identifier()

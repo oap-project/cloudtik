@@ -39,15 +39,6 @@
                         }
                     }
                 },
-                "exclude_labels": {
-                    "type": "object",
-                    "description": "The labels to exclude for the services. Be excluded if include any these labels.",
-                    "patternProperties": {
-                        ".*":{
-                            "type": "string"
-                        }
-                    }
-                },
                 "runtimes": {
                     "type": "array",
                     "description": "Services of any of the runtimes.",
@@ -60,6 +51,28 @@
                     "description": "Services of any of the clusters.",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "exclude_labels": {
+                    "type": "object",
+                    "description": "The labels to exclude for the services. Be excluded if include any these labels.",
+                    "patternProperties": {
+                        ".*":{
+                            "type": "string"
+                        }
+                    }
+                },
+                "exclude_joined_labels": {
+                    "type": "array",
+                    "description": "A list of joined labels to exclude for the services.",
+                    "items": {
+                        "type": "object",
+                        "description": "The labels to exclude for the services. All the labels must match to be excluded.",
+                        "patternProperties": {
+                            ".*":{
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }

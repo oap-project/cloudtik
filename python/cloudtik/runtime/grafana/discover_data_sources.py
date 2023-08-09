@@ -1,11 +1,11 @@
 import logging
 
+from cloudtik.core._private.core_utils import get_list_for_update
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_PROMETHEUS
 from cloudtik.core._private.service_discovery.utils import SERVICE_SELECTOR_RUNTIMES, deserialize_service_selector
 from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.core._private.util.rest_api import rest_api_get_json, rest_api_post_json, rest_api_delete_json, \
     REST_API_AUTH_TYPE, REST_API_AUTH_BASIC, REST_API_AUTH_BASIC_USERNAME, REST_API_AUTH_BASIC_PASSWORD
-from cloudtik.core._private.utils import get_list_for_update
 from cloudtik.runtime.common.service_discovery.consul import query_services, query_service_nodes, get_service_name, \
     get_service_address, get_service_cluster
 from cloudtik.runtime.grafana.utils import get_data_source_name, get_prometheus_data_source, \

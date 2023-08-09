@@ -876,3 +876,15 @@ def deserialize_config(config_str):
     json_str = base64.b64decode(
         config_str.encode('utf-8')).decode("utf-8")
     return json.loads(json_str)
+
+
+def get_config_for_update(config, config_key):
+    if config_key not in config:
+        config[config_key] = {}
+    return config[config_key]
+
+
+def get_list_for_update(config, config_key):
+    if config_key not in config:
+        config[config_key] = []
+    return config[config_key]

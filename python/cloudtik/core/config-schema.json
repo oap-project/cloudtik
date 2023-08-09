@@ -1423,6 +1423,11 @@
                             "default": "tcp",
                             "description": "The frontend protocol: tcp or http."
                         },
+                        "app_mode": {
+                            "type": "string",
+                            "default": "load-balancer",
+                            "description": "The application mode: load-balancer or gateway."
+                        },
                         "high_availability": {
                             "type": "boolean",
                             "default": false,
@@ -1447,7 +1452,11 @@
                                     "default": 128,
                                     "description": "The max number of servers. This is needed only for HAProxy server template."
                                 },
-                                "service_name": {
+                                "selector": {
+                                    "$ref": "#/definitions/service_selector",
+                                    "description": "The selector for services for the backend."
+                                },
+                                 "service_name": {
                                     "type": "string",
                                     "description": "The service name used for DNS discovery."
                                 },
@@ -1455,17 +1464,13 @@
                                     "type": "string",
                                     "description": "The service tag used for DNS discovery."
                                 },
-                                "static_servers": {
+                                "servers": {
                                     "type": "array",
                                     "description": "Array of static servers for the backend.",
                                     "items": {
                                         "type": "string",
-                                        "description": "Server entry."
+                                        "description": "Server entry in format: host:port."
                                     }
-                                },
-                                "dynamic_services": {
-                                    "$ref": "#/definitions/service_selector",
-                                    "description": "The selector for service for the backend."
                                 }
                             }
                         }

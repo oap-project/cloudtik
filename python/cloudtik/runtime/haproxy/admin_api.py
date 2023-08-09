@@ -14,7 +14,7 @@ def get_backend_server_id(server_name, server_base_name):
     return int(str_server_id)
 
 
-def _parse_server_slots(backend_name, stat_string):
+def _parse_servers_of_backend(backend_name, stat_string):
     server_slots = stat_string.split('\n')
     active_servers = {}
     inactive_servers = []
@@ -34,6 +34,17 @@ def _parse_server_slots(backend_name, stat_string):
             else:
                 active_servers[server_addr] = server_name
     return active_servers, inactive_servers
+
+
+def _parse_backends(stat_string):
+    server_slots = stat_string.split('\n')
+    backends = set()
+    for server_slot in server_slots:
+        server_slot_values = server_slot.split(",")
+        if len(server_slot_values) > 80 and server_slot_values[1] == "BACKEND":
+            backend_name = server_slot_values[0]
+            backends.add(backend_name)
+    return backends
 
 
 def send_haproxy_command(haproxy_server, command):
@@ -60,10 +71,18 @@ def send_haproxy_command(haproxy_server, command):
 def list_backend_servers(haproxy_server, backend_name):
     stat_string = send_haproxy_command(haproxy_server, "show stat\n")
     if not stat_string:
-        raise RuntimeError("Failed to get current backend list from HAProxy socket.")
+        raise RuntimeError("Failed to get current backend servers from HAProxy socket.")
 
-    return _parse_server_slots(
+    return _parse_servers_of_backend(
         backend_name, stat_string)
+
+
+def list_backends(haproxy_server):
+    stat_string = send_haproxy_command(haproxy_server, "show stat\n")
+    if not stat_string:
+        raise RuntimeError("Failed to get backends from HAProxy socket.")
+
+    return _parse_backends(stat_string)
 
 
 def add_backend_slot(

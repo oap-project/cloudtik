@@ -401,7 +401,7 @@ def start_pull_server(head):
     redis_address = "{}:{}".format(redis_ip, constants.CLOUDTIK_DEFAULT_PORT)
 
     cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
-    cmd += ["--pull-class=cloudtik.runtime.prometheus.discover_local_targets.DiscoverLocalTargets"]
+    cmd += ["--pull-class=cloudtik.runtime.prometheus.discovery.DiscoverLocalTargets"]
     cmd += ["--interval={}".format(
         PROMETHEUS_PULL_LOCAL_TARGETS_INTERVAL)]
     # job parameters

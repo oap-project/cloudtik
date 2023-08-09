@@ -45,30 +45,54 @@ function configure_dns_backend() {
         BACKEND_SERVICE_TAG==${HAPROXY_BACKEND_SERVICE_TAG}
     fi
     sed -i "s#{%backend.service.tag%}#${BACKEND_SERVICE_TAG}#g" ${config_template_file}
-    cp ${config_template_file} ${HAPROXY_CONFIG_DIR}/haproxy.cfg
+    cat ${config_template_file} >> ${haproxy_config_file}
 }
 
 function configure_static_backend() {
     # configure a load balancer with static address
     local config_template_file=${output_dir}/haproxy-static.cfg
     # python configure script will write the list of static servers
-    cp ${config_template_file} ${HAPROXY_CONFIG_DIR}/haproxy.cfg
+    cat ${config_template_file} >> ${haproxy_config_file}
 }
 
 function configure_dynamic_backend() {
+    local haproxy_template_file=${output_dir}/haproxy-template.cfg
+    cp ${haproxy_config_file} ${haproxy_template_file}
+
     # configure a load balancer with static address
     local config_template_file=${output_dir}/haproxy-dynamic.cfg
 
     sed -i "s#{%backend.max.servers%}#${HAPROXY_BACKEND_MAX_SERVERS}#g" ${config_template_file}
 
-    cp ${config_template_file} ${HAPROXY_CONFIG_DIR}/haproxy.cfg
+    cat ${config_template_file} >> ${haproxy_config_file}
     # This is used as the template to generate the configuration file
     # with dynamic list of servers
-    cp ${output_dir}/haproxy-static.cfg ${HAPROXY_CONFIG_DIR}/haproxy-static.cfg
+    cat ${output_dir}/haproxy-static.cfg >> ${haproxy_template_file}
+    cp ${haproxy_template_file} ${HAPROXY_CONFIG_DIR}/haproxy-template.cfg
 }
+
+function configure_load_balancer() {
+    if [ "${HAPROXY_CONFIG_MODE}" == "dns" ]; then
+        configure_dns_backend
+    elif [ "${HAPROXY_CONFIG_MODE}" == "static" ]; then
+        configure_static_backend
+    elif [ "${HAPROXY_CONFIG_MODE}" == "dynamic" ]; then
+        configure_dynamic_backend
+    else
+        echo "WARNING: Unsupported configure mode: ${HAPROXY_CONFIG_MODE}"
+    fi
+}
+
+function configure_gateway() {
+    # python script will use this template to generate config for gateway backends
+    cp ${haproxy_config_file} ${HAPROXY_CONFIG_DIR}/haproxy-template.cfg
+}
+
 
 function configure_haproxy() {
     prepare_base_conf
+
+    haproxy_config_file=${output_dir}/haproxy.cfg
 
     ETC_DEFAULT=/etc/default
     sudo mkdir -p ${ETC_DEFAULT}
@@ -85,15 +109,14 @@ function configure_haproxy() {
     sed -i "s#{%frontend.protocol%}#${HAPROXY_FRONTEND_PROTOCOL}#g" `grep "{%frontend.protocol%}" -rl ${output_dir}`
     sed -i "s#{%backend.balance%}#${HAPROXY_BACKEND_BALANCE}#g" `grep "{%backend.balance%}" -rl ${output_dir}`
 
-    if [ "${HAPROXY_CONFIG_MODE}" == "dns" ]; then
-        configure_dns_backend
-    elif [ "${HAPROXY_CONFIG_MODE}" == "static" ]; then
-        configure_static_backend
-    elif [ "${HAPROXY_CONFIG_MODE}" == "dynamic" ]; then
-        configure_dynamic_backend
+    if [ "${HAPROXY_APP_MODE}" == "load-balancer" ]; then
+        configure_load_balancer
     else
-        echo "WARNING: Unsupported configure mode: ${HAPROXY_CONFIG_MODE}"
+        # path based gateway dispatcher
+        configure_gateway
     fi
+
+    cp ${haproxy_config_file} ${HAPROXY_CONFIG_DIR}/haproxy.cfg
 }
 
 set_head_option "$@"

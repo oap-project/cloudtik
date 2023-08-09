@@ -1,6 +1,10 @@
 import socket
 
 
+def get_backend_server_address(backend_server):
+    return "{}:{}".format(backend_server[0], backend_server[1])
+
+
 def _parse_server_slots(backend_name, stat_string):
     server_slots = stat_string.split('\n')
     active_servers = {}
@@ -58,9 +62,9 @@ def add_backend_slot(
     # add a new dynamic server with address and enable it
     send_haproxy_command(
         haproxy_server,
-        "add server %s/%s %s:%s check enabled\n" % (
+        "add server %s/%s %s check enabled\n" % (
             backend_name, server_name,
-            backend_server[0], backend_server[1]))
+            get_backend_server_address(backend_server)))
 
 
 def add_disabled_backend_slot(

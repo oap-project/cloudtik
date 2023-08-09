@@ -35,7 +35,8 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
     CLOUDTIK_ENCRYPTION_PREFIX
-from cloudtik.core._private.core_utils import load_class, double_quote, check_process_exists, get_cloudtik_temp_dir
+from cloudtik.core._private.core_utils import load_class, double_quote, check_process_exists, get_cloudtik_temp_dir, \
+    get_config_for_update
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
 from cloudtik.core.node_provider import NodeProvider
@@ -3011,18 +3012,6 @@ def get_storage_config_for_update(provider_config):
 
 def get_database_config_for_update(provider_config):
     return get_config_for_update(provider_config, "database")
-
-
-def get_config_for_update(config, config_key):
-    if config_key not in config:
-        config[config_key] = {}
-    return config[config_key]
-
-
-def get_list_for_update(config, config_key):
-    if config_key not in config:
-        config[config_key] = []
-    return config[config_key]
 
 
 def print_json_formatted(json_bytes):

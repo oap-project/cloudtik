@@ -5,7 +5,7 @@ from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.runtime.common.service_discovery.consul \
     import query_services, query_service_nodes, get_service_address
 from cloudtik.runtime.haproxy.admin_api import list_backend_servers, enable_backend_slot, disable_backend_slot, \
-    add_backend_slot, get_backend_server_address, get_backend_server_id, delete_backend_slot
+    add_backend_slot, get_backend_server_address, delete_backend_slot
 from cloudtik.runtime.haproxy.utils import update_configuration, get_default_server_name, \
     HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS
 

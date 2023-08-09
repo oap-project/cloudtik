@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private import constants
-from cloudtik.core._private.core_utils import exec_with_output
+from cloudtik.core._private.core_utils import exec_with_output, get_list_for_update, get_config_for_update
 from cloudtik.core._private.runtime_utils import load_and_save_yaml, \
     get_runtime_config_from_node, save_yaml, get_runtime_head_ip, get_runtime_value
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime, \
@@ -12,8 +12,8 @@ from cloudtik.core._private.service_discovery.utils import \
     define_runtime_service_on_head_or_all, get_service_discovery_config, is_service_for_metrics, SERVICE_DISCOVERY_PORT, \
     SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, SERVICE_SELECTOR_LABELS, SERVICE_SELECTOR_EXCLUDE_LABELS, \
     SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_CLUSTERS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
-    SERVICE_DISCOVERY_LABEL_CLUSTER
-from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY, get_list_for_update, get_config_for_update
+    SERVICE_DISCOVERY_LABEL_CLUSTER, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS
+from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
         # The first element is the substring to filter.
@@ -258,15 +258,19 @@ def configure_scrape(head):
         services = service_selector.get(SERVICE_SELECTOR_SERVICES)
         tags = service_selector.get(SERVICE_SELECTOR_TAGS)
         labels = service_selector.get(SERVICE_SELECTOR_LABELS)
-        exclude_labels = service_selector.get(SERVICE_SELECTOR_EXCLUDE_LABELS)
         runtimes = service_selector.get(SERVICE_SELECTOR_RUNTIMES)
         clusters = service_selector.get(SERVICE_SELECTOR_CLUSTERS)
+        exclude_labels = service_selector.get(SERVICE_SELECTOR_EXCLUDE_LABELS)
+        exclude_joined_labels = service_selector.get(SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS)
 
-        if services or tags or labels or exclude_labels:
+        if (services or tags or labels or
+                runtimes or clusters or
+                exclude_labels or exclude_joined_labels):
             config_file = _get_config_file(scrape_scope)
             _update_scrape_config(
-                config_file, services, tags, labels, exclude_labels,
-                runtimes, clusters)
+                config_file, services, tags, labels,
+                runtimes, clusters,
+                exclude_labels, exclude_joined_labels)
     elif sd == PROMETHEUS_SERVICE_DISCOVERY_FILE:
         if scrape_scope == PROMETHEUS_SCRAPE_SCOPE_FEDERATION:
             federation_targets = _get_federation_targets(prometheus_config)
@@ -289,8 +293,9 @@ def _add_label_match_list(scrape_config, label_name, values):
 
 
 def _update_scrape_config(
-        config_file, services, tags, labels, exclude_labels,
-        runtimes, clusters):
+        config_file, services, tags, labels,
+        runtimes, clusters,
+        exclude_labels, exclude_joined_labels):
     def update_contents(config_object):
         scrape_configs = config_object["scrape_configs"]
         for scrape_config in scrape_configs:
@@ -318,6 +323,14 @@ def _update_scrape_config(
                         "action": "keep",
                     }
                     relabel_configs.append(relabel_config)
+
+            if runtimes:
+                _add_label_match_list(
+                    scrape_config, SERVICE_DISCOVERY_LABEL_RUNTIME, runtimes)
+            if clusters:
+                _add_label_match_list(
+                    scrape_config, SERVICE_DISCOVERY_LABEL_CLUSTER, clusters)
+
             if exclude_labels:
                 # Drop targets for which regex matches the concatenated source_labels.
                 # Any match will drop (OR)
@@ -330,12 +343,27 @@ def _update_scrape_config(
                         "action": "drop",
                     }
                     relabel_configs.append(relabel_config)
-            if runtimes:
-                _add_label_match_list(
-                    scrape_config, SERVICE_DISCOVERY_LABEL_RUNTIME, runtimes)
-            if clusters:
-                _add_label_match_list(
-                    scrape_config, SERVICE_DISCOVERY_LABEL_CLUSTER, clusters)
+
+            if exclude_joined_labels:
+                # Drop targets for which regex matches the concatenated source_labels.
+                # Match all the labels will drop (AND)
+                relabel_configs = get_list_for_update(scrape_config, "relabel_configs")
+                for joined_labels in exclude_joined_labels:
+                    # all the labels must match for each joined labels
+                    source_labels = []
+                    label_values = []
+                    for label_key, label_value in joined_labels.items():
+                        source_labels.append("__meta_consul_service_metadata_{}".format(
+                            label_key))
+                        label_values.append(label_value)
+                    joined_label_values = ";".join(label_values)
+                    relabel_config = {
+                        "source_labels": source_labels,
+                        "separator": ';',
+                        "regex": joined_label_values,
+                        "action": "drop",
+                    }
+                    relabel_configs.append(relabel_config)
 
     load_and_save_yaml(config_file, update_contents)
 

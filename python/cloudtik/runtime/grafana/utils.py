@@ -3,7 +3,7 @@ from shlex import quote
 from typing import Any, Dict
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_CLUSTER
-from cloudtik.core._private.core_utils import exec_with_output, serialize_config
+from cloudtik.core._private.core_utils import exec_with_output
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_PROMETHEUS
 from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, get_runtime_value, get_runtime_head_ip, \
     save_yaml, get_runtime_node_ip

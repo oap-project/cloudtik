@@ -2,7 +2,7 @@ from urllib.parse import quote
 
 from cloudtik.core._private.service_discovery.utils import SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, \
     SERVICE_SELECTOR_LABELS, SERVICE_SELECTOR_EXCLUDE_LABELS, SERVICE_DISCOVERY_LABEL_CLUSTER, \
-    SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_CLUSTERS
+    SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_CLUSTERS, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS
 from cloudtik.core._private.util.rest_api import rest_api_get_json
 
 REST_ENDPOINT_URL_FORMAT = "http://{}:{}{}"
@@ -28,11 +28,14 @@ def get_expressions_of_service_selector(service_selector):
     services = service_selector.get(SERVICE_SELECTOR_SERVICES)
     tags = service_selector.get(SERVICE_SELECTOR_TAGS)
     labels = service_selector.get(SERVICE_SELECTOR_LABELS)
-    exclude_labels = service_selector.get(SERVICE_SELECTOR_EXCLUDE_LABELS)
     runtimes = service_selector.get(SERVICE_SELECTOR_RUNTIMES)
     clusters = service_selector.get(SERVICE_SELECTOR_CLUSTERS)
+    exclude_labels = service_selector.get(SERVICE_SELECTOR_EXCLUDE_LABELS)
+    exclude_joined_labels = service_selector.get(SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS)
 
-    if not (services or tags or labels or exclude_labels or runtimes or clusters ):
+    if not (services or tags or labels or
+            runtimes or clusters or
+            exclude_labels or exclude_joined_labels):
         return None
 
     expressions = []
@@ -58,14 +61,6 @@ def get_expressions_of_service_selector(service_selector):
                 'ServiceMeta["{}"] matches "{}"'.format(label_name, label_value))
         expressions.append(" and ".join(label_expressions))
 
-    if exclude_labels:
-        # Services with label in any exclude labels will not included [NOT (OR)] or [AND NOT]
-        exclude_label_expressions = []
-        for label_name, label_value in exclude_labels.items():
-            exclude_label_expressions.append(
-                'ServiceMeta["{}"] not matches "{}"'.format(label_name, label_value))
-        expressions.append(" and ".join(exclude_label_expressions))
-
     if runtimes:
         # Services of any these runtimes will be included (OR)
         runtime_expressions = []
@@ -81,6 +76,27 @@ def get_expressions_of_service_selector(service_selector):
             cluster_expressions.append(
                 'ServiceMeta["cloudtik-cluster"] == "{}"'.format(cluster))
         expressions.append(" or ".join(cluster_expressions))
+
+    if exclude_labels:
+        # Services with any matched labels will be excluded [NOT (OR)] or [AND NOT]
+        exclude_label_expressions = []
+        for label_name, label_value in exclude_labels.items():
+            exclude_label_expressions.append(
+                'ServiceMeta["{}"] not matches "{}"'.format(label_name, label_value))
+        expressions.append(" and ".join(exclude_label_expressions))
+
+    if exclude_joined_labels:
+        # Services with all matched labels will be excluded [NOT (AND)] or [OR NOT]
+        exclude_joined_expressions = []
+        for joined_labels in exclude_joined_labels:
+            # all the labels must match for each joined labels
+            joined_label_expressions = []
+            for label_name, label_value in joined_labels.items():
+                joined_label_expressions.append(
+                    'ServiceMeta["{}"] not matches "{}"'.format(label_name, label_value))
+            exclude_joined_expressions.append(" or ".join(joined_label_expressions))
+        expressions.append(" and ".join(["( {} )".format(
+            expr) for expr in exclude_joined_expressions]))
 
     return " and ".join(["( {} )".format(expr) for expr in expressions])
 

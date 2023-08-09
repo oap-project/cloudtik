@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN, \
     CLOUDTIK_RUNTIME_ENV_HEAD_IP, CLOUDTIK_RUNTIME_ENV_CLUSTER
+from cloudtik.core._private.core_utils import get_list_for_update, get_config_for_update
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
     get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, subscribe_nodes_info, sort_nodes_by_seq_id, \
@@ -13,10 +14,10 @@ from cloudtik.core._private.service_discovery.runtime_services import get_runtim
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_LABELS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
     SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_LABEL_CLUSTER, \
-    SERVICE_DISCOVERY_METRICS, is_service_for_metrics
+    is_service_for_metrics
 from cloudtik.core._private.utils import \
     publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
-    RUNTIME_CONFIG_KEY, get_config_for_update, get_list_for_update
+    RUNTIME_CONFIG_KEY
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.tags import QUORUM_JOIN_STATUS_INIT
 

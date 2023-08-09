@@ -1,7 +1,8 @@
 from enum import Enum
 from typing import Optional, Dict, Any
 
-from cloudtik.core._private.core_utils import deserialize_config, serialize_config
+from cloudtik.core._private.core_utils import deserialize_config, serialize_config, get_config_for_update, \
+    get_list_for_update
 
 # The standard keys and values used for service discovery
 
@@ -39,6 +40,7 @@ SERVICE_SELECTOR_SERVICES = "services"
 SERVICE_SELECTOR_TAGS = "tags"
 SERVICE_SELECTOR_LABELS = "labels"
 SERVICE_SELECTOR_EXCLUDE_LABELS = "exclude_labels"
+SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS = "exclude_joined_labels"
 SERVICE_SELECTOR_RUNTIMES = "runtimes"
 SERVICE_SELECTOR_CLUSTERS = "clusters"
 
@@ -165,3 +167,19 @@ def deserialize_service_selector(service_selector_str):
     if not service_selector_str:
         return None
     return deserialize_config(service_selector_str)
+
+
+def _exclude_runtime_of_cluster(
+        service_selector, runtime, cluster_name):
+    if not (runtime or cluster_name):
+        return
+    exclude_joined_labels = get_list_for_update(
+        service_selector, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS)
+
+    joined_labels = {}
+    if runtime:
+        joined_labels[SERVICE_DISCOVERY_LABEL_RUNTIME] = runtime
+    if cluster_name:
+        joined_labels[SERVICE_DISCOVERY_LABEL_CLUSTER] = cluster_name
+
+    exclude_joined_labels.append(joined_labels)

@@ -56,7 +56,7 @@ function configure_static_backend() {
 }
 
 function configure_dynamic_backend() {
-    local haproxy_template_file = ${output_dir}/haproxy-template.cfg
+    local haproxy_template_file=${output_dir}/haproxy-template.cfg
     cp ${haproxy_config_file} ${haproxy_template_file}
 
     # configure a load balancer with static address
@@ -84,8 +84,8 @@ function configure_load_balancer() {
 }
 
 function configure_gateway() {
-    # python script do write the frontend and backend based services
-    :
+    # python script will use this template to generate config for gateway backends
+    cp ${haproxy_config_file} ${HAPROXY_CONFIG_DIR}/haproxy-template.cfg
 }
 
 

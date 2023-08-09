@@ -1,26 +1,21 @@
 import argparse
-import os
 
 from cloudtik.core._private.runtime_utils import get_runtime_value
-from cloudtik.runtime.haproxy.utils import start_pull_server, stop_pull_server, HAPROXY_CONFIG_MODE_DYNAMIC, \
-    HAPROXY_APP_MODE_LOAD_BALANCER
+from cloudtik.runtime.haproxy.utils \
+    import start_pull_server, stop_pull_server, HAPROXY_CONFIG_MODE_DYNAMIC
 
 
 def start_service(head):
-    app_mode = get_runtime_value("HAPROXY_APP_MODE")
     config_mode = get_runtime_value("HAPROXY_CONFIG_MODE")
-    if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
-        if config_mode == HAPROXY_CONFIG_MODE_DYNAMIC:
-            # needed pull server only for dynamic backend
-            start_pull_server(head)
+    if config_mode == HAPROXY_CONFIG_MODE_DYNAMIC:
+        # needed pull server only for dynamic backend
+        start_pull_server(head)
 
 
 def stop_service():
-    app_mode = get_runtime_value("HAPROXY_APP_MODE")
     config_mode = get_runtime_value("HAPROXY_CONFIG_MODE")
-    if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
-        if config_mode == HAPROXY_CONFIG_MODE_DYNAMIC:
-            stop_pull_server()
+    if config_mode == HAPROXY_CONFIG_MODE_DYNAMIC:
+        stop_pull_server()
 
 
 def main():

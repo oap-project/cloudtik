@@ -2,8 +2,8 @@ import os
 import shutil
 from typing import Any, Dict
 
-from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_CLUSTER
-from cloudtik.core._private.core_utils import exec_with_output
+from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_CLUSTER, CLOUDTIK_RUNTIME_ENV_NODE_IP
+from cloudtik.core._private.core_utils import exec_with_output, exec_with_call
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HAPROXY
 from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, get_runtime_value
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
@@ -336,6 +336,12 @@ def start_pull_server(head):
     runtime_config = get_runtime_config_from_node(head)
     haproxy_config = _get_config(runtime_config)
 
+    app_mode = get_runtime_value("HAPROXY_APP_MODE")
+    if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
+        discovery_class = "DiscoverBackendServers"
+    else:
+        discovery_class = "DiscoverGatewayBackendServers"
+
     service_selector = haproxy_config.get(
             HAPROXY_BACKEND_SELECTOR_CONFIG_KEY, {})
     cluster_name = get_runtime_value(CLOUDTIK_RUNTIME_ENV_CLUSTER)
@@ -347,13 +353,23 @@ def start_pull_server(head):
     pull_identifier = _get_pull_identifier()
 
     cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
-    cmd += ["--pull-class=cloudtik.runtime.haproxy.discovery.DiscoverBackendServers"]
+    cmd += ["--pull-class=cloudtik.runtime.haproxy.discovery.{}".format(
+        discovery_class)]
     cmd += ["--interval={}".format(
         HAPROXY_DISCOVER_BACKEND_SERVERS_INTERVAL)]
     # job parameters
-    cmd += ["backend_name={}".format(HAPROXY_BACKEND_NAME_DEFAULT)]
     if service_selector_str:
         cmd += ["service_selector={}".format(service_selector_str)]
+    if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
+        cmd += ["backend_name={}".format(HAPROXY_BACKEND_NAME_DEFAULT)]
+    else:
+        # the bind_ip, bind_port and balance type
+        bind_ip = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_IP)
+        bind_port = get_runtime_value("HAPROXY_FRONTEND_PORT")
+        balance_type = get_runtime_value("HAPROXY_BACKEND_BALANCE")
+        cmd += ["bind_ip={}".format(bind_ip)]
+        cmd += ["bind_port={}".format(bind_port)]
+        cmd += ["balance_type={}".format(balance_type)]
 
     cmd_str = " ".join(cmd)
     exec_with_output(cmd_str)
@@ -366,20 +382,24 @@ def stop_pull_server():
     exec_with_output(cmd_str)
 
 
-def update_configuration(backend_servers):
-    backend_block = ""
+def _get_backend_server_block(backend_servers):
+    backend_server_block = ""
     i = 0
     for backend_server in backend_servers:
         i += 1
         server_name = get_default_server_name(i)
-        backend_block += "    server %s %s:%s check\n" % (
+        backend_server_block += "    server %s %s:%s check\n" % (
             server_name,
             backend_server[0], backend_server[1])
     for disabled_slot in range(0, HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS):
         i += 1
         server_name = get_default_server_name(i)
-        backend_block += "    server %s 0.0.0.0:80 check disabled\n" % (
+        backend_server_block += "    server %s 0.0.0.0:80 check disabled\n" % (
             server_name)
+    return backend_server_block
+
+
+def update_configuration(backend_servers):
     # write haproxy config file
     conf_dir = os.path.join(_get_home_dir(), "conf")
     template_file = os.path.join(
@@ -388,10 +408,65 @@ def update_configuration(backend_servers):
         conf_dir, "haproxy-working.cfg")
     shutil.copyfile(template_file, working_file)
 
+    backend_server_block = _get_backend_server_block(
+        backend_servers)
     with open(working_file, "a") as f:
-        f.write(backend_block)
+        f.write(backend_server_block)
 
     config_file = os.path.join(
         conf_dir, "haproxy.cfg")
     # move overwritten
     shutil.move(working_file, config_file)
+
+
+def update_gateway_configuration(
+        gateway_backends, new_backends,
+        bind_ip, bind_port, balance_type):
+    if not bind_port:
+        bind_port = HAPROXY_SERVICE_PORT_DEFAULT
+    service_protocol = HAPROXY_SERVICE_PROTOCOL_HTTP
+    conf_dir = os.path.join(_get_home_dir(), "conf")
+    template_file = os.path.join(
+        conf_dir, "haproxy-template.cfg")
+    working_file = os.path.join(
+        conf_dir, "haproxy-working.cfg")
+    shutil.copyfile(template_file, working_file)
+
+    # sort to make the order to the backends are always the same
+    sorted_gateway_backends = sorted(gateway_backends.items())
+
+    with open(working_file, "a") as f:
+        f.write("frontend service_gateway\n")
+        if bind_ip:
+            f.write(f"    bind {bind_ip}:{bind_port}\n")
+        else:
+            f.write(f"    bind :{bind_port}\n")
+        f.write(f"    mode {service_protocol}\n")
+        # route to a backend based on path's prefix
+        for backend_name, backend_servers in sorted_gateway_backends:
+            f.write("    use_backend " + backend_name +
+                    " if { path /" + backend_name +
+                    " } || { path_beg /" + backend_name +
+                    "/ }\n")
+
+        f.write("\n")
+        # write each backend
+        for backend_name, backend_servers in sorted_gateway_backends:
+            backend_server_block = _get_backend_server_block(
+                backend_servers)
+            f.write(f"backend {backend_name}\n")
+            f.write(f"    mode {service_protocol}\n")
+            if balance_type:
+                f.write(f"    balance {balance_type}\n")
+            f.write("    http-request replace-path /" + backend_name +
+                    "(/)?(.*) /\\2\n")
+            f.write(backend_server_block)
+
+    config_file = os.path.join(
+        conf_dir, "haproxy.cfg")
+    # move overwritten
+    shutil.move(working_file, config_file)
+
+    if new_backends:
+        # Need reload haproxy if there is new backend added
+        exec_with_call("sudo service haproxy reload")

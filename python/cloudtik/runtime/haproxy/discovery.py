@@ -5,14 +5,18 @@ from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.runtime.common.service_discovery.consul \
     import query_services, query_service_nodes, get_service_address
 from cloudtik.runtime.haproxy.admin_api import list_backend_servers, enable_backend_slot, disable_backend_slot, \
-    add_backend_slot, get_backend_server_address, delete_backend_slot
+    add_backend_slot, get_backend_server_address, delete_backend_slot, list_backends
 from cloudtik.runtime.haproxy.utils import update_configuration, get_default_server_name, \
-    HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS
+    HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS, update_gateway_configuration
 
 logger = logging.getLogger(__name__)
 
 
 HAPROXY_SERVERS = [("127.0.0.1", 19999)]
+
+
+def _list_backends():
+    return list_backends(HAPROXY_SERVERS[0])
 
 
 def _update_backend(backend_name, backend_servers):
@@ -80,12 +84,12 @@ class DiscoverBackendServers(PullJob):
     """Pulling job for discovering backend targets and update HAProxy using Runtime API"""
 
     def __init__(self,
-                 backend_name=None,
                  service_selector=None,
+                 backend_name=None,
                  ):
-        self.backend_name = backend_name
         self.service_selector = deserialize_service_selector(
             service_selector)
+        self.backend_name = backend_name
 
     def pull(self):
         selected_services = self._query_services()
@@ -104,6 +108,65 @@ class DiscoverBackendServers(PullJob):
 
         # Finally, rebuild the HAProxy configuration for restarts/reloads
         update_configuration(backend_servers)
+
+    def _query_services(self):
+        return query_services(self.service_selector)
+
+    def _query_service_nodes(self, service_name):
+        return query_service_nodes(service_name, self.service_selector)
+
+
+class DiscoverGatewayBackendServers(PullJob):
+    """Pulling job for discovering backend targets for gateway backends
+    and update HAProxy using Runtime API"""
+
+    def __init__(self,
+                 service_selector=None,
+                 bind_ip=None,
+                 bind_port=None,
+                 balance_type=None,
+                 ):
+        self.service_selector = deserialize_service_selector(
+            service_selector)
+        self.bind_ip = bind_ip
+        self.bind_port = bind_port
+        self.balance_type = balance_type
+        # TODO: logging the job parameters
+
+    def pull(self):
+        selected_services = self._query_services()
+        active_backends = _list_backends()
+        new_backends = set()
+        gateway_backends = {}
+        for service_name in selected_services:
+            service_nodes = self._query_service_nodes(service_name)
+            # each node is a data source. if many nodes form a load balancer in a cluster
+            # it should be filtered by service selector using service name ,tags or labels
+
+            backend_servers = []
+            for service_node in service_nodes:
+                server_address = get_service_address(service_node)
+                backend_servers.append(server_address)
+
+            # TODO: currently use service_name as backend_name and path prefix for simplicity
+            #  future to support more flexible cases
+            backend_name = service_name
+            if not backend_servers:
+                logger.warning("No live servers return from the service selector.")
+
+            if backend_name in active_backends:
+                # update only backend servers for active backend
+                _update_backend(backend_name, backend_servers)
+            else:
+                new_backends.add(backend_name)
+            gateway_backends[service_name] = backend_servers
+
+        # Finally, rebuild the HAProxy configuration for restarts/reloads
+        update_gateway_configuration(
+            gateway_backends, new_backends,
+            bind_ip=self.bind_ip,
+            bind_port=self.bind_port,
+            balance_type=self.balance_type)
 
     def _query_services(self):
         return query_services(self.service_selector)

@@ -1423,7 +1423,7 @@
                                     "type": "string",
                                     "default": "dynamic",
                                     "description": "How the backend is configured: dns, static, dynamic"
-                                },,
+                                },
                                 "balance": {
                                     "type": "string",
                                     "default": "roundrobin",

@@ -5,7 +5,7 @@ from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUD
 from cloudtik.core._private.core_utils import exec_with_output, strip_quote
 from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, sort_nodes_by_seq_id, \
-    load_and_save_yaml
+    load_and_save_yaml, get_runtime_value
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
     get_service_discovery_config
 
@@ -132,7 +132,7 @@ def request_to_join_cluster(nodes_info: Dict[str, Any]):
 
     initial_cluster = sort_nodes_by_seq_id(nodes_info)
 
-    node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_IP)
+    node_ip = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_IP)
     if not node_ip:
         raise RuntimeError("Missing node ip environment variable for this node.")
 
@@ -141,7 +141,7 @@ def request_to_join_cluster(nodes_info: Dict[str, Any]):
     if not endpoints:
         raise RuntimeError("No exiting nodes found for contacting to join the cluster.")
 
-    seq_id = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID)
+    seq_id = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID)
     if not seq_id:
         raise RuntimeError("Missing sequence ip environment variable for this node.")
 

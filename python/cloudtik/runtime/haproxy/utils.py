@@ -25,7 +25,7 @@ HAPROXY_RUNTIME_CONFIG_KEY = "haproxy"
 HAPROXY_SERVICE_PORT_CONFIG_KEY = "port"
 HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY = "protocol"
 HAPROXY_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
-HAPROXY_FRONTEND_MODE_CONFIG_KEY = "frontend_mode"
+HAPROXY_APP_MODE_CONFIG_KEY = "frontend_mode"
 
 
 HAPROXY_BACKEND_CONFIG_KEY = "backend"
@@ -34,18 +34,19 @@ HAPROXY_BACKEND_BALANCE_CONFIG_KEY = "balance"
 HAPROXY_BACKEND_MAX_SERVERS_CONFIG_KEY = "max_servers"
 HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY = "service_name"
 HAPROXY_BACKEND_SERVICE_TAG_CONFIG_KEY = "service_tag"
-HAPROXY_BACKEND_STATIC_SERVERS_CONFIG_KEY = "static_servers"
-HAPROXY_BACKEND_DYNAMIC_SERVICES_CONFIG_KEY = "dynamic_services"
+HAPROXY_BACKEND_SERVERS_CONFIG_KEY = "servers"
+HAPROXY_BACKEND_SELECTOR_CONFIG_KEY = "selector"
 
 
 HAPROXY_SERVICE_NAME = "haproxy"
 HAPROXY_SERVICE_PORT_DEFAULT = 80
-HAPROXY_SERVICE_PROTOCOL_DEFAULT = "tcp"
+HAPROXY_SERVICE_PROTOCOL_TCP = "tcp"
+HAPROXY_SERVICE_PROTOCOL_HTTP = "http"
 HAPROXY_BACKEND_MAX_SERVERS_DEFAULT = 32
 HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS = 8
 
-HAPROXY_FRONTEND_MODE_LOAD_BALANCER = "load-balancer"
-HAPROXY_FRONTEND_MODE_GATEWAY = "gateway"
+HAPROXY_APP_MODE_LOAD_BALANCER = "load-balancer"
+HAPROXY_APP_MODE_GATEWAY = "gateway"
 
 HAPROXY_CONFIG_MODE_DNS = "dns"
 HAPROXY_CONFIG_MODE_STATIC = "static"
@@ -77,8 +78,18 @@ def _get_service_port(haproxy_config: Dict[str, Any]):
 
 
 def _get_service_protocol(haproxy_config):
+    app_mode = _get_app_mode(haproxy_config)
+    if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
+        default_protocol = HAPROXY_SERVICE_PROTOCOL_TCP
+    else:
+        default_protocol = HAPROXY_SERVICE_PROTOCOL_HTTP
     return haproxy_config.get(
-        HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY, HAPROXY_SERVICE_PROTOCOL_DEFAULT)
+        HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY, default_protocol)
+
+
+def _get_app_mode(haproxy_config):
+    return haproxy_config.get(
+        HAPROXY_APP_MODE_CONFIG_KEY, HAPROXY_APP_MODE_LOAD_BALANCER)
 
 
 def _get_backend_config(haproxy_config: Dict[str, Any]):
@@ -104,15 +115,27 @@ def _validate_config(config: Dict[str, Any]):
     runtime_config = config.get(RUNTIME_CONFIG_KEY)
     haproxy_config = _get_config(runtime_config)
     backend_config = _get_backend_config(haproxy_config)
+
+    app_mode = _get_app_mode(haproxy_config)
     config_mode = backend_config.get(HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY)
-    if config_mode == HAPROXY_CONFIG_MODE_STATIC:
-        if not backend_config.get(
-                HAPROXY_BACKEND_STATIC_SERVERS_CONFIG_KEY):
-            raise ValueError("Static servers must be provided with config mode: static.")
-    elif config_mode == HAPROXY_CONFIG_MODE_DNS:
-        service_name = backend_config.get(HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY)
-        if not service_name:
-            raise ValueError("Service name must be configured for config mode: dns.")
+    if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
+        if config_mode == HAPROXY_CONFIG_MODE_STATIC:
+            if not backend_config.get(
+                    HAPROXY_BACKEND_SERVERS_CONFIG_KEY):
+                raise ValueError("Static servers must be provided with config mode: static.")
+        elif config_mode == HAPROXY_CONFIG_MODE_DNS:
+            service_name = backend_config.get(HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY)
+            if not service_name:
+                raise ValueError("Service name must be configured for config mode: dns.")
+    else:
+        if config_mode and config_mode != HAPROXY_CONFIG_MODE_DYNAMIC:
+            raise ValueError("Gateway mode support only dynamic config mode.")
+
+        # gateway should use http protocol
+        service_protocol = haproxy_config.get(
+            HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY)
+        if service_protocol and service_protocol != HAPROXY_SERVICE_PROTOCOL_HTTP:
+            raise ValueError("Gateway mode should use http protocol.")
 
 
 def _with_runtime_environment_variables(
@@ -120,38 +143,35 @@ def _with_runtime_environment_variables(
     runtime_envs = {}
 
     haproxy_config = _get_config(runtime_config)
-    cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
-
-    runtime_envs["HAPROXY_FRONTEND_PORT"] = _get_service_port(haproxy_config)
-    runtime_envs["HAPROXY_FRONTEND_PROTOCOL"] = _get_service_protocol(haproxy_config)
 
     high_availability = _is_high_availability(haproxy_config)
     if high_availability:
         runtime_envs["HAPROXY_HIGH_AVAILABILITY"] = high_availability
+
+    runtime_envs["HAPROXY_FRONTEND_PORT"] = _get_service_port(haproxy_config)
+    runtime_envs["HAPROXY_FRONTEND_PROTOCOL"] = _get_service_protocol(haproxy_config)
+
+    app_mode = _get_app_mode(haproxy_config)
+    runtime_envs["HAPROXY_APP_MODE"] = app_mode
 
     # Backend discovery support mode for:
     # 1. DNS (given static service name and optionally service tag)
     # 2. Static: a static list of servers
     # 3. Dynamic: a dynamic discovered service (services)
     backend_config = _get_backend_config(haproxy_config)
-    config_mode = backend_config.get(HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY)
-    if not config_mode:
-        if backend_config.get(
-                HAPROXY_BACKEND_STATIC_SERVERS_CONFIG_KEY):
-            # if there are static servers configured
-            config_mode = HAPROXY_CONFIG_MODE_STATIC
-        elif get_service_discovery_runtime(cluster_runtime_config):
-            config_mode = HAPROXY_CONFIG_MODE_DNS
-        else:
-            config_mode = HAPROXY_CONFIG_MODE_STATIC
-
-    if config_mode == HAPROXY_CONFIG_MODE_DNS:
-        _with_runtime_envs_for_dns(haproxy_config, runtime_envs)
-    elif config_mode == HAPROXY_CONFIG_MODE_STATIC:
-        _with_runtime_envs_for_static(haproxy_config, runtime_envs)
+    if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
+        _with_runtime_envs_for_load_balancer(
+            config, backend_config, runtime_envs)
+    elif app_mode == HAPROXY_APP_MODE_GATEWAY:
+        _with_runtime_envs_for_gateway(
+            config, backend_config, runtime_envs)
     else:
-        _with_runtime_envs_for_dynamic(haproxy_config, runtime_envs)
-    runtime_envs["HAPROXY_CONFIG_MODE"] = config_mode
+        raise ValueError("Invalid application mode: {}. "
+                         "Must be load-balancer or gateway.".format(app_mode))
+
+    runtime_envs["HAPROXY_BACKEND_MAX_SERVERS"] = backend_config.get(
+        HAPROXY_BACKEND_MAX_SERVERS_CONFIG_KEY,
+        HAPROXY_BACKEND_MAX_SERVERS_DEFAULT)
 
     balance = backend_config.get(HAPROXY_BACKEND_BALANCE_CONFIG_KEY)
     if not balance:
@@ -160,16 +180,49 @@ def _with_runtime_environment_variables(
     return runtime_envs
 
 
-def _with_runtime_envs_for_dns(haproxy_config, runtime_envs):
-    backend_config = _get_backend_config(haproxy_config)
+def _get_default_load_balancer_config_mode(config, backend_config):
+    cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
+    if backend_config.get(
+            HAPROXY_BACKEND_SERVERS_CONFIG_KEY):
+        # if there are static servers configured
+        config_mode = HAPROXY_CONFIG_MODE_STATIC
+    elif get_service_discovery_runtime(cluster_runtime_config):
+        # if there is service selector defined
+        if backend_config.get(
+                HAPROXY_BACKEND_SELECTOR_CONFIG_KEY):
+            config_mode = HAPROXY_CONFIG_MODE_DYNAMIC
+        elif backend_config.get(
+                HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY):
+            config_mode = HAPROXY_CONFIG_MODE_DNS
+        else:
+            config_mode = HAPROXY_CONFIG_MODE_DYNAMIC
+    else:
+        config_mode = HAPROXY_CONFIG_MODE_STATIC
+    return config_mode
+
+
+def _with_runtime_envs_for_load_balancer(config, backend_config, runtime_envs):
+    config_mode = backend_config.get(
+        HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY)
+    if not config_mode:
+        config_mode = _get_default_load_balancer_config_mode(
+            config, backend_config)
+
+    if config_mode == HAPROXY_CONFIG_MODE_DNS:
+        _with_runtime_envs_for_dns(backend_config, runtime_envs)
+    elif config_mode == HAPROXY_CONFIG_MODE_STATIC:
+        _with_runtime_envs_for_static(backend_config, runtime_envs)
+    else:
+        _with_runtime_envs_for_dynamic(backend_config, runtime_envs)
+    runtime_envs["HAPROXY_CONFIG_MODE"] = config_mode
+
+
+def _with_runtime_envs_for_dns(backend_config, runtime_envs):
     service_name = backend_config.get(HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY)
     if not service_name:
         raise ValueError("Service name must be configured for config mode: dns.")
 
     runtime_envs["HAPROXY_BACKEND_SERVICE_NAME"] = service_name
-    runtime_envs["HAPROXY_BACKEND_MAX_SERVERS"] = backend_config.get(
-        HAPROXY_BACKEND_MAX_SERVERS_CONFIG_KEY,
-        HAPROXY_BACKEND_MAX_SERVERS_DEFAULT)
 
     service_tag = backend_config.get(
         HAPROXY_BACKEND_SERVICE_TAG_CONFIG_KEY)
@@ -177,16 +230,31 @@ def _with_runtime_envs_for_dns(haproxy_config, runtime_envs):
         runtime_envs["HAPROXY_BACKEND_SERVICE_TAG"] = service_tag
 
 
-def _with_runtime_envs_for_static(haproxy_config, runtime_envs):
-    # TODO
+def _with_runtime_envs_for_static(backend_config, runtime_envs):
     pass
 
 
-def _with_runtime_envs_for_dynamic(haproxy_config, runtime_envs):
-    backend_config = _get_backend_config(haproxy_config)
-    runtime_envs["HAPROXY_BACKEND_MAX_SERVERS"] = backend_config.get(
-        HAPROXY_BACKEND_MAX_SERVERS_CONFIG_KEY,
-        HAPROXY_BACKEND_MAX_SERVERS_DEFAULT)
+def _with_runtime_envs_for_dynamic(backend_config, runtime_envs):
+    pass
+
+
+def _get_default_gateway_config_mode(config, backend_config):
+    cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
+    if not get_service_discovery_runtime(cluster_runtime_config):
+        raise ValueError("Service discovery runtime is needed for gateway mode.")
+
+    # for simplicity, the gateway operates with the service selector
+    config_mode = HAPROXY_CONFIG_MODE_DYNAMIC
+    return config_mode
+
+
+def _with_runtime_envs_for_gateway(config, backend_config, runtime_envs):
+    config_mode = backend_config.get(HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY)
+    if not config_mode:
+        config_mode = _get_default_gateway_config_mode(
+            config, backend_config)
+
+    runtime_envs["HAPROXY_CONFIG_MODE"] = config_mode
 
 
 def _get_runtime_endpoints(runtime_config: Dict[str, Any], cluster_head_ip):
@@ -238,15 +306,17 @@ def configure_backend(head):
     runtime_config = get_runtime_config_from_node(head)
     haproxy_config = _get_config(runtime_config)
 
+    app_mode = get_runtime_value("HAPROXY_APP_MODE")
     config_mode = get_runtime_value("HAPROXY_CONFIG_MODE")
-    if config_mode == HAPROXY_CONFIG_MODE_STATIC:
-        _configure_backend_static(haproxy_config)
+    if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
+        if config_mode == HAPROXY_CONFIG_MODE_STATIC:
+            _configure_static_backend(haproxy_config)
 
 
-def _configure_backend_static(haproxy_config):
+def _configure_static_backend(haproxy_config):
     backend_config = _get_backend_config(haproxy_config)
     servers = backend_config.get(
-        HAPROXY_BACKEND_STATIC_SERVERS_CONFIG_KEY)
+        HAPROXY_BACKEND_SERVERS_CONFIG_KEY)
     if servers:
         home_dir = _get_home_dir()
         config_file = os.path.join(
@@ -267,7 +337,7 @@ def start_pull_server(head):
     haproxy_config = _get_config(runtime_config)
 
     service_selector = haproxy_config.get(
-            HAPROXY_BACKEND_DYNAMIC_SERVICES_CONFIG_KEY, {})
+            HAPROXY_BACKEND_SELECTOR_CONFIG_KEY, {})
     cluster_name = get_runtime_value(CLOUDTIK_RUNTIME_ENV_CLUSTER)
     _exclude_runtime_of_cluster(
         service_selector, BUILT_IN_RUNTIME_HAPROXY, cluster_name)
@@ -277,7 +347,7 @@ def start_pull_server(head):
     pull_identifier = _get_pull_identifier()
 
     cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
-    cmd += ["--pull-class=cloudtik.runtime.haproxy.discover_backend_servers.DiscoverBackendServers"]
+    cmd += ["--pull-class=cloudtik.runtime.haproxy.discovery.DiscoverBackendServers"]
     cmd += ["--interval={}".format(
         HAPROXY_DISCOVER_BACKEND_SERVERS_INTERVAL)]
     # job parameters
@@ -313,7 +383,7 @@ def update_configuration(backend_servers):
     # write haproxy config file
     conf_dir = os.path.join(_get_home_dir(), "conf")
     template_file = os.path.join(
-        conf_dir, "haproxy-static.cfg")
+        conf_dir, "haproxy-template.cfg")
     working_file = os.path.join(
         conf_dir, "haproxy-working.cfg")
     shutil.copyfile(template_file, working_file)

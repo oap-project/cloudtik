@@ -1,7 +1,26 @@
 import argparse
 import os
 
+from cloudtik.core._private.runtime_utils import get_runtime_value
 from cloudtik.runtime.prometheus.utils import start_pull_server, stop_pull_server, _get_home_dir
+
+
+def _is_scrape_local_file():
+    home_dir = _get_home_dir()
+    config_file = os.path.join(
+        home_dir, "conf", "scrape-config-local-file.yaml")
+    return os.path.exists(config_file)
+
+
+def start_service(head):
+    if _is_scrape_local_file():
+        # needed for only scrape local cluster with file
+        start_pull_server(head)
+
+
+def stop_service():
+    if _is_scrape_local_file():
+        stop_pull_server()
 
 
 def main():
@@ -20,17 +39,12 @@ def main():
     )
     args = parser.parse_args()
 
-    high_availability = os.environ.get("PROMETHEUS_HIGH_AVAILABILITY")
+    high_availability = get_runtime_value("PROMETHEUS_HIGH_AVAILABILITY")
     if high_availability == "true" or args.head:
-        home_dir = _get_home_dir()
-        config_file = os.path.join(
-            home_dir, "conf", "scrape-config-local-file.yaml")
-        if os.path.exists(config_file):
-            # needed for only scrape local cluster with file
-            if args.command == "start":
-                start_pull_server(args.head)
-            elif args.command == "stop":
-                stop_pull_server()
+        if args.command == "start":
+            start_service(args.head)
+        elif args.command == "stop":
+            stop_service()
 
 
 if __name__ == "__main__":

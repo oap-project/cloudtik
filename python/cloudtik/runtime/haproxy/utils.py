@@ -25,7 +25,7 @@ HAPROXY_RUNTIME_CONFIG_KEY = "haproxy"
 HAPROXY_SERVICE_PORT_CONFIG_KEY = "port"
 HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY = "protocol"
 HAPROXY_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
-HAPROXY_APP_MODE_CONFIG_KEY = "frontend_mode"
+HAPROXY_APP_MODE_CONFIG_KEY = "app_mode"
 
 
 HAPROXY_BACKEND_CONFIG_KEY = "backend"
@@ -442,6 +442,7 @@ def update_gateway_configuration(
         else:
             f.write(f"    bind :{bind_port}\n")
         f.write(f"    mode {service_protocol}\n")
+        f.write(f"    option {service_protocol}log\n")
         # route to a backend based on path's prefix
         for backend_name, backend_servers in sorted_gateway_backends:
             f.write("    use_backend " + backend_name +

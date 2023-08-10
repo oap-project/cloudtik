@@ -545,12 +545,12 @@ def prepare_internal_commands(config, built_in_commands):
 
     head_start_commands = built_in_commands.get("head_start_commands", [])
     cloudtik_head_start_command = get_cloudtik_head_start_command(config)
-    head_start_commands += [cloudtik_stop_command, cloudtik_head_start_command]
+    head_start_commands += [cloudtik_head_start_command]
     built_in_commands["head_start_commands"] = head_start_commands
 
     worker_start_commands = built_in_commands.get("worker_start_commands", [])
     cloudtik_worker_start_command = get_cloudtik_worker_start_command(config)
-    worker_start_commands += [cloudtik_stop_command, cloudtik_worker_start_command]
+    worker_start_commands += [cloudtik_worker_start_command]
     built_in_commands["worker_start_commands"] = worker_start_commands
 
     head_stop_commands = built_in_commands.get("head_stop_commands", [])

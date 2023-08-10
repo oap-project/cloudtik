@@ -10,12 +10,10 @@ worker_setup_commands:
 
 # Command to start on the head node. You don't need to change this.
 head_start_commands:
-    - cloudtik runtime services nginx stop --head
     - cloudtik runtime services nginx start --head
 
 # Command to start on worker nodes. You don't need to change this.
 worker_start_commands:
-    - cloudtik runtime services nginx stop
     - cloudtik runtime services nginx start
 
 # Command to start on the head node. You don't need to change this.

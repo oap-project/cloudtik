@@ -253,17 +253,17 @@ def _with_runtime_envs_for_dynamic(backend_config, runtime_envs):
 
 def configure_backend(head):
     runtime_config = get_runtime_config_from_node(head)
-    haproxy_config = _get_config(runtime_config)
+    nginx_config = _get_config(runtime_config)
 
     app_mode = get_runtime_value("NGINX_APP_MODE")
     config_mode = get_runtime_value("NGINX_CONFIG_MODE")
     if app_mode == NGINX_APP_MODE_LOAD_BALANCER:
         if config_mode == NGINX_CONFIG_MODE_STATIC:
-            _configure_static_backend(haproxy_config)
+            _configure_static_backend(nginx_config)
 
 
-def _configure_static_backend(haproxy_config):
-    backend_config = _get_backend_config(haproxy_config)
+def _configure_static_backend(nginx_config):
+    backend_config = _get_backend_config(nginx_config)
     servers = backend_config.get(
         NGINX_BACKEND_SERVERS_CONFIG_KEY)
 

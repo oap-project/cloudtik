@@ -35,16 +35,9 @@ function configure_dns_backend() {
     local config_template_file=${output_dir}/haproxy-dns-consul.cfg
 
     # Consul DNS interface based service discovery
-    sed -i "s#{%backend.service.name%}#${HAPROXY_BACKEND_SERVICE_NAME}#g" ${config_template_file}
     sed -i "s#{%backend.max.servers%}#${HAPROXY_BACKEND_MAX_SERVERS}#g" ${config_template_file}
+    sed -i "s#{%backend.service.dns.name%}#${HAPROXY_BACKEND_SERVICE_DNS_NAME}#g" ${config_template_file}
 
-    if [ -z "${HAPROXY_BACKEND_SERVICE_TAG}" ]; then
-        # if no tag specified, use the protocol of tcp
-        BACKEND_SERVICE_TAG=tcp
-    else
-        BACKEND_SERVICE_TAG==${HAPROXY_BACKEND_SERVICE_TAG}
-    fi
-    sed -i "s#{%backend.service.tag%}#${BACKEND_SERVICE_TAG}#g" ${config_template_file}
     cat ${config_template_file} >> ${haproxy_config_file}
 }
 

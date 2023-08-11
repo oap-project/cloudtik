@@ -11,6 +11,7 @@ from cloudtik.core._private.service_discovery.utils import get_canonical_service
     get_service_discovery_config, serialize_service_selector, define_runtime_service_on_head_or_all, \
     _exclude_runtime_of_cluster
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
+from cloudtik.runtime.common.service_discovery.consul import get_rfc2782_service_dns_name
 from cloudtik.runtime.haproxy.admin_api import get_backend_server_name
 
 RUNTIME_PROCESSES = [
@@ -34,9 +35,10 @@ HAPROXY_BACKEND_BALANCE_CONFIG_KEY = "balance"
 HAPROXY_BACKEND_MAX_SERVERS_CONFIG_KEY = "max_servers"
 HAPROXY_BACKEND_SERVICE_NAME_CONFIG_KEY = "service_name"
 HAPROXY_BACKEND_SERVICE_TAG_CONFIG_KEY = "service_tag"
+HAPROXY_BACKEND_SERVICE_CLUSTER_CONFIG_KEY = "service_cluster"
 HAPROXY_BACKEND_SERVERS_CONFIG_KEY = "servers"
 HAPROXY_BACKEND_SELECTOR_CONFIG_KEY = "selector"
-
+HAPROXY_BACKEND_SESSION_PERSISTENCE_CONFIG_KEY = "session_persistence"
 
 HAPROXY_SERVICE_NAME = "haproxy"
 HAPROXY_SERVICE_PORT_DEFAULT = 80
@@ -52,11 +54,42 @@ HAPROXY_CONFIG_MODE_DNS = "dns"
 HAPROXY_CONFIG_MODE_STATIC = "static"
 HAPROXY_CONFIG_MODE_DYNAMIC = "dynamic"
 
-# roundrobin, leastconn, first, or random
+"""
+NOTE:
+1. For using dynamic config mode which uses HAProxy Runtime API with add server command:
+The backend must be configured to use a dynamic load-balancing algorithm for the balance directive:
+roundrobin, leastconn, first, or random.
+So for other balance options, need to use DNS config mode to scale.
+
+"""
 HAPROXY_BACKEND_BALANCE_ROUNDROBIN = "roundrobin"
 HAPROXY_BACKEND_BALANCE_LEASTCONN = "leastconn"
 HAPROXY_BACKEND_BALANCE_FIRST = "first"
 HAPROXY_BACKEND_BALANCE_RANDOM = "random"
+# Takes a regular sample expression in argument.
+# The expression is evaluated for each request and hashed according to the configured hash-type.
+# The result of the hash is divided by the total weight of the running servers
+# to designate which server will receive the request.
+# This can be used in place of "source", "uri", "hdr()", "url_param()", "rdp-cookie"
+HAPROXY_BACKEND_BALANCE_HASH = "hash"
+# The source IP address is hashed and divided by the total weight of
+# the running servers to designate which server will receive the request.
+HAPROXY_BACKEND_BALANCE_SOURCE = "source"
+# This algorithm hashes either the left part of the URI or the whole URI
+# and divides the hash value by the total weight of the running servers.
+HAPROXY_BACKEND_BALANCE_URI = "uri"
+# The URL parameter specified in argument will be looked up
+# in the query string of each HTTP GET request.
+HAPROXY_BACKEND_BALANCE_URL_PARAM = "url_param"
+# hdr(<name>) The HTTP header <name> will be looked up in each HTTP request for hash
+HAPROXY_BACKEND_BALANCE_HDR = "hdr"
+# rdp-cookie(<name>)
+HAPROXY_BACKEND_BALANCE_RDP_COOKIE = "rdp-cookie"
+
+# Persistence based on an HTTP cookie. This option is only available with mode http
+HAPROXY_BACKEND_SESSION_PERSISTENCE_COOKIE = "cookie"
+# Persistence based on the client's IP address. This option is available with mode http and mode tcp
+HAPROXY_BACKEND_SESSION_PERSISTENCE_IP = "ip"
 
 HAPROXY_DISCOVER_BACKEND_SERVERS_INTERVAL = 15
 HAPROXY_BACKEND_NAME_DEFAULT = "servers"
@@ -222,12 +255,14 @@ def _with_runtime_envs_for_dns(backend_config, runtime_envs):
     if not service_name:
         raise ValueError("Service name must be configured for config mode: dns.")
 
-    runtime_envs["HAPROXY_BACKEND_SERVICE_NAME"] = service_name
-
     service_tag = backend_config.get(
         HAPROXY_BACKEND_SERVICE_TAG_CONFIG_KEY)
-    if service_tag:
-        runtime_envs["HAPROXY_BACKEND_SERVICE_TAG"] = service_tag
+    service_cluster = backend_config.get(
+        HAPROXY_BACKEND_SERVICE_CLUSTER_CONFIG_KEY)
+
+    service_dns_name = get_rfc2782_service_dns_name(
+        service_name, service_tag, service_cluster)
+    runtime_envs["HAPROXY_BACKEND_SERVICE_DNS_NAME"] = service_dns_name
 
 
 def _with_runtime_envs_for_static(backend_config, runtime_envs):

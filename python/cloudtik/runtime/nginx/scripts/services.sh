@@ -15,10 +15,16 @@ set_service_command "$@"
 
 case "$SERVICE_COMMAND" in
 start)
-    sudo service nginx start
+    if [ "${NGINX_HIGH_AVAILABILITY}" == "true" ] \
+        || [ "${IS_HEAD_NODE}" == "true" ]; then
+        sudo service nginx start
+    fi
     ;;
 stop)
-    sudo service nginx stop
+    if [ "${NGINX_HIGH_AVAILABILITY}" == "true" ] \
+        || [ "${IS_HEAD_NODE}" == "true" ]; then
+        sudo service nginx stop
+    fi
     ;;
 -h|--help)
     echo "Usage: $0 start|stop --head" >&2

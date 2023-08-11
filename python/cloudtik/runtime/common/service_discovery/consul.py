@@ -150,3 +150,33 @@ def get_service_cluster(service_node):
     service_meta = service_node.get(
         "ServiceMeta", {})
     return service_meta.get(SERVICE_DISCOVERY_LABEL_CLUSTER)
+
+
+def get_service_dns_name(
+        service_name, service_tag, service_cluster):
+    if service_tag and service_cluster:
+        raise ValueError(
+            "You can either specify service tag or service cluster. But not both.")
+    elif not service_tag and not service_cluster:
+        return "{}.service.cloudtik".format(service_name)
+    elif service_tag:
+        return "{}.{}.service.cloudtik".format(service_tag, service_name)
+    else:
+        return "cloudtik-c-{}.{}.service.cloudtik".format(service_cluster, service_name)
+
+
+def get_rfc2782_service_dns_name(
+        service_name, service_tag, service_cluster):
+    # The service dns name format of RFC 2782 lookup
+    # SRV queries must prepend service and protocol values with an underscore (_)
+    # or _<service>._<protocol>[.service][.<datacenter>].<domain>
+    # or _<service>._<tag>[.service][.<datacenter>].<domain>
+    if service_tag and service_cluster:
+        raise ValueError(
+            "You can either specify service tag or service cluster. But not both.")
+    elif not service_tag and not service_cluster:
+        return "_{}._tcp.service.cloudtik".format(service_name)
+    elif service_tag:
+        return "_{}._{}.service.cloudtik".format(service_name, service_tag)
+    else:
+        return "_{}._cloudtik-c-{}.service.cloudtik".format(service_name, service_cluster)

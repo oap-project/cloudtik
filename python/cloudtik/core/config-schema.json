@@ -1019,7 +1019,7 @@
                 },
                 "spark": {
                     "type": "object",
-                    "description": "Spark runtime related configurations",
+                    "description": "Spark runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "config": {
@@ -1106,7 +1106,7 @@
                 },
                 "ai": {
                     "type": "object",
-                    "description": "AI runtime related configurations",
+                    "description": "AI runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "with_oneapi": {
@@ -1133,7 +1133,7 @@
                 },
                 "ray": {
                     "type": "object",
-                    "description": "Ray runtime related configurations",
+                    "description": "Ray runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "scaling:": {
@@ -1152,7 +1152,7 @@
                 },
                 "flink": {
                     "type": "object",
-                    "description": "Flink runtime related configurations",
+                    "description": "Flink runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "config": {
@@ -1235,7 +1235,7 @@
                 },
                 "kafka": {
                     "type": "object",
-                    "description": "Kafka runtime related configurations",
+                    "description": "Kafka runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "config": {
@@ -1250,7 +1250,7 @@
                 },
                 "zookeeper": {
                     "type": "object",
-                    "description": "Zookeeper runtime related configurations",
+                    "description": "Zookeeper runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "config": {
@@ -1261,7 +1261,7 @@
                 },
                 "presto": {
                     "type": "object",
-                    "description": "Presto runtime related configurations",
+                    "description": "Presto runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "config": {
@@ -1285,7 +1285,7 @@
                 },
                 "sshserver": {
                     "type": "object",
-                    "description": "SSH Server runtime related configurations",
+                    "description": "SSH Server runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "port": {
@@ -1297,7 +1297,7 @@
                 },
                 "consul": {
                     "type": "object",
-                    "description": "Consul runtime related configurations",
+                    "description": "Consul runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "server": {
@@ -1313,7 +1313,7 @@
                 },
                 "prometheus": {
                     "type": "object",
-                    "description": "Prometheus runtime related configurations",
+                    "description": "Prometheus runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "port": {
@@ -1364,7 +1364,7 @@
                 },
                 "node_exporter": {
                     "type": "object",
-                    "description": "Prometheus node exporter runtime related configurations",
+                    "description": "Prometheus node exporter runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "port": {
@@ -1376,7 +1376,7 @@
                 },
                 "grafana": {
                     "type": "object",
-                    "description": "Grafana runtime related configurations",
+                    "description": "Grafana runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "port": {
@@ -1410,7 +1410,7 @@
                 },
                 "haproxy": {
                     "type": "object",
-                    "description": "HAProxy runtime related configurations",
+                    "description": "HAProxy runtime configurations",
                     "additionalProperties": true,
                     "properties": {
                         "port": {
@@ -1445,7 +1445,7 @@
                                 "balance": {
                                     "type": "string",
                                     "default": "roundrobin",
-                                    "description": "The balance method of backend: roundrobin, leastconn, first, or random."
+                                    "description": "The backend balance algorithm and arguments: roundrobin, leastconn, first, random, hash and so."
                                 },
                                 "max_servers": {
                                     "type": "integer",
@@ -1463,6 +1463,82 @@
                                 "service_tag": {
                                     "type": "string",
                                     "description": "The service tag used for DNS discovery."
+                                },
+                                "service_cluster": {
+                                    "type": "string",
+                                    "description": "The cluster of the service. Service tag and service cluster are exclusive."
+                                },
+                                "servers": {
+                                    "type": "array",
+                                    "description": "Array of static servers for the backend.",
+                                    "items": {
+                                        "type": "string",
+                                        "description": "Server entry in format: host:port."
+                                    }
+                                },
+                                "session_persistence": {
+                                    "type": "string",
+                                    "default": "none",
+                                    "description": "The session persistence method: none, cookie or ip"
+                                }
+                            }
+                        }
+                    }
+                },
+                "nginx": {
+                    "type": "object",
+                    "description": "NGINX runtime configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 80,
+                            "description": "The server listen port."
+                        },
+                        "app_mode": {
+                            "type": "string",
+                            "default": "load-balancer",
+                            "description": "The application mode: web, load-balancer or gateway."
+                        },
+                        "high_availability": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to run a server on each node for high availability."
+                        },
+                        "backend": {
+                            "type": "object",
+                            "description": "Backend configurations",
+                            "properties": {
+                                "config_mode": {
+                                    "type": "string",
+                                    "default": "dns",
+                                    "description": "How the backend is configured: dns, static, dynamic"
+                                },
+                                "balance": {
+                                    "type": "string",
+                                    "default": "round_robin",
+                                    "description": "The backend balance algorithm and arguments: round_robin, least_conn, random, ip_hash or hash."
+                                },
+                                "selector": {
+                                    "$ref": "#/definitions/service_selector",
+                                    "description": "The selector for services for the backend."
+                                },
+                                 "service_name": {
+                                    "type": "string",
+                                    "description": "The service name used for DNS discovery."
+                                },
+                                "service_port": {
+                                    "type": "integer",
+                                    "default": 80,
+                                    "description": "The service port of the backend."
+                                },
+                                "service_tag": {
+                                    "type": "string",
+                                    "description": "The service tag used for DNS discovery."
+                                },
+                                "service_cluster": {
+                                    "type": "string",
+                                    "description": "The cluster of the service. Service tag and service cluster are exclusive."
                                 },
                                 "servers": {
                                     "type": "array",

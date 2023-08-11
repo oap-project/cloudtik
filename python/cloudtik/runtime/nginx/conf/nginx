@@ -1,0 +1,8 @@
+# Defaults for nginx initscript
+# sourced by /etc/init.d/nginx
+
+# Additional options that are passed to nginx
+DAEMON_ARGS=""
+
+# Change the config file location
+CONFFILE="{%nginx.home%}/conf/nginx.conf"

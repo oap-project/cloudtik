@@ -22,4 +22,4 @@ head_stop_commands:
 
 # Command to start on worker nodes. You don't need to change this.
 worker_stop_commands:
-    - cloudtik runtime services haproxy stop
+    - cloudtik runtime services haproxy stop  --reverse

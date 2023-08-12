@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional, Dict, Any
 
-from cloudtik.core._private.core_utils import deserialize_config, serialize_config, get_config_for_update, \
+from cloudtik.core._private.core_utils import deserialize_config, serialize_config, \
     get_list_for_update
 
 # The standard keys and values used for service discovery

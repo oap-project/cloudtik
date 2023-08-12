@@ -56,8 +56,9 @@ function configure_static_backend() {
 
 function configure_dynamic_backend() {
     # python discovery script will write upstream block and do reload if needed
-    cat ${output_dir}/nginx-load-balancer-static.conf >> ${nginx_config_file}
+    cat ${output_dir}/nginx-load-balancer-dynamic.conf >> ${nginx_config_file}
     mkdir -p ${NGINX_CONFIG_DIR}/upstreams
+    mkdir -p ${NGINX_CONFIG_DIR}/routers
 }
 
 function configure_load_balancer() {
@@ -86,7 +87,7 @@ function configure_api_gateway() {
     cat ${output_dir}/nginx-api-gateway-base.conf >> ${nginx_config_file}
     cp ${output_dir}/nginx-api-gateway.conf ${NGINX_CONFIG_DIR}/api-gateway.conf
     cp ${output_dir}/nginx-api-gateway-json-errors.conf ${NGINX_CONFIG_DIR}/api-gateway-json-errors.conf
-    mkdir -p ${NGINX_CONFIG_DIR}/api-gateway
+    mkdir -p ${NGINX_CONFIG_DIR}/routers
 
     if [ "${NGINX_CONFIG_MODE}" == "dns" ]; then
         configure_api_gateway_dns
@@ -104,7 +105,7 @@ function configure_nginx() {
     ETC_DEFAULT=/etc/default
     sudo mkdir -p ${ETC_DEFAULT}
 
-    sed -i "s#{%nginx.home%}#${NGINX_HOME}#g" ${output_dir}/nginx
+    sed -i "s#{%nginx.home%}#${NGINX_HOME}#g" `grep "{%nginx.home%}" -rl ${output_dir}`
     sudo cp ${output_dir}/nginx ${ETC_DEFAULT}/nginx
 
     NGINX_CONFIG_DIR=${NGINX_HOME}/conf

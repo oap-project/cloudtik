@@ -56,6 +56,8 @@ NGINX_BACKEND_BALANCE_HASH = "hash"
 
 NGINX_DISCOVER_BACKEND_SERVERS_INTERVAL = 15
 
+NGINX_LOAD_BALANCER_UPSTREAM_NAME = "backend"
+
 
 def _get_config(runtime_config: Dict[str, Any]):
     return runtime_config.get(NGINX_RUNTIME_CONFIG_KEY, {})
@@ -309,9 +311,9 @@ def _get_upstreams_config_dir():
         home_dir, "conf", "upstreams")
 
 
-def _get_api_gateway_config_dir():
+def _get_routers_config_dir():
     return os.path.join(
-        _get_home_dir(), "conf", "api-gateway")
+        _get_home_dir(), "conf", "routers")
 
 
 def _configure_static_backend(nginx_config):
@@ -327,18 +329,29 @@ def _save_load_balancer_upstream(servers, balance_method):
     upstreams_dir = _get_upstreams_config_dir()
     config_file = os.path.join(
         upstreams_dir, "load-balancer.conf")
-    _save_upstream_config(config_file, servers, balance_method)
+    _save_upstream_config(
+        config_file, NGINX_LOAD_BALANCER_UPSTREAM_NAME,
+        servers, balance_method)
+
+
+def _save_load_balancer_router():
+    routers_dir = _get_routers_config_dir()
+    config_file = os.path.join(
+        routers_dir, "load-balancer.conf")
+    _save_router_config(
+        config_file, "", NGINX_LOAD_BALANCER_UPSTREAM_NAME)
 
 
 def _save_upstream_config(
-        upstream_config_file, servers, balance_method):
-    with open(upstream_config_file, "a") as f:
+        upstream_config_file, backend_name,
+        servers, balance_method):
+    with open(upstream_config_file, "w") as f:
         # upstream block
-        f.write("upstream backend {\n")
+        f.write("upstream " + backend_name + " {\n")
         if balance_method and balance_method != NGINX_BACKEND_BALANCE_ROUND_ROBIN:
             f.write(f"    {balance_method};\n")
         for server in servers:
-            server_line = f"    server {server} max_fails=10 fail_timeout=30s slow_start=30s;\n"
+            server_line = f"    server {server} max_fails=10 fail_timeout=30s;\n"
             f.write(server_line)
         # end upstream block
         f.write("}\n")
@@ -352,7 +365,7 @@ def start_pull_server(head):
     runtime_config = get_runtime_config_from_node(head)
     nginx_config = _get_config(runtime_config)
 
-    app_mode = get_runtime_value("HAPROXY_APP_MODE")
+    app_mode = get_runtime_value("NGINX_APP_MODE")
     if app_mode == NGINX_APP_MODE_LOAD_BALANCER:
         discovery_class = "DiscoverBackendServers"
     else:
@@ -401,10 +414,13 @@ def update_load_balancer_configuration(
         backend_servers, balance_method):
     # write load balancer upstream config file
     servers = ["{}:{}".format(
-        backend_server[0], backend_server[1]) for backend_server in backend_servers]
-    _save_load_balancer_upstream(servers, balance_method)
+        server_address[0], server_address[1]
+    ) for _, server_address in backend_servers.items()]
 
-    # the upstream config is changed, relad the service
+    _save_load_balancer_upstream(servers, balance_method)
+    _save_load_balancer_router()
+
+    # the upstream config is changed, reload the service
     exec_with_call("sudo service nginx reload")
 
 
@@ -417,7 +433,8 @@ def update_api_gateway_dynamic_backends(
     _update_api_gateway_dynamic_upstreams(
         sorted_api_gateway_backends, balance_method)
     # write api-gateway config
-    _update_api_gateway_dynamic_routes(sorted_api_gateway_backends)
+    _update_api_gateway_dynamic_routers(
+        sorted_api_gateway_backends)
 
     # Need reload nginx if there is new backend added
     exec_with_call("sudo service nginx reload")
@@ -432,38 +449,44 @@ def _update_api_gateway_dynamic_upstreams(
         upstream_config_file = os.path.join(
             upstreams_dir, "{}.conf".format(backend_name))
         servers = ["{}:{}".format(
-            server_address[0], server_address[1]) for _, server_address in backend_servers.items()]
+            server_address[0], server_address[1]
+        ) for _, server_address in backend_servers.items()]
         _save_upstream_config(
-            upstream_config_file, servers, balance_method)
+            upstream_config_file, backend_name,
+            servers, balance_method)
 
 
-def _update_api_gateway_dynamic_routes(
+def _update_api_gateway_dynamic_routers(
         sorted_api_gateway_backends):
-    api_gateway_dir = _get_api_gateway_config_dir()
-    remove_files(api_gateway_dir)
+    routers_dir = _get_routers_config_dir()
+    remove_files(routers_dir)
 
     for backend_name, backend_service in sorted_api_gateway_backends:
-        api_gateway_file = os.path.join(api_gateway_dir,
-                                        "{}.conf".format(backend_name))
-        with open(api_gateway_file, "a") as f:
-            # for each backend, we generate a location block
-            f.write("location /" + backend_name + " {\n")
-            # proxy_pass http://backend;
-            f.write(f"    proxy_pass http://{backend_name};\n")
-            f.write("}\n")
+        router_file = os.path.join(
+            routers_dir, "{}.conf".format(backend_name))
+        _save_router_config(
+            router_file, backend_name, backend_name)
+
+
+def _save_router_config(router_file, location, backend_name):
+    with open(router_file, "w") as f:
+        # for each backend, we generate a location block
+        f.write("location /" + location + " {\n")
+        f.write(f"    proxy_pass http://{backend_name};\n")
+        f.write("}\n")
 
 
 def update_api_gateway_dns_backends(
         api_gateway_backends):
-    api_gateway_dir = _get_api_gateway_config_dir()
-    remove_files(api_gateway_dir)
+    routers_dir = _get_routers_config_dir()
+    remove_files(routers_dir)
 
     # sort to make the order to the backends are always the same
     sorted_api_gateway_backends = sorted(api_gateway_backends.items())
 
     for backend_name, backend_service in sorted_api_gateway_backends:
-        api_gateway_file = os.path.join(api_gateway_dir,
-                                        "{}.conf".format(backend_name))
+        router_file = os.path.join(
+            routers_dir, "{}.conf".format(backend_name))
 
         service_port = backend_service["service_port"]
         tags = backend_service.get("tags")
@@ -472,7 +495,7 @@ def update_api_gateway_dns_backends(
             backend_name, service_tag)
 
         variable_name = backend_name.replace('-', '_')
-        with open(api_gateway_file, "a") as f:
+        with open(router_file, "w") as f:
             # for each backend, we generate a location block
             f.write("location /" + backend_name + " {\n")
             f.write(f"    set ${variable_name}_servers {service_dns_name};\n")
@@ -481,4 +504,3 @@ def update_api_gateway_dns_backends(
 
     # Need reload nginx if there is new backend added
     exec_with_call("sudo service nginx reload")
-

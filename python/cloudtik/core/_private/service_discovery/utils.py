@@ -7,7 +7,8 @@ from cloudtik.core._private.core_utils import deserialize_config, serialize_conf
 # The standard keys and values used for service discovery
 
 SERVICE_DISCOVERY_PROTOCOL = "protocol"
-SERVICE_DISCOVERY_PROTOCOL_TCP = "TCP"
+SERVICE_DISCOVERY_PROTOCOL_TCP = "tcp"
+SERVICE_DISCOVERY_PROTOCOL_HTTP = "http"
 
 SERVICE_DISCOVERY_PORT = "port"
 
@@ -83,9 +84,12 @@ def define_runtime_service(
         service_discovery_config: Optional[Dict[str, Any]],
         service_port,
         node_kind=SERVICE_DISCOVERY_NODE_KIND_NODE,
+        protocol: str = None,
         metrics: bool = False):
+    if not protocol:
+        protocol = SERVICE_DISCOVERY_PROTOCOL_TCP
     service_def = {
-        SERVICE_DISCOVERY_PROTOCOL: SERVICE_DISCOVERY_PROTOCOL_TCP,
+        SERVICE_DISCOVERY_PROTOCOL: protocol,
         SERVICE_DISCOVERY_PORT: service_port,
     }
 
@@ -107,28 +111,33 @@ def define_runtime_service(
 def define_runtime_service_on_worker(
         service_discovery_config: Optional[Dict[str, Any]],
         service_port,
+        protocol: str = None,
         metrics: bool = False):
     return define_runtime_service(
         service_discovery_config,
         service_port,
         node_kind=SERVICE_DISCOVERY_NODE_KIND_WORKER,
+        protocol=protocol,
         metrics=metrics)
 
 
 def define_runtime_service_on_head(
         service_discovery_config,
         service_port,
+        protocol: str = None,
         metrics: bool = False):
     return define_runtime_service(
         service_discovery_config,
         service_port,
         node_kind=SERVICE_DISCOVERY_NODE_KIND_HEAD,
+        protocol=protocol,
         metrics=metrics)
 
 
 def define_runtime_service_on_head_or_all(
         service_discovery_config,
         service_port, head_or_all,
+        protocol: str = None,
         metrics: bool = False):
     node_kind = SERVICE_DISCOVERY_NODE_KIND_NODE \
         if head_or_all else SERVICE_DISCOVERY_NODE_KIND_HEAD
@@ -136,6 +145,7 @@ def define_runtime_service_on_head_or_all(
         service_discovery_config,
         service_port,
         node_kind=node_kind,
+        protocol=protocol,
         metrics=metrics)
 
 

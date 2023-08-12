@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
-    get_service_discovery_config
+    get_service_discovery_config, SERVICE_DISCOVERY_PROTOCOL_HTTP
 
 RUNTIME_PROCESSES = [
         # The first element is the substring to filter.
@@ -67,6 +67,7 @@ def _get_runtime_services(
     services = {
         service_name: define_runtime_service(
             service_discovery_config, service_port,
+            protocol=SERVICE_DISCOVERY_PROTOCOL_HTTP,
             metrics=True),
     }
     return services

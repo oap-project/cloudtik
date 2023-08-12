@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_AI
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
-    get_service_discovery_config
+    get_service_discovery_config, SERVICE_DISCOVERY_PROTOCOL_HTTP
 from cloudtik.core._private.utils import export_runtime_flags
 from cloudtik.runtime.common.utils import get_runtime_endpoints_of
 
@@ -93,6 +93,7 @@ def _get_runtime_services(
         service_discovery_config, cluster_name, MLFLOW_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_head(
-            service_discovery_config, MLFLOW_SERVICE_PORT),
+            service_discovery_config, MLFLOW_SERVICE_PORT,
+            protocol=SERVICE_DISCOVERY_PROTOCOL_HTTP),
     }
     return services

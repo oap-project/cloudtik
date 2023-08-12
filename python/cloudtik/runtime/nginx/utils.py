@@ -9,7 +9,7 @@ from cloudtik.core._private.runtime_utils import get_runtime_value, get_runtime_
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, \
     get_service_discovery_config, define_runtime_service_on_head_or_all, exclude_runtime_of_cluster, \
-    serialize_service_selector
+    serialize_service_selector, SERVICE_DISCOVERY_PROTOCOL_HTTP
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 from cloudtik.runtime.common.service_discovery.consul import get_service_dns_name, select_dns_service_tag
 
@@ -125,7 +125,9 @@ def _get_runtime_services(
     services = {
         service_name: define_runtime_service_on_head_or_all(
             service_discovery_config, service_port,
-            _is_high_availability(nginx_config))
+            _is_high_availability(nginx_config),
+            protocol=SERVICE_DISCOVERY_PROTOCOL_HTTP,
+        )
     }
     return services
 

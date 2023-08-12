@@ -11,7 +11,7 @@ from cloudtik.core._private.service_discovery.runtime_services import get_servic
     get_services_of_runtime
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service_on_head_or_all, get_service_discovery_config, \
-    SERVICE_DISCOVERY_PORT, serialize_service_selector
+    SERVICE_DISCOVERY_PORT, serialize_service_selector, SERVICE_DISCOVERY_PROTOCOL_HTTP
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
@@ -161,6 +161,7 @@ def _get_runtime_services(
         service_name: define_runtime_service_on_head_or_all(
             service_discovery_config, service_port,
             _is_high_availability(grafana_config),
+            protocol=SERVICE_DISCOVERY_PROTOCOL_HTTP,
             metrics=True),
     }
     return services

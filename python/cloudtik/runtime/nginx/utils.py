@@ -339,7 +339,7 @@ def _save_load_balancer_router():
     config_file = os.path.join(
         routers_dir, "load-balancer.conf")
     _save_router_config(
-        config_file, NGINX_LOAD_BALANCER_UPSTREAM_NAME)
+        config_file, "", NGINX_LOAD_BALANCER_UPSTREAM_NAME)
 
 
 def _save_upstream_config(
@@ -414,7 +414,8 @@ def update_load_balancer_configuration(
         backend_servers, balance_method):
     # write load balancer upstream config file
     servers = ["{}:{}".format(
-        backend_server[0], backend_server[1]) for backend_server in backend_servers]
+        server_address[0], server_address[1]
+    ) for _, server_address in backend_servers.items()]
 
     _save_load_balancer_upstream(servers, balance_method)
     _save_load_balancer_router()
@@ -463,13 +464,14 @@ def _update_api_gateway_dynamic_routers(
     for backend_name, backend_service in sorted_api_gateway_backends:
         router_file = os.path.join(
             routers_dir, "{}.conf".format(backend_name))
-        _save_router_config(router_file, backend_name)
+        _save_router_config(
+            router_file, backend_name, backend_name)
 
 
-def _save_router_config(router_file, backend_name):
+def _save_router_config(router_file, location, backend_name):
     with open(router_file, "w") as f:
         # for each backend, we generate a location block
-        f.write("location /" + backend_name + " {\n")
+        f.write("location /" + location + " {\n")
         f.write(f"    proxy_pass http://{backend_name};\n")
         f.write("}\n")
 

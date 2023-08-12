@@ -145,8 +145,10 @@ def _validate_config(config: Dict[str, Any]):
             if not service_name:
                 raise ValueError("Service name must be configured for config mode: dns.")
     else:
-        if config_mode and config_mode != NGINX_CONFIG_MODE_DNS:
-            raise ValueError("API Gateway mode support only DNS config mode.")
+        if config_mode and (
+                config_mode != NGINX_CONFIG_MODE_DNS and
+                config_mode != NGINX_CONFIG_MODE_DYNAMIC):
+            raise ValueError("API Gateway mode support only DNS and dynamic config mode.")
 
 
 def _with_runtime_environment_variables(
@@ -307,6 +309,11 @@ def _get_upstreams_config_dir():
         home_dir, "conf", "upstreams")
 
 
+def _get_api_gateway_config_dir():
+    return os.path.join(
+        _get_home_dir(), "conf", "api-gateway")
+
+
 def _configure_static_backend(nginx_config):
     backend_config = _get_backend_config(nginx_config)
     servers = backend_config.get(
@@ -432,7 +439,7 @@ def _update_api_gateway_dynamic_upstreams(
 
 def _update_api_gateway_dynamic_routes(
         sorted_api_gateway_backends):
-    api_gateway_dir = os.path.join(_get_home_dir(), "conf", "api-gateway")
+    api_gateway_dir = _get_api_gateway_config_dir()
     remove_files(api_gateway_dir)
 
     for backend_name, backend_service in sorted_api_gateway_backends:
@@ -448,7 +455,7 @@ def _update_api_gateway_dynamic_routes(
 
 def update_api_gateway_dns_backends(
         api_gateway_backends):
-    api_gateway_dir = os.path.join(_get_home_dir(), "conf", "api-gateway")
+    api_gateway_dir = _get_api_gateway_config_dir()
     remove_files(api_gateway_dir)
 
     # sort to make the order to the backends are always the same

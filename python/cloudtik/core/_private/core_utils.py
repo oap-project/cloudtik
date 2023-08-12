@@ -888,3 +888,10 @@ def get_list_for_update(config, config_key):
     if config_key not in config:
         config[config_key] = []
     return config[config_key]
+
+
+def remove_files(path):
+    # remove all existing files
+    file_names = os.listdir(path)
+    for file_name in file_names:
+        os.remove(os.path.join(path, file_name))

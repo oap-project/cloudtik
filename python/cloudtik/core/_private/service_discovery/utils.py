@@ -169,7 +169,7 @@ def deserialize_service_selector(service_selector_str):
     return deserialize_config(service_selector_str)
 
 
-def _exclude_runtime_of_cluster(
+def exclude_runtime_of_cluster(
         service_selector, runtime, cluster_name):
     if not (runtime or cluster_name):
         return

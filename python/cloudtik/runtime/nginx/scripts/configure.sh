@@ -32,8 +32,9 @@ function check_nginx_installed() {
 }
 
 function configure_web() {
-    local config_template_file=${output_dir}/nginx-web.conf
-    cat ${config_template_file} >> ${nginx_config_file}
+    cat ${output_dir}/nginx-web-base.conf >> ${nginx_config_file}
+    mkdir -p ${NGINX_CONFIG_DIR}/web
+    cp ${output_dir}/nginx-web.conf ${NGINX_CONFIG_DIR}/web/web.conf
 }
 
 function configure_dns_backend() {
@@ -48,8 +49,15 @@ function configure_dns_backend() {
 }
 
 function configure_static_backend() {
-    # python configure script will write http block
-    :
+    # python configure script will write upstream block
+    cat ${output_dir}/nginx-load-balancer-static.conf >> ${nginx_config_file}
+    mkdir -p ${NGINX_CONFIG_DIR}/upstreams
+}
+
+function configure_dynamic_backend() {
+    # python discovery script will write upstream block and do reload if needed
+    cat ${output_dir}/nginx-load-balancer-static.conf >> ${nginx_config_file}
+    mkdir -p ${NGINX_CONFIG_DIR}/upstreams
 }
 
 function configure_load_balancer() {
@@ -57,8 +65,35 @@ function configure_load_balancer() {
         configure_dns_backend
     elif [ "${NGINX_CONFIG_MODE}" == "static" ]; then
         configure_static_backend
+    elif [ "${NGINX_CONFIG_MODE}" == "dynamic" ]; then
+        configure_dynamic_backend
     else
-        echo "WARNING: Unsupported configure mode: ${NGINX_CONFIG_MODE}"
+        echo "WARNING: Unsupported configure mode for load balancer: ${NGINX_CONFIG_MODE}"
+    fi
+}
+
+function configure_api_gateway_dns() {
+    # discovery services will discovery the api backends
+    :
+}
+
+function configure_api_gateway_dynamic() {
+    # discovery services will discovery the api backends and upstream servers
+    mkdir -p ${NGINX_CONFIG_DIR}/upstreams
+}
+
+function configure_api_gateway() {
+    cat ${output_dir}/nginx-api-gateway-base.conf >> ${nginx_config_file}
+    cp ${output_dir}/nginx-api-gateway.conf ${NGINX_CONFIG_DIR}/api-gateway.conf
+    cp ${output_dir}/nginx-api-gateway-json-errors.conf ${NGINX_CONFIG_DIR}/api-gateway-json-errors.conf
+    mkdir -p ${NGINX_CONFIG_DIR}/api-gateway
+
+    if [ "${NGINX_CONFIG_MODE}" == "dns" ]; then
+        configure_api_gateway_dns
+    elif [ "${NGINX_CONFIG_MODE}" == "dynamic" ]; then
+        configure_api_gateway_dynamic
+    else
+        echo "WARNING: Unsupported configure mode for API gateway: ${NGINX_CONFIG_MODE}"
     fi
 }
 
@@ -82,6 +117,10 @@ function configure_nginx() {
         configure_web
     elif [ "${NGINX_APP_MODE}" == "load-balancer" ]; then
         configure_load_balancer
+    elif [ "${NGINX_APP_MODE}" == "api-gateway" ]; then
+        configure_api_gateway
+    else
+        echo "WARNING: Unknown application mode: ${NGINX_APP_MODE}"
     fi
 
     cp ${nginx_config_file} ${NGINX_CONFIG_DIR}/nginx.conf

@@ -1,13 +1,17 @@
 import os
+from shlex import quote
 from typing import Any, Dict
 
-from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP
+from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_CLUSTER
+from cloudtik.core._private.core_utils import exec_with_call, exec_with_output, remove_files
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_NGINX
 from cloudtik.core._private.runtime_utils import get_runtime_value, get_runtime_config_from_node
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, \
-    get_service_discovery_config, define_runtime_service_on_head_or_all
+    get_service_discovery_config, define_runtime_service_on_head_or_all, exclude_runtime_of_cluster, \
+    serialize_service_selector
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
-from cloudtik.runtime.common.service_discovery.consul import get_service_dns_name
+from cloudtik.runtime.common.service_discovery.consul import get_service_dns_name, select_dns_service_tag
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -38,12 +42,10 @@ NGINX_SERVICE_PORT_DEFAULT = 80
 
 NGINX_APP_MODE_WEB = "web"
 NGINX_APP_MODE_LOAD_BALANCER = "load-balancer"
-# gateway currently not implemented
-NGINX_APP_MODE_GATEWAY = "gateway"
+NGINX_APP_MODE_API_GATEWAY = "api-gateway"
 
 NGINX_CONFIG_MODE_DNS = "dns"
 NGINX_CONFIG_MODE_STATIC = "static"
-# dynamic currently not implemented
 NGINX_CONFIG_MODE_DYNAMIC = "dynamic"
 
 NGINX_BACKEND_BALANCE_ROUND_ROBIN = "round_robin"
@@ -51,6 +53,8 @@ NGINX_BACKEND_BALANCE_LEAST_CONN = "least_conn"
 NGINX_BACKEND_BALANCE_RANDOM = "random"
 NGINX_BACKEND_BALANCE_IP_HASH = "ip_hash"
 NGINX_BACKEND_BALANCE_HASH = "hash"
+
+NGINX_DISCOVER_BACKEND_SERVERS_INTERVAL = 15
 
 
 def _get_config(runtime_config: Dict[str, Any]):
@@ -140,6 +144,11 @@ def _validate_config(config: Dict[str, Any]):
             service_name = backend_config.get(NGINX_BACKEND_SERVICE_NAME_CONFIG_KEY)
             if not service_name:
                 raise ValueError("Service name must be configured for config mode: dns.")
+    else:
+        if config_mode and (
+                config_mode != NGINX_CONFIG_MODE_DNS and
+                config_mode != NGINX_CONFIG_MODE_DYNAMIC):
+            raise ValueError("API Gateway mode support only DNS and dynamic config mode.")
 
 
 def _with_runtime_environment_variables(
@@ -164,9 +173,12 @@ def _with_runtime_environment_variables(
     elif app_mode == NGINX_APP_MODE_LOAD_BALANCER:
         _with_runtime_envs_for_load_balancer(
             config, backend_config, runtime_envs)
+    elif app_mode == NGINX_APP_MODE_API_GATEWAY:
+        _with_runtime_envs_for_api_gateway(
+            config, backend_config, runtime_envs)
     else:
         raise ValueError("Invalid application mode: {}. "
-                         "Must be web or load-balancer.".format(app_mode))
+                         "Must be web, load-balancer or api-gateway.".format(app_mode))
 
     balance = backend_config.get(
         NGINX_BACKEND_BALANCE_CONFIG_KEY)
@@ -186,8 +198,11 @@ def _get_default_load_balancer_config_mode(config, backend_config):
         if backend_config.get(
                 NGINX_BACKEND_SELECTOR_CONFIG_KEY):
             config_mode = NGINX_CONFIG_MODE_DYNAMIC
-        else:
+        elif backend_config.get(
+                NGINX_BACKEND_SERVICE_NAME_CONFIG_KEY):
             config_mode = NGINX_CONFIG_MODE_DNS
+        else:
+            config_mode = NGINX_CONFIG_MODE_DYNAMIC
     else:
         config_mode = NGINX_CONFIG_MODE_STATIC
     return config_mode
@@ -246,6 +261,32 @@ def _with_runtime_envs_for_dynamic(backend_config, runtime_envs):
     pass
 
 
+def _get_default_api_gateway_config_mode(config, backend_config):
+    cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
+    if not get_service_discovery_runtime(cluster_runtime_config):
+        raise ValueError("Service discovery runtime is needed for API gateway mode.")
+
+    if backend_config.get(
+            NGINX_BACKEND_SELECTOR_CONFIG_KEY):
+        config_mode = NGINX_CONFIG_MODE_DYNAMIC
+    elif backend_config.get(
+            NGINX_BACKEND_SERVICE_NAME_CONFIG_KEY):
+        config_mode = NGINX_CONFIG_MODE_DNS
+    else:
+        config_mode = NGINX_CONFIG_MODE_DYNAMIC
+    return config_mode
+
+
+def _with_runtime_envs_for_api_gateway(
+        config, backend_config, runtime_envs):
+    config_mode = backend_config.get(NGINX_BACKEND_CONFIG_MODE_CONFIG_KEY)
+    if not config_mode:
+        config_mode = _get_default_api_gateway_config_mode(
+            config, backend_config)
+
+    runtime_envs["NGINX_CONFIG_MODE"] = config_mode
+
+
 ###################################
 # Calls from node when configuring
 ###################################
@@ -262,41 +303,182 @@ def configure_backend(head):
             _configure_static_backend(nginx_config)
 
 
+def _get_upstreams_config_dir():
+    home_dir = _get_home_dir()
+    return os.path.join(
+        home_dir, "conf", "upstreams")
+
+
+def _get_api_gateway_config_dir():
+    return os.path.join(
+        _get_home_dir(), "conf", "api-gateway")
+
+
 def _configure_static_backend(nginx_config):
     backend_config = _get_backend_config(nginx_config)
     servers = backend_config.get(
         NGINX_BACKEND_SERVERS_CONFIG_KEY)
-
     balance_method = get_runtime_value("NGINX_BACKEND_BALANCE")
-    bind_ip = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_IP)
-    bind_port = get_runtime_value("NGINX_LISTEN_PORT")
+    _save_load_balancer_upstream(
+        servers, balance_method)
 
-    server_block = f"""
-    server {{
-        listen {bind_ip}:{bind_port};\n
-        location / {{
-            proxy_pass http://backend;
-        }}
-    }}
-"""
 
-    home_dir = _get_home_dir()
+def _save_load_balancer_upstream(servers, balance_method):
+    upstreams_dir = _get_upstreams_config_dir()
     config_file = os.path.join(
-        home_dir, "conf", "nginx.conf")
-    with open(config_file, "a") as f:
-        # http block
-        f.write("http {\n")
+        upstreams_dir, "load-balancer.conf")
+    _save_upstream_config(config_file, servers, balance_method)
 
+
+def _save_upstream_config(
+        upstream_config_file, servers, balance_method):
+    with open(upstream_config_file, "a") as f:
         # upstream block
-        f.write("    upstream backend {\n")
+        f.write("upstream backend {\n")
         if balance_method and balance_method != NGINX_BACKEND_BALANCE_ROUND_ROBIN:
             f.write(f"    {balance_method};\n")
         for server in servers:
-            server_line = f"server {server} max_fails=10 fail_timeout=30s slow_start=30s;\n"
+            server_line = f"    server {server} max_fails=10 fail_timeout=30s slow_start=30s;\n"
             f.write(server_line)
         # end upstream block
-        f.write("    }\n")
-        # server block
-        f.write(server_block)
-        # end http block
         f.write("}\n")
+
+
+def _get_pull_identifier():
+    return "{}-discovery".format(NGINX_SERVICE_NAME)
+
+
+def start_pull_server(head):
+    runtime_config = get_runtime_config_from_node(head)
+    nginx_config = _get_config(runtime_config)
+
+    app_mode = get_runtime_value("HAPROXY_APP_MODE")
+    if app_mode == NGINX_APP_MODE_LOAD_BALANCER:
+        discovery_class = "DiscoverBackendServers"
+    else:
+        config_mode = get_runtime_value("NGINX_CONFIG_MODE")
+        if config_mode == NGINX_CONFIG_MODE_DNS:
+            discovery_class = "DiscoverAPIGatewayBackends"
+        else:
+            discovery_class = "DiscoverAPIGatewayBackendServers"
+
+    service_selector = nginx_config.get(
+            NGINX_BACKEND_SELECTOR_CONFIG_KEY, {})
+    cluster_name = get_runtime_value(CLOUDTIK_RUNTIME_ENV_CLUSTER)
+    exclude_runtime_of_cluster(
+        service_selector, BUILT_IN_RUNTIME_NGINX, cluster_name)
+
+    service_selector_str = serialize_service_selector(service_selector)
+
+    pull_identifier = _get_pull_identifier()
+
+    cmd = ["cloudtik", "node", "pull", pull_identifier, "start"]
+    cmd += ["--pull-class=cloudtik.runtime.nginx.discovery.{}".format(
+        discovery_class)]
+    cmd += ["--interval={}".format(
+        NGINX_DISCOVER_BACKEND_SERVERS_INTERVAL)]
+    # job parameters
+    if service_selector_str:
+        cmd += ["service_selector={}".format(service_selector_str)]
+
+    balance_method = get_runtime_value("NGINX_BACKEND_BALANCE")
+    if balance_method:
+        cmd += ["balance_method={}".format(
+            quote(balance_method))]
+
+    cmd_str = " ".join(cmd)
+    exec_with_output(cmd_str)
+
+
+def stop_pull_server():
+    pull_identifier = _get_pull_identifier()
+    cmd = ["cloudtik", "node", "pull", pull_identifier, "stop"]
+    cmd_str = " ".join(cmd)
+    exec_with_output(cmd_str)
+
+
+def update_load_balancer_configuration(
+        backend_servers, balance_method):
+    # write load balancer upstream config file
+    servers = ["{}:{}".format(
+        backend_server[0], backend_server[1]) for backend_server in backend_servers]
+    _save_load_balancer_upstream(servers, balance_method)
+
+    # the upstream config is changed, relad the service
+    exec_with_call("sudo service nginx reload")
+
+
+def update_api_gateway_dynamic_backends(
+        api_gateway_backends, balance_method):
+    # sort to make the order to the backends are always the same
+    sorted_api_gateway_backends = sorted(api_gateway_backends.items())
+
+    # write upstreams config
+    _update_api_gateway_dynamic_upstreams(
+        sorted_api_gateway_backends, balance_method)
+    # write api-gateway config
+    _update_api_gateway_dynamic_routes(sorted_api_gateway_backends)
+
+    # Need reload nginx if there is new backend added
+    exec_with_call("sudo service nginx reload")
+
+
+def _update_api_gateway_dynamic_upstreams(
+        sorted_api_gateway_backends, balance_method):
+    upstreams_dir = _get_upstreams_config_dir()
+    remove_files(upstreams_dir)
+
+    for backend_name, backend_servers in sorted_api_gateway_backends:
+        upstream_config_file = os.path.join(
+            upstreams_dir, "{}.conf".format(backend_name))
+        servers = ["{}:{}".format(
+            server_address[0], server_address[1]) for _, server_address in backend_servers.items()]
+        _save_upstream_config(
+            upstream_config_file, servers, balance_method)
+
+
+def _update_api_gateway_dynamic_routes(
+        sorted_api_gateway_backends):
+    api_gateway_dir = _get_api_gateway_config_dir()
+    remove_files(api_gateway_dir)
+
+    for backend_name, backend_service in sorted_api_gateway_backends:
+        api_gateway_file = os.path.join(api_gateway_dir,
+                                        "{}.conf".format(backend_name))
+        with open(api_gateway_file, "a") as f:
+            # for each backend, we generate a location block
+            f.write("location /" + backend_name + " {\n")
+            # proxy_pass http://backend;
+            f.write(f"    proxy_pass http://{backend_name};\n")
+            f.write("}\n")
+
+
+def update_api_gateway_dns_backends(
+        api_gateway_backends):
+    api_gateway_dir = _get_api_gateway_config_dir()
+    remove_files(api_gateway_dir)
+
+    # sort to make the order to the backends are always the same
+    sorted_api_gateway_backends = sorted(api_gateway_backends.items())
+
+    for backend_name, backend_service in sorted_api_gateway_backends:
+        api_gateway_file = os.path.join(api_gateway_dir,
+                                        "{}.conf".format(backend_name))
+
+        service_port = backend_service["service_port"]
+        tags = backend_service.get("tags")
+        service_tag = select_dns_service_tag(tags)
+        service_dns_name = get_service_dns_name(
+            backend_name, service_tag)
+
+        variable_name = backend_name.replace('-', '_')
+        with open(api_gateway_file, "a") as f:
+            # for each backend, we generate a location block
+            f.write("location /" + backend_name + " {\n")
+            f.write(f"    set ${variable_name}_servers {service_dns_name};\n")
+            f.write(f"    proxy_pass http://${variable_name}_servers:{service_port};\n")
+            f.write("}\n")
+
+    # Need reload nginx if there is new backend added
+    exec_with_call("sudo service nginx reload")
+

@@ -43,6 +43,7 @@ SERVICE_CHECK_INTERVAL_DEFAULT = 10
 SERVICE_CHECK_TIMEOUT_DEFAULT = 5
 
 CONSUL_TAG_CLUSTER_NAME_FORMAT = "cloudtik-c-{}"
+CONSUL_TAG_PROTOCOL_FORMAT = "cloudtik-p-{}"
 CONSUL_TAG_METRICS = "cloudtik-m-metrics"
 
 
@@ -151,6 +152,8 @@ def _generate_service_config(cluster_name, runtime_type, runtime_service):
     metrics = is_service_for_metrics(service_config)
     if metrics:
         tags.append(CONSUL_TAG_METRICS)
+
+    # TODO: protocol as tag
 
     labels = get_config_for_update(
         service_config, SERVICE_DISCOVERY_LABELS)

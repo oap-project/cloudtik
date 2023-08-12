@@ -12,7 +12,7 @@ from cloudtik.core._private.service_discovery.utils import \
     define_runtime_service_on_head_or_all, get_service_discovery_config, is_service_for_metrics, SERVICE_DISCOVERY_PORT, \
     SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, SERVICE_SELECTOR_LABELS, SERVICE_SELECTOR_EXCLUDE_LABELS, \
     SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_CLUSTERS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
-    SERVICE_DISCOVERY_LABEL_CLUSTER, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS
+    SERVICE_DISCOVERY_LABEL_CLUSTER, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS, SERVICE_DISCOVERY_PROTOCOL_HTTP
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
@@ -224,6 +224,7 @@ def _get_runtime_services(
         service_name: define_runtime_service_on_head_or_all(
             service_discovery_config, service_port,
             _is_high_availability(prometheus_config),
+            protocol=SERVICE_DISCOVERY_PROTOCOL_HTTP,
             metrics=True)
     }
     return services

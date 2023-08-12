@@ -147,10 +147,10 @@ class DiscoverAPIGatewayBackends(DiscoverJob):
         server_address = get_service_address(service_node)
 
         # get a common set of tags
-        tags = service_node.get("ServiceTags", [])
+        tags = set(service_node.get("ServiceTags", []))
         if tags:
             for service_node in service_nodes[1:]:
-                service_tags = service_node.get("ServiceTags", [])
+                service_tags = set(service_node.get("ServiceTags", []))
                 tags = tags.intersection(service_tags)
 
         backend_service = {

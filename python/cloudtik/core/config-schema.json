@@ -1426,7 +1426,7 @@
                         "app_mode": {
                             "type": "string",
                             "default": "load-balancer",
-                            "description": "The application mode: load-balancer or gateway."
+                            "description": "The application mode: load-balancer or api-gateway."
                         },
                         "high_availability": {
                             "type": "boolean",
@@ -1498,7 +1498,7 @@
                         "app_mode": {
                             "type": "string",
                             "default": "load-balancer",
-                            "description": "The application mode: web, load-balancer or gateway."
+                            "description": "The application mode: web, load-balancer or api-gateway."
                         },
                         "high_availability": {
                             "type": "boolean",

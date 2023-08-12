@@ -7,7 +7,7 @@ from cloudtik.runtime.common.service_discovery.consul \
 from cloudtik.runtime.haproxy.admin_api import list_backend_servers, enable_backend_slot, disable_backend_slot, \
     add_backend_slot, get_backend_server_address, delete_backend_slot, list_backends
 from cloudtik.runtime.haproxy.utils import update_configuration, get_default_server_name, \
-    HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS, update_gateway_configuration
+    HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS, update_api_gateway_configuration
 
 logger = logging.getLogger(__name__)
 
@@ -116,28 +116,28 @@ class DiscoverBackendServers(PullJob):
         return query_service_nodes(service_name, self.service_selector)
 
 
-class DiscoverGatewayBackendServers(PullJob):
-    """Pulling job for discovering backend targets for gateway backends
+class DiscoverAPIGatewayBackendServers(PullJob):
+    """Pulling job for discovering backend targets for API gateway backends
     and update HAProxy using Runtime API"""
 
     def __init__(self,
                  service_selector=None,
                  bind_ip=None,
                  bind_port=None,
-                 balance_type=None,
+                 balance_method=None,
                  ):
         self.service_selector = deserialize_service_selector(
             service_selector)
         self.bind_ip = bind_ip
         self.bind_port = bind_port
-        self.balance_type = balance_type
+        self.balance_method = balance_method
         # TODO: logging the job parameters
 
     def pull(self):
         selected_services = self._query_services()
         active_backends = _list_backends()
         new_backends = set()
-        gateway_backends = {}
+        api_gateway_backends = {}
         for service_name in selected_services:
             service_nodes = self._query_service_nodes(service_name)
             # each node is a data source. if many nodes form a load balancer in a cluster
@@ -159,14 +159,14 @@ class DiscoverGatewayBackendServers(PullJob):
                 _update_backend(backend_name, backend_servers)
             else:
                 new_backends.add(backend_name)
-            gateway_backends[service_name] = backend_servers
+            api_gateway_backends[service_name] = backend_servers
 
         # Finally, rebuild the HAProxy configuration for restarts/reloads
-        update_gateway_configuration(
-            gateway_backends, new_backends,
+        update_api_gateway_configuration(
+            api_gateway_backends, new_backends,
             bind_ip=self.bind_ip,
             bind_port=self.bind_port,
-            balance_type=self.balance_type)
+            balance_method=self.balance_method)
 
     def _query_services(self):
         return query_services(self.service_selector)

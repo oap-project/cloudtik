@@ -14,6 +14,9 @@ CONSUL_CLIENT_ADDRESS = "127.0.0.1"
 CONSUL_CLIENT_PORT = 8500
 CONSUL_REQUEST_TIMEOUT = 5
 
+CONSUl_SYSTEM_TAG_PREFIX = "cloudtik-"
+CONSUl_CLUSTER_TAG_PREFIX = "cloudtik-c-"
+
 
 def consul_api_get(endpoint: str):
     endpoint_url = REST_ENDPOINT_URL_FORMAT.format(
@@ -153,7 +156,7 @@ def get_service_cluster(service_node):
 
 
 def get_service_dns_name(
-        service_name, service_tag, service_cluster):
+        service_name, service_tag=None, service_cluster=None):
     if service_tag and service_cluster:
         raise ValueError(
             "You can either specify service tag or service cluster. But not both.")
@@ -162,11 +165,12 @@ def get_service_dns_name(
     elif service_tag:
         return "{}.{}.service.cloudtik".format(service_tag, service_name)
     else:
-        return "cloudtik-c-{}.{}.service.cloudtik".format(service_cluster, service_name)
+        return "{}{}.{}.service.cloudtik".format(
+            CONSUl_CLUSTER_TAG_PREFIX, service_cluster, service_name)
 
 
 def get_rfc2782_service_dns_name(
-        service_name, service_tag, service_cluster):
+        service_name, service_tag=None, service_cluster=None):
     # The service dns name format of RFC 2782 lookup
     # SRV queries must prepend service and protocol values with an underscore (_)
     # or _<service>._<protocol>[.service][.<datacenter>].<domain>
@@ -179,4 +183,22 @@ def get_rfc2782_service_dns_name(
     elif service_tag:
         return "_{}._{}.service.cloudtik".format(service_name, service_tag)
     else:
-        return "_{}._cloudtik-c-{}.service.cloudtik".format(service_name, service_cluster)
+        return "_{}._{}{}.service.cloudtik".format(
+            service_name, CONSUl_CLUSTER_TAG_PREFIX, service_cluster)
+
+
+def select_dns_service_tag(tags):
+    if not tags:
+        return None
+
+    # select cluster tag if exists, otherwise a user tag
+    user_tag = None
+    for tag in tags:
+        if tag.startswith(CONSUl_CLUSTER_TAG_PREFIX):
+            return tag
+        elif not user_tag and not tag.startswith(CONSUl_SYSTEM_TAG_PREFIX):
+            user_tag = tag
+    if user_tag:
+        return user_tag
+
+    return tags[0]

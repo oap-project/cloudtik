@@ -1,5 +1,6 @@
 import os
 import shutil
+from shlex import quote
 from typing import Any, Dict
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_CLUSTER, CLOUDTIK_RUNTIME_ENV_NODE_IP
@@ -9,7 +10,7 @@ from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, g
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, \
     get_service_discovery_config, serialize_service_selector, define_runtime_service_on_head_or_all, \
-    _exclude_runtime_of_cluster
+    exclude_runtime_of_cluster
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 from cloudtik.runtime.common.service_discovery.consul import get_rfc2782_service_dns_name
 from cloudtik.runtime.haproxy.admin_api import get_backend_server_name
@@ -48,7 +49,7 @@ HAPROXY_BACKEND_MAX_SERVERS_DEFAULT = 32
 HAPROXY_BACKEND_DYNAMIC_FREE_SLOTS = 8
 
 HAPROXY_APP_MODE_LOAD_BALANCER = "load-balancer"
-HAPROXY_APP_MODE_GATEWAY = "gateway"
+HAPROXY_APP_MODE_API_GATEWAY = "api-gateway"
 
 HAPROXY_CONFIG_MODE_DNS = "dns"
 HAPROXY_CONFIG_MODE_STATIC = "static"
@@ -162,13 +163,13 @@ def _validate_config(config: Dict[str, Any]):
                 raise ValueError("Service name must be configured for config mode: dns.")
     else:
         if config_mode and config_mode != HAPROXY_CONFIG_MODE_DYNAMIC:
-            raise ValueError("Gateway mode support only dynamic config mode.")
+            raise ValueError("API Gateway mode support only dynamic config mode.")
 
-        # gateway should use http protocol
+        # API gateway should use http protocol
         service_protocol = haproxy_config.get(
             HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY)
         if service_protocol and service_protocol != HAPROXY_SERVICE_PROTOCOL_HTTP:
-            raise ValueError("Gateway mode should use http protocol.")
+            raise ValueError("API Gateway mode should use http protocol.")
 
 
 def _with_runtime_environment_variables(
@@ -195,12 +196,12 @@ def _with_runtime_environment_variables(
     if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
         _with_runtime_envs_for_load_balancer(
             config, backend_config, runtime_envs)
-    elif app_mode == HAPROXY_APP_MODE_GATEWAY:
-        _with_runtime_envs_for_gateway(
+    elif app_mode == HAPROXY_APP_MODE_API_GATEWAY:
+        _with_runtime_envs_for_api_gateway(
             config, backend_config, runtime_envs)
     else:
         raise ValueError("Invalid application mode: {}. "
-                         "Must be load-balancer or gateway.".format(app_mode))
+                         "Must be load-balancer or api-gateway.".format(app_mode))
 
     runtime_envs["HAPROXY_BACKEND_MAX_SERVERS"] = backend_config.get(
         HAPROXY_BACKEND_MAX_SERVERS_CONFIG_KEY,
@@ -273,20 +274,20 @@ def _with_runtime_envs_for_dynamic(backend_config, runtime_envs):
     pass
 
 
-def _get_default_gateway_config_mode(config, backend_config):
+def _get_default_api_gateway_config_mode(config, backend_config):
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
     if not get_service_discovery_runtime(cluster_runtime_config):
-        raise ValueError("Service discovery runtime is needed for gateway mode.")
+        raise ValueError("Service discovery runtime is needed for API gateway mode.")
 
-    # for simplicity, the gateway operates with the service selector
+    # for simplicity, the API gateway operates with the service selector
     config_mode = HAPROXY_CONFIG_MODE_DYNAMIC
     return config_mode
 
 
-def _with_runtime_envs_for_gateway(config, backend_config, runtime_envs):
+def _with_runtime_envs_for_api_gateway(config, backend_config, runtime_envs):
     config_mode = backend_config.get(HAPROXY_BACKEND_CONFIG_MODE_CONFIG_KEY)
     if not config_mode:
-        config_mode = _get_default_gateway_config_mode(
+        config_mode = _get_default_api_gateway_config_mode(
             config, backend_config)
 
     runtime_envs["HAPROXY_CONFIG_MODE"] = config_mode
@@ -375,12 +376,12 @@ def start_pull_server(head):
     if app_mode == HAPROXY_APP_MODE_LOAD_BALANCER:
         discovery_class = "DiscoverBackendServers"
     else:
-        discovery_class = "DiscoverGatewayBackendServers"
+        discovery_class = "DiscoverAPIGatewayBackendServers"
 
     service_selector = haproxy_config.get(
             HAPROXY_BACKEND_SELECTOR_CONFIG_KEY, {})
     cluster_name = get_runtime_value(CLOUDTIK_RUNTIME_ENV_CLUSTER)
-    _exclude_runtime_of_cluster(
+    exclude_runtime_of_cluster(
         service_selector, BUILT_IN_RUNTIME_HAPROXY, cluster_name)
 
     service_selector_str = serialize_service_selector(service_selector)
@@ -401,10 +402,11 @@ def start_pull_server(head):
         # the bind_ip, bind_port and balance type
         bind_ip = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_IP)
         bind_port = get_runtime_value("HAPROXY_FRONTEND_PORT")
-        balance_type = get_runtime_value("HAPROXY_BACKEND_BALANCE")
+        balance_method = get_runtime_value("HAPROXY_BACKEND_BALANCE")
         cmd += ["bind_ip={}".format(bind_ip)]
         cmd += ["bind_port={}".format(bind_port)]
-        cmd += ["balance_type={}".format(balance_type)]
+        cmd += ["balance_method={}".format(
+            quote(balance_method))]
 
     cmd_str = " ".join(cmd)
     exec_with_output(cmd_str)
@@ -454,9 +456,9 @@ def update_configuration(backend_servers):
     shutil.move(working_file, config_file)
 
 
-def update_gateway_configuration(
-        gateway_backends, new_backends,
-        bind_ip, bind_port, balance_type):
+def update_api_gateway_configuration(
+        api_gateway_backends, new_backends,
+        bind_ip, bind_port, balance_method):
     if not bind_port:
         bind_port = HAPROXY_SERVICE_PORT_DEFAULT
     service_protocol = HAPROXY_SERVICE_PROTOCOL_HTTP
@@ -468,10 +470,10 @@ def update_gateway_configuration(
     shutil.copyfile(template_file, working_file)
 
     # sort to make the order to the backends are always the same
-    sorted_gateway_backends = sorted(gateway_backends.items())
+    sorted_api_gateway_backends = sorted(api_gateway_backends.items())
 
     with open(working_file, "a") as f:
-        f.write("frontend service_gateway\n")
+        f.write("frontend api_gateway\n")
         if bind_ip:
             f.write(f"    bind {bind_ip}:{bind_port}\n")
         else:
@@ -479,7 +481,7 @@ def update_gateway_configuration(
         f.write(f"    mode {service_protocol}\n")
         f.write(f"    option {service_protocol}log\n")
         # route to a backend based on path's prefix
-        for backend_name, backend_servers in sorted_gateway_backends:
+        for backend_name, backend_servers in sorted_api_gateway_backends:
             f.write("    use_backend " + backend_name +
                     " if { path /" + backend_name +
                     " } || { path_beg /" + backend_name +
@@ -487,13 +489,13 @@ def update_gateway_configuration(
 
         f.write("\n")
         # write each backend
-        for backend_name, backend_servers in sorted_gateway_backends:
+        for backend_name, backend_servers in sorted_api_gateway_backends:
             backend_server_block = _get_backend_server_block(
                 backend_servers)
             f.write(f"backend {backend_name}\n")
             f.write(f"    mode {service_protocol}\n")
-            if balance_type:
-                f.write(f"    balance {balance_type}\n")
+            if balance_method:
+                f.write(f"    balance {balance_method}\n")
             f.write("    http-request replace-path /" + backend_name +
                     "(/)?(.*) /\\2\n")
             f.write(backend_server_block)

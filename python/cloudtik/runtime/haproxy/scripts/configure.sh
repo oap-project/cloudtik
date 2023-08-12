@@ -76,11 +76,10 @@ function configure_load_balancer() {
     fi
 }
 
-function configure_gateway() {
-    # python script will use this template to generate config for gateway backends
+function configure_api_gateway() {
+    # python script will use this template to generate config for API gateway backends
     cp ${haproxy_config_file} ${HAPROXY_CONFIG_DIR}/haproxy-template.cfg
 }
-
 
 function configure_haproxy() {
     prepare_base_conf
@@ -104,9 +103,10 @@ function configure_haproxy() {
 
     if [ "${HAPROXY_APP_MODE}" == "load-balancer" ]; then
         configure_load_balancer
+    elif [ "${NGINX_APP_MODE}" == "api-gateway" ]; then
+        configure_api_gateway
     else
-        # path based gateway dispatcher
-        configure_gateway
+        echo "WARNING: Unknown application mode: ${NGINX_APP_MODE}"
     fi
 
     cp ${haproxy_config_file} ${HAPROXY_CONFIG_DIR}/haproxy.cfg

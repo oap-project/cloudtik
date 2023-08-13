@@ -33,6 +33,7 @@ BUILT_IN_RUNTIME_ETCD = "etcd"
 BUILT_IN_RUNTIME_PROMETHEUS = "prometheus"
 BUILT_IN_RUNTIME_NODE_EXPORTER = "node_exporter"
 BUILT_IN_RUNTIME_GRAFANA = "grafana"
+BUILT_IN_RUNTIME_MYSQL = "mysql"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_PROMETHEUS, BUILT_IN_RUNTIME_NODE_EXPORTER, BUILT_IN_RUNTIME_SPARK]
 
@@ -127,6 +128,11 @@ def _import_grafana():
     return GrafanaRuntime
 
 
+def _import_mysql():
+    from cloudtik.runtime.mysql.runtime import MySQLRuntime
+    return MySQLRuntime
+
+
 _RUNTIMES = {
     "spark": _import_spark,
     "hdfs": _import_hdfs,
@@ -146,6 +152,7 @@ _RUNTIMES = {
     "prometheus": _import_prometheus,
     "node_exporter": _import_node_exporter,
     "grafana": _import_grafana,
+    "mysql": _import_mysql,
 }
 
 

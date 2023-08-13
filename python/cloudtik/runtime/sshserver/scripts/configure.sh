@@ -29,7 +29,7 @@ function prepare_base_conf() {
 function configure_ssh_server() {
     prepare_base_conf
 
-    sudo chown $(whoami):users ~/.ssh
+    sudo chown $(whoami):$(id -gn) ~/.ssh
     sudo chmod 700 ~/.ssh
 
     if [ ! -f "${SSH_HOST_KEY_FILE}" ]; then
@@ -38,7 +38,7 @@ function configure_ssh_server() {
     fi
 
     if [ -f "${SSH_AUTHORIZED_KEYS_FILE}" ]; then
-        sudo chown $(whoami):users ${SSH_AUTHORIZED_KEYS_FILE}
+        sudo chown $(whoami):$(id -gn) ${SSH_AUTHORIZED_KEYS_FILE}
         sudo chmod 600 ${SSH_AUTHORIZED_KEYS_FILE}
     fi
 
@@ -49,7 +49,7 @@ function configure_ssh_server() {
         # We don't overwrite the existing id_rsa. Any situation for problems?
         if [ -f "${BOOTSTRAP_PRIVATE_KEY_FILE}" ] && [ ! -f "${SSH_DEFAULT_PRIVATE_KEY_FILE}" ]; then
             cp ${BOOTSTRAP_PRIVATE_KEY_FILE} ${SSH_DEFAULT_PRIVATE_KEY_FILE}
-            sudo chown $(whoami):users ${SSH_DEFAULT_PRIVATE_KEY_FILE}
+            sudo chown $(whoami):$(id -gn) ${SSH_DEFAULT_PRIVATE_KEY_FILE}
             sudo chmod 600 ${SSH_DEFAULT_PRIVATE_KEY_FILE}
         fi
     fi

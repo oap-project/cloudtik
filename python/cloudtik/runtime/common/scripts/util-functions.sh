@@ -87,7 +87,7 @@ function get_data_disk_dirs() {
     echo "${data_disk_dirs}"
 }
 
-function get_any_data_disk_dir() {
+function get_first_data_disk_dir() {
     local data_disk_dir=""
     if [ -d "/mnt/cloudtik" ]; then
         for data_disk in /mnt/cloudtik/*; do

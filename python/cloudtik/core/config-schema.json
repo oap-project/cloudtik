@@ -1456,7 +1456,7 @@
                                     "$ref": "#/definitions/service_selector",
                                     "description": "The selector for services for the backend."
                                 },
-                                 "service_name": {
+                                "service_name": {
                                     "type": "string",
                                     "description": "The service name used for DNS discovery."
                                 },
@@ -1523,7 +1523,7 @@
                                     "$ref": "#/definitions/service_selector",
                                     "description": "The selector for services for the backend."
                                 },
-                                 "service_name": {
+                                "service_name": {
                                     "type": "string",
                                     "description": "The service name used for DNS discovery."
                                 },
@@ -1547,6 +1547,46 @@
                                         "type": "string",
                                         "description": "Server entry in format: host:port."
                                     }
+                                }
+                            }
+                        }
+                    }
+                },
+                "mysql": {
+                    "type": "object",
+                    "description": "MySQL runtime configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 80,
+                            "description": "The MySQL server port."
+                        },
+                        "high_availability": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to run a server on each node for high availability."
+                        },
+                        "root_password": {
+                            "type": "string",
+                            "default": "cloudtik",
+                            "description": "Specify a root password when initializing the MySQL instance."
+                        },
+                        "database": {
+                            "type": "object",
+                            "description": "Database configurations",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "Database to create at the initializing process."
+                                },
+                                "user": {
+                                    "type": "string",
+                                    "description": "The user to create and grant access for the database at the initializing process"
+                                },
+                                "password": {
+                                    "type": "string",
+                                    "description": "The password for the user set at the initializing process."
                                 }
                             }
                         }

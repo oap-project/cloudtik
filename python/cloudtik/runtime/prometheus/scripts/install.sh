@@ -12,12 +12,12 @@ export PROMETHEUS_NODE_EXPORTER_VERSION=1.6.1
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
+export PROMETHEUS_HOME=$RUNTIME_PATH/prometheus
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function install_prometheus() {
-    export PROMETHEUS_HOME=$RUNTIME_PATH/prometheus
     if [ ! -f "${PROMETHEUS_HOME}/prometheus" ]; then
         deb_arch=$(get_deb_arch)
         mkdir -p $RUNTIME_PATH

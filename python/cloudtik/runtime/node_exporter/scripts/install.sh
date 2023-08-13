@@ -11,13 +11,13 @@ export NODE_EXPORTER_VERSION=1.6.1
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
+export NODE_EXPORTER_HOME=$RUNTIME_PATH/node_exporter
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
 function install_node_exporter() {
     if [ ! -f "${NODE_EXPORTER_HOME}/node_exporter" ]; then
-        export NODE_EXPORTER_HOME=$RUNTIME_PATH/node_exporter
         deb_arch=$(get_deb_arch)
         mkdir -p $RUNTIME_PATH
         (cd $RUNTIME_PATH && wget -q --show-progress https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-${deb_arch}.tar.gz -O node_exporter.tar.gz && \

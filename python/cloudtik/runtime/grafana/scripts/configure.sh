@@ -39,7 +39,7 @@ function get_service_port() {
 }
 
 function get_data_dir() {
-    data_disk_dir=$(get_any_data_disk_dir)
+    data_disk_dir=$(get_first_data_disk_dir)
     if [ -z "$data_disk_dir" ]; then
         data_dir="${GRAFANA_HOME}/data"
     else

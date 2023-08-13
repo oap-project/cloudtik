@@ -11,6 +11,7 @@ export GRAFANA_VERSION=10.0.3
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime
+export GRAFANA_HOME=$RUNTIME_PATH/grafana
 
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
@@ -18,7 +19,6 @@ export RUNTIME_PATH=$USER_HOME/runtime
 function install_grafana() {
     if ! command -v grafana &> /dev/null
     then
-        export GRAFANA_HOME=$RUNTIME_PATH/grafana
         deb_arch=$(get_deb_arch)
         mkdir -p $RUNTIME_PATH
         (cd $RUNTIME_PATH && wget -q --show-progress https://dl.grafana.com/oss/release/grafana-${GRAFANA_VERSION}.linux-${deb_arch}.tar.gz -O grafana.tar.gz && \

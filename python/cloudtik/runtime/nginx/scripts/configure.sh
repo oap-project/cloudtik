@@ -22,7 +22,6 @@ function prepare_base_conf() {
     cp -r $source_dir/* $output_dir
 }
 
-
 function check_nginx_installed() {
     if ! command -v nginx &> /dev/null
     then

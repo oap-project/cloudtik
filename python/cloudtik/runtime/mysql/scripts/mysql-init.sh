@@ -381,9 +381,9 @@ _main() {
 		if [ -z "$DATABASE_ALREADY_EXISTS" ]; then
 			mysql_verify_minimum_env
 
-      if [ ! -z "${$MYSQL_INITDB_SCRIPTS}" ]; then
+			if [ ! -z "${MYSQL_INITDB_SCRIPTS}" ]; then
 			  # check dir permissions to reduce likelihood of half-initialized database
-			  ls ${$MYSQL_INITDB_SCRIPTS}/ > /dev/null
+			  ls ${MYSQL_INITDB_SCRIPTS}/ > /dev/null
 			fi
 
 			mysql_init_database_dir "$@"
@@ -395,9 +395,9 @@ _main() {
 			mysql_socket_fix
 			mysql_setup_db
 
-			if [ ! -z "${$MYSQL_INITDB_SCRIPTS}" ]; then
-			  mysql_process_init_files ${$MYSQL_INITDB_SCRIPTS}/*
-		  fi
+			if [ ! -z "${MYSQL_INITDB_SCRIPTS}" ]; then
+			  mysql_process_init_files ${MYSQL_INITDB_SCRIPTS}/*
+			fi
 
 			mysql_expire_root_user
 

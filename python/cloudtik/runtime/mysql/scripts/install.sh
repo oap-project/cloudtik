@@ -23,7 +23,7 @@ function install_mysql() {
         # download the signing key
         key='859BE8D7C586F538430B19C2467B942D3A79BD29'; \
         export GNUPGHOME="$(mktemp -d)"; \
-        sudo gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key"; \
+        sudo gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key" >/dev/null 2>&1; \
         sudo mkdir -p /etc/apt/keyrings; \
         sudo gpg --batch --export "$key" | sudo tee /etc/apt/keyrings/mysql.gpg >/dev/null; \
         sudo gpgconf --kill all; \
@@ -31,17 +31,17 @@ function install_mysql() {
 
 	      # install
         echo "deb [ signed-by=/etc/apt/keyrings/mysql.gpg ] http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" \
-          | sudo tee /etc/apt/sources.list.d/mysql.list > /dev/null
+          | sudo tee /etc/apt/sources.list.d/mysql.list >/dev/null
         { \
           echo mysql-community-server mysql-community-server/data-dir select ''; \
           echo mysql-community-server mysql-community-server/root-pass password ''; \
           echo mysql-community-server mysql-community-server/re-root-pass password ''; \
           echo mysql-community-server mysql-community-server/remove-test-db select false; \
         } | sudo debconf-set-selections \
-        && sudo apt-get update -y \
-        && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        && sudo apt-get -qq update -y >/dev/null \
+        && sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq -y \
           mysql-community-client="${MYSQL_VERSION}" \
-          mysql-community-server-core="${MYSQL_VERSION}" \
+          mysql-community-server-core="${MYSQL_VERSION}" >/dev/null \
         && sudo rm -f /etc/apt/sources.list.d/mysql.list
     fi
 }

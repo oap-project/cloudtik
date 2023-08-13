@@ -1559,7 +1559,7 @@
                     "properties": {
                         "port": {
                             "type": "integer",
-                            "default": 80,
+                            "default": 3306,
                             "description": "The MySQL server port."
                         },
                         "high_availability": {

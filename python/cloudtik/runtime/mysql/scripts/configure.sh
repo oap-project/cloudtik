@@ -48,17 +48,17 @@ function configure_mysql() {
 
     mkdir -p ${MYSQL_HOME}/logs
 
-    sudo mkdir -p /var/run/mysqld \
-    && sudo chown -R $(whoami):$(id -gn) /var/run/mysqld \
     # ensure that /var/run/mysqld (used for socket and lock files) is writable
     # regardless of the UID our mysqld instance ends up having at runtime
+    sudo mkdir -p /var/run/mysqld \
+    && sudo chown -R $(whoami):$(id -gn) /var/run/mysqld \
     && sudo chmod 1777 /var/run/mysqld
 
     update_data_dir
 
     MYSQL_CONFIG_DIR=${MYSQL_HOME}/conf
     mkdir -p ${MYSQL_CONFIG_DIR}
-    MYSQL_CONFIG_FILE=${MYSQL_HOME}/conf/my.cnf
+    MYSQL_CONFIG_FILE=${MYSQL_CONFIG_DIR}/my.cnf
     cp -r ${config_template_file} ${MYSQL_CONFIG_FILE}
 
     # check and initialize the database if needed

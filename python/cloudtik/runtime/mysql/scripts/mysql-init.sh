@@ -24,7 +24,7 @@ mysql_error() {
 # usage: file_env VAR [DEFAULT]
 #    ie: file_env 'XYZ_DB_PASSWORD' 'example'
 # (will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
-#  "$XYZ_DB_PASSWORD" from a file
+#  "$XYZ_DB_PASSWORD" from a file)
 file_env() {
 	local var="$1"
 	local fileVar="${var}_FILE"
@@ -413,7 +413,7 @@ _main() {
 		fi
 	fi
 	#  Use this as init script
-	# "$@"
+	# exec "$@"
 }
 
 # If we are sourced from elsewhere, don't perform any further actions

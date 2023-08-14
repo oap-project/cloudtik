@@ -3,15 +3,15 @@ from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
-from cloudtik.runtime.mysql.utils import _get_runtime_processes, \
+from cloudtik.runtime.postgres.utils import _get_runtime_processes, \
     _get_runtime_services, _with_runtime_environment_variables, \
     _get_runtime_logs, _get_runtime_endpoints, _get_head_service_ports, _validate_config
 
 logger = logging.getLogger(__name__)
 
 
-class MySQLRuntime(RuntimeBase):
-    """Implementation for MySQL Runtime for a high available replicated MySQL database cluster."""
+class PostgresRuntime(RuntimeBase):
+    """Implementation for Postgres Runtime for a high available replicated Postgres database cluster."""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
         super().__init__(runtime_config)

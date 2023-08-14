@@ -15,14 +15,14 @@ _runtime_instances = ConcurrentObjectCache()
 
 RUNTIME_MINIMAL_EXTERNAL_CONFIG = {}
 
+BUILT_IN_RUNTIME_AI = "ai"
+BUILT_IN_RUNTIME_SPARK = "spark"
 BUILT_IN_RUNTIME_HDFS = "hdfs"
 BUILT_IN_RUNTIME_METASTORE = "metastore"
-BUILT_IN_RUNTIME_SPARK = "spark"
 BUILT_IN_RUNTIME_PRESTO = "presto"
 BUILT_IN_RUNTIME_TRINO = "trino"
 BUILT_IN_RUNTIME_ZOOKEEPER = "zookeeper"
 BUILT_IN_RUNTIME_KAFKA = "kafka"
-BUILT_IN_RUNTIME_AI = "ai"
 BUILT_IN_RUNTIME_FLINK = "flink"
 BUILT_IN_RUNTIME_RAY = "ray"
 BUILT_IN_RUNTIME_SSHSERVER = "sshserver"
@@ -34,8 +34,14 @@ BUILT_IN_RUNTIME_PROMETHEUS = "prometheus"
 BUILT_IN_RUNTIME_NODE_EXPORTER = "node_exporter"
 BUILT_IN_RUNTIME_GRAFANA = "grafana"
 BUILT_IN_RUNTIME_MYSQL = "mysql"
+BUILT_IN_RUNTIME_POSTGRES = "postgres"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_PROMETHEUS, BUILT_IN_RUNTIME_NODE_EXPORTER, BUILT_IN_RUNTIME_SPARK]
+
+
+def _import_ai():
+    from cloudtik.runtime.ai.runtime import AIRuntime
+    return AIRuntime
 
 
 def _import_spark():
@@ -71,11 +77,6 @@ def _import_zookeeper():
 def _import_kafka():
     from cloudtik.runtime.kafka.runtime import KafkaRuntime
     return KafkaRuntime
-
-
-def _import_ai():
-    from cloudtik.runtime.ai.runtime import AIRuntime
-    return AIRuntime
 
 
 def _import_flink():
@@ -133,26 +134,32 @@ def _import_mysql():
     return MySQLRuntime
 
 
+def _import_postgres():
+    from cloudtik.runtime.postgres.runtime import PostgresRuntime
+    return PostgresRuntime
+
+
 _RUNTIMES = {
-    "spark": _import_spark,
-    "hdfs": _import_hdfs,
-    "metastore": _import_metastore,
-    "presto": _import_presto,
-    "trino": _import_trino,
-    "zookeeper": _import_zookeeper,
-    "kafka": _import_kafka,
-    "ai": _import_ai,
-    "flink": _import_flink,
-    "ray": _import_ray,
-    "sshserver": _import_ssh_server,
-    "consul": _import_consul,
-    "nginx": _import_nginx,
-    "haproxy": _import_haproxy,
-    "etcd": _import_etcd,
-    "prometheus": _import_prometheus,
-    "node_exporter": _import_node_exporter,
-    "grafana": _import_grafana,
-    "mysql": _import_mysql,
+    BUILT_IN_RUNTIME_AI: _import_ai,
+    BUILT_IN_RUNTIME_SPARK: _import_spark,
+    BUILT_IN_RUNTIME_HDFS: _import_hdfs,
+    BUILT_IN_RUNTIME_METASTORE: _import_metastore,
+    BUILT_IN_RUNTIME_PRESTO: _import_presto,
+    BUILT_IN_RUNTIME_TRINO: _import_trino,
+    BUILT_IN_RUNTIME_ZOOKEEPER: _import_zookeeper,
+    BUILT_IN_RUNTIME_KAFKA: _import_kafka,
+    BUILT_IN_RUNTIME_FLINK: _import_flink,
+    BUILT_IN_RUNTIME_RAY: _import_ray,
+    BUILT_IN_RUNTIME_SSHSERVER: _import_ssh_server,
+    BUILT_IN_RUNTIME_CONSUL: _import_consul,
+    BUILT_IN_RUNTIME_NGINX: _import_nginx,
+    BUILT_IN_RUNTIME_HAPROXY: _import_haproxy,
+    BUILT_IN_RUNTIME_ETCD: _import_etcd,
+    BUILT_IN_RUNTIME_PROMETHEUS: _import_prometheus,
+    BUILT_IN_RUNTIME_NODE_EXPORTER: _import_node_exporter,
+    BUILT_IN_RUNTIME_GRAFANA: _import_grafana,
+    BUILT_IN_RUNTIME_MYSQL: _import_mysql,
+    BUILT_IN_RUNTIME_POSTGRES: _import_postgres,
 }
 
 

@@ -4,6 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
     get_service_discovery_config
+from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
         # The first element is the substring to filter.
@@ -53,6 +54,17 @@ def _get_runtime_logs():
     home_dir = _get_home_dir()
     logs_dir = os.path.join(home_dir, "logs")
     return {"mysql": logs_dir}
+
+
+def _validate_config(config: Dict[str, Any]):
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
+    mysql_config = _get_config(runtime_config)
+
+    database = mysql_config.get(MYSQL_DATABASE_CONFIG_KEY, {})
+    user = database.get(MYSQL_DATABASE_USER_CONFIG_KEY)
+    password = database.get(MYSQL_DATABASE_PASSWORD_CONFIG_KEY)
+    if (user and not password) or (not user and password):
+        raise ValueError("User and password must be both specified or not specified.")
 
 
 def _with_runtime_environment_variables(

@@ -62,7 +62,8 @@ function configure_mysql() {
     cp -r ${config_template_file} ${MYSQL_CONFIG_FILE}
 
     # check and initialize the database if needed
-    bash $BIN_DIR/mysql-init.sh mysqld --defaults-file=${MYSQL_CONFIG_FILE}
+    bash $BIN_DIR/mysql-init.sh mysqld \
+        --defaults-file=${MYSQL_CONFIG_FILE} >${MYSQL_HOME}/logs/mysql-init.log 2>&1
 }
 
 set_head_option "$@"

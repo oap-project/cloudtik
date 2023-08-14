@@ -26,7 +26,8 @@ start)
         >${POSTGRES_HOME}/logs/postgres.log 2>&1 &
     ;;
 stop)
-    stop_process_by_name "postgres"
+    POSTGRES_PID_FILE=${POSTGRES_HOME}/postgres.pid
+    stop_process_by_pid_file "${POSTGRES_PID_FILE}"
     ;;
 -h|--help)
     echo "Usage: $0 start|stop --head" >&2

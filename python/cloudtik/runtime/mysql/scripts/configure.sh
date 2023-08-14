@@ -54,6 +54,8 @@ function configure_mysql() {
     && sudo chown -R $(whoami):$(id -gn) /var/run/mysqld \
     && sudo chmod 1777 /var/run/mysqld
 
+    sed -i "s#{%bind.address%}#${NODE_IP_ADDRESS}#g" ${config_template_file}
+    sed -i "s#{%bind.port%}#${MYSQL_SERVICE_PORT}#g" ${config_template_file}
     update_data_dir
 
     MYSQL_CONFIG_DIR=${MYSQL_HOME}/conf
@@ -68,6 +70,7 @@ function configure_mysql() {
 
 set_head_option "$@"
 check_mysql_installed
+set_node_ip_address
 configure_mysql
 
 exit 0

@@ -229,6 +229,9 @@ postgres_setup_env() {
 
 	file_env 'POSTGRES_USER' 'postgres'
 	file_env 'POSTGRES_DB' "$POSTGRES_USER"
+	file_env 'POSTGRES_DATABASE_NAME'
+	file_env 'POSTGRES_DATABASE_USER'
+	file_env 'POSTGRES_DATABASE_PASSWORD'
 	file_env 'POSTGRES_INITDB_ARGS'
 	: "${POSTGRES_HOST_AUTH_METHOD:=}"
 

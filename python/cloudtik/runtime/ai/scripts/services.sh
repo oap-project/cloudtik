@@ -78,7 +78,7 @@ function set_mlflow_server_config() {
         set_artifact_config_for_cloud_storage
     fi
 
-    if [ "${DEFAULT_ARTIFACT_ROOT}" == "" ]; then
+    if [ -z "${DEFAULT_ARTIFACT_ROOT}" ]; then
         DEFAULT_ARTIFACT_ROOT=${MLFLOW_DATA}/mlruns
     fi
 }
@@ -95,7 +95,10 @@ start)
         set_mlflow_server_config
 
         # Start MLflow service
-        nohup mlflow server --backend-store-uri ${BACKEND_STORE_URI} --default-artifact-root ${DEFAULT_ARTIFACT_ROOT} --host 0.0.0.0 -p 5001 >${MLFLOW_DATA}/logs/mlflow.log 2>&1 &
+        nohup mlflow server \
+            --backend-store-uri ${BACKEND_STORE_URI} \
+            --default-artifact-root ${DEFAULT_ARTIFACT_ROOT} \
+            --host 0.0.0.0 -p 5001 >${MLFLOW_DATA}/logs/mlflow.log 2>&1 &
     fi
     ;;
 stop)

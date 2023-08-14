@@ -57,6 +57,7 @@ function configure_postgres() {
 
     sed -i "s#{%listen.address%}#${NODE_IP_ADDRESS}#g" ${config_template_file}
     sed -i "s#{%listen.port%}#${POSTGRES_SERVICE_PORT}#g" ${config_template_file}
+    sed -i "s#{%postgres.home%}#${POSTGRES_HOME}#g" ${config_template_file}
 
     update_data_dir
 

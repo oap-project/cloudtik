@@ -147,6 +147,17 @@ postgres_verify_minimum_env() {
 		EOWARN
 	fi
 }
+postgres_init_db_and_user() {
+	if [ -n "$POSTGRES_DATABASE_NAME" ]; then
+		postgres_process_sql <<<"CREATE DATABASE ${POSTGRES_DATABASE_NAME};"
+	fi
+	if [ -n "$POSTGRES_DATABASE_USER" ] && [ -n "$POSTGRES_DATABASE_PASSWORD" ]; then
+		postgres_process_sql <<<"CREATE USER $POSTGRES_DATABASE_USER WITH PASSWORD '$POSTGRES_DATABASE_PASSWORD';"
+		if [ -n "$POSTGRES_DATABASE_NAME" ]; then
+			postgres_process_sql <<<"GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DATABASE_NAME} TO $POSTGRES_DATABASE_NAME;"
+		fi
+	fi
+}
 
 # usage: postgres_process_init_files [file [file [...]]]
 #    ie: postgres_process_init_files /always-initdb.d/*
@@ -323,6 +334,7 @@ _main() {
 			postgres_temp_server_start "$@"
 
 			postgres_setup_db
+			postgres_init_db_and_user
 			if [ ! -z "${POSTGRES_INITDB_SCRIPTS}" ]; then
 			  postgres_process_init_files ${POSTGRES_INITDB_SCRIPTS}/*
 			fi

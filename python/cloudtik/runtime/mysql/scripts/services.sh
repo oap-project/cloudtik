@@ -26,7 +26,8 @@ start)
         >${MYSQL_HOME}/logs/mysqld.log 2>&1 &
     ;;
 stop)
-    stop_process_by_name "mysqld"
+    MYSQL_PID_FILE=/var/run/mysqld/mysqld.pid
+    stop_process_by_pid_file "${MYSQL_PID_FILE}"
     ;;
 -h|--help)
     echo "Usage: $0 start|stop --head" >&2

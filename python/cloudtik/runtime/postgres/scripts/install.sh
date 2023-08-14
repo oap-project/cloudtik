@@ -21,7 +21,8 @@ function install_postgres() {
     then
         # make the "en_US.UTF-8" locale so postgres will be utf-8 enabled by default
         sudo apt-get -qq update -y >/dev/null \
-          && sudo apt-get install -qq -y --no-install-recommends locales libnss-wrapper zstd >/dev/null \
+          && sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq -y \
+              --no-install-recommends locales libnss-wrapper zstd >/dev/null \
           && sudo rm -rf /var/lib/apt/lists/* \
 	        && sudo localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
           && echo "export LANG=en_US.utf8" >> ${USER_HOME}/.bashrc

@@ -1570,7 +1570,52 @@
                         "root_password": {
                             "type": "string",
                             "default": "cloudtik",
-                            "description": "Specify a root password when initializing the MySQL instance."
+                            "description": "Specify the root user password when initializing the MySQL instance."
+                        },
+                        "database": {
+                            "type": "object",
+                            "description": "Database configurations",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "The name of the database to create at the initializing process."
+                                },
+                                "user": {
+                                    "type": "string",
+                                    "description": "The user to create and grant access for the database at the initializing process"
+                                },
+                                "password": {
+                                    "type": "string",
+                                    "description": "The password for the user set at the initializing process."
+                                }
+                            }
+                        }
+                    }
+                },
+                "postgres": {
+                    "type": "object",
+                    "description": "Postgres runtime configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 5432,
+                            "description": "Postgres server port."
+                        },
+                        "high_availability": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to run a server on each node for high availability."
+                        },
+                        "admin_user": {
+                            "type": "string",
+                            "default": "cloudtik",
+                            "description": "Specify the admin username when initializing the MySQL instance."
+                        },
+                        "admin_password": {
+                            "type": "string",
+                            "default": "cloudtik",
+                            "description": "Specify the admin password when initializing the MySQL instance."
                         },
                         "database": {
                             "type": "object",

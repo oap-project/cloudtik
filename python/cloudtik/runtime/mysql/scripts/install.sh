@@ -28,10 +28,10 @@ function install_mysql() {
         sudo gpg --batch --export "$key" | sudo tee /etc/apt/keyrings/mysql.gpg >/dev/null; \
         sudo gpgconf --kill all; \
         rm -rf "$GNUPGHOME"
-
-	      # install
         echo "deb [ signed-by=/etc/apt/keyrings/mysql.gpg ] http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" \
           | sudo tee /etc/apt/sources.list.d/mysql.list >/dev/null
+
+	      # install
         { \
           echo mysql-community-server mysql-community-server/data-dir select ''; \
           echo mysql-community-server mysql-community-server/root-pass password ''; \

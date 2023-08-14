@@ -16,17 +16,17 @@ set_node_ip_address
 
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
-MYSQL_HOME=$RUNTIME_PATH/mysql
+POSTGRES_HOME=$RUNTIME_PATH/postgres
 
 case "$SERVICE_COMMAND" in
 start)
-    MYSQL_CONFIG_FILE=${MYSQL_HOME}/conf/my.cnf
-    nohup mysqld \
-        --defaults-file=${MYSQL_CONFIG_FILE} \
-        >${MYSQL_HOME}/logs/mysqld.log 2>&1 &
+    POSTGRES_CONFIG_FILE=${POSTGRES_HOME}/conf/postgresql.conf
+    nohup postgres \
+        -c config_file=${POSTGRES_CONFIG_FILE} \
+        >${POSTGRES_HOME}/logs/postgres.log 2>&1 &
     ;;
 stop)
-    stop_process_by_name "mysqld"
+    stop_process_by_name "postgres"
     ;;
 -h|--help)
     echo "Usage: $0 start|stop --head" >&2

@@ -7,7 +7,7 @@ ROOT_DIR="$(dirname "$(dirname "$BIN_DIR")")"
 args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
-export KAFKA_VERSION=3.2.3
+export KAFKA_VERSION=3.5.1
 export KAFKA_SCALA_VERSION=2.13
 
 export USER_HOME=/home/$(whoami)

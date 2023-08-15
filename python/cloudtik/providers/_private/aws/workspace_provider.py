@@ -45,6 +45,15 @@ class AWSWorkspaceProvider(WorkspaceProvider):
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  global_variables: Dict[str, Any]):
+        """
+        The global variables implements as tags. The following basic restrictions apply to tags:
+        Maximum number of tags per resource – 50
+        For each resource, each tag key must be unique, and each tag key can have only one value.
+        Maximum key length – 128 Unicode characters in UTF-8
+        Maximum value length – 256 Unicode characters in UTF-8
+        The allowed characters across services are: letters (a-z, A-Z), numbers (0-9),
+        and spaces representable in UTF-8, and the following characters: + - = . _ : / @
+        """
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:

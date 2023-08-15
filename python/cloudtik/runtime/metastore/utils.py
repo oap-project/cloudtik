@@ -1,10 +1,12 @@
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.providers import _get_node_provider, _get_workspace_provider
+from cloudtik.core._private.providers import _get_node_provider
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config
 from cloudtik.core._private.utils import export_runtime_flags
+from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -38,18 +40,13 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     return runtime_envs
 
 
-def publish_service_endpoint(cluster_config: Dict[str, Any], head_node_id: str) -> None:
-    workspace_name = cluster_config.get("workspace_name")
-    if workspace_name is None:
-        return
-
-    provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
-    head_internal_ip = provider.internal_ip(head_node_id)
-    service_endpoints = {"hive-metastore-uri": "thrift://{}:{}".format(
-        head_internal_ip, METASTORE_SERVICE_PORT)}
-
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    workspace_provider.publish_global_variables(cluster_config, service_endpoints)
+def register_service(cluster_config: Dict[str, Any], head_node_id: str) -> None:
+    provider = _get_node_provider(
+        cluster_config["provider"], cluster_config["cluster_name"])
+    head_ip = provider.internal_ip(head_node_id)
+    register_service_to_workspace(
+        cluster_config, BUILT_IN_RUNTIME_METASTORE,
+        service_addresses=[(head_ip, METASTORE_SERVICE_PORT)])
 
 
 def _get_runtime_logs():

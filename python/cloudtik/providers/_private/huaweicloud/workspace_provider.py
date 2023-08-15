@@ -50,9 +50,18 @@ class HUAWEICLOUDWorkspaceProvider(WorkspaceProvider):
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  global_variables: Dict[str, Any]):
+        """
+        The global variables implements as tags. The following basic restrictions apply to tags:
+        Each resource supports up to 10 key-value pairs.
+        Key: Only letters, digits, underscores (_), and hyphens (-) are allowed.
+        Enter a maximum of 36 characters.
+        Value: Only letters, digits, underscores (_), periods (.), and hyphens (-) are allowed.
+        Enter a maximum of 43 characters.
+        """
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:
+            # TODO: should this be hex encoded for characters that not support
             prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(name)
             global_variables_prefixed[prefixed_name] = global_variables[name]
 

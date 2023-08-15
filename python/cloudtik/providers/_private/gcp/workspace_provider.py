@@ -45,14 +45,23 @@ class GCPWorkspaceProvider(WorkspaceProvider):
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  global_variables: Dict[str, Any]):
+        """
+        The global variables implements as labels. The following basic restrictions apply to labels:
+        Each resource can have multiple labels, up to a maximum of 64.
+        Each label must be a key-value pair.
+        Keys have a minimum length of 1 character and a maximum length of 63 characters, and cannot be empty.
+        Values can be empty, and have a maximum length of 63 characters.
+        Keys and values can contain only lowercase letters, numeric characters, underscores, and dashes.
+        All characters must use UTF-8 encoding, and international characters are allowed.
+        Keys must start with a lowercase letter or international character.
+        """
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:
-            # For gcp labels, only hyphens (-), underscores (_), lowercase characters, and numbers are allowed.
-            # Keys must start with a lowercase character. International characters are allowed.
-            hex_name = binary_to_hex(name.encode())
-            prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(hex_name)
-            global_variables_prefixed[prefixed_name] = binary_to_hex(global_variables[name].encode())
+            prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(
+                binary_to_hex(name.encode()))
+            global_variables_prefixed[prefixed_name] = binary_to_hex(
+                global_variables[name].encode())
 
         provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
         head_node_id = get_running_head_node(cluster_config, provider)
@@ -64,9 +73,8 @@ class GCPWorkspaceProvider(WorkspaceProvider):
         for head in head_nodes:
             for key, value in head.get("labels", {}).items():
                 if key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
-                    # For gcp labels, only hyphens (-), underscores (_), lowercase characters, and numbers are allowed.
-                    # Keys must start with a lowercase character. International characters are allowed.
-                    global_variable_name = hex_to_binary(key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]).decode()
+                    global_variable_name = hex_to_binary(
+                        key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]).decode()
                     global_variables[global_variable_name] = hex_to_binary(value).decode()
 
         return global_variables

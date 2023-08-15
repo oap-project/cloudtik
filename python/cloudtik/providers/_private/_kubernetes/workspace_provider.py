@@ -41,10 +41,25 @@ class KubernetesWorkspaceProvider(WorkspaceProvider):
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  global_variables: Dict[str, Any]):
+        """
+        The global variables implements as labels. Labels are key/value pairs:
+        Valid label keys have two segments:
+        an optional prefix and name, separated by a slash (/).
+        The name segment is required and must be 63 characters or less,
+        beginning and ending with an alphanumeric character ([a-z0-9A-Z]) with dashes (-),
+        underscores (_), dots (.), and alphanumerics between. The prefix is optional.
+        If specified, the prefix must be a DNS subdomain: a series of DNS labels separated by dots (.),
+        not longer than 253 characters in total, followed by a slash (/).
+        Valid label value:
+        must be 63 characters or less (can be empty),
+        unless empty, must begin and end with an alphanumeric character ([a-z0-9A-Z]),
+        could contain dashes (-), underscores (_), dots (.), and alphanumerics between.
+        """
         publish_kubernetes_global_variables(cluster_config, global_variables)
 
     def subscribe_global_variables(self, cluster_config: Dict[str, Any]):
-        return subscribe_kubernetes_global_variables(self.provider_config, self.workspace_name, cluster_config)
+        return subscribe_kubernetes_global_variables(
+            self.provider_config, self.workspace_name, cluster_config)
 
     def validate_config(self, provider_config: Dict[str, Any]):
         validate_kubernetes_workspace_config(provider_config, self.workspace_name)

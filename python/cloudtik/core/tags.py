@@ -8,6 +8,7 @@ CLOUDTIK_TAG_CLUSTER_NAME = "cloudtik-cluster-name"
 
 # Whether this tag is needed depends on provider
 # if provider can distinguish node without tag, it will not set
+# Currently, local, on-premise and virtual providers use this tag.
 CLOUDTIK_TAG_WORKSPACE_NAME = "cloudtik-workspace-name"
 
 # Tag for the kind of node (e.g. Head, Worker).
@@ -42,7 +43,7 @@ CLOUDTIK_TAG_RUNTIME_CONFIG = "cloudtik-runtime-config"
 CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS = "cloudtik-file-mounts-contents"
 
 # The prefix used for global variables published to workspace
-CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX = "cloudtik-global-"
+CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX = "x-"
 CLOUDTIK_GLOBAL_VARIABLE_KEY = CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX + "{}"
 
 # The cluster wide unique sequence id for the node

@@ -4,13 +4,15 @@ from shlex import quote
 from typing import Any, Dict, List
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ZOOKEEPER
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, \
     sort_nodes_by_seq_id
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
     get_service_discovery_config
 from cloudtik.core._private.utils import \
-    publish_cluster_variable, load_properties_file, save_properties_file
-from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
+    load_properties_file, save_properties_file
+from cloudtik.runtime.common.service_discovery.cluster import register_service_to_cluster
+from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -67,31 +69,14 @@ def _handle_node_constraints_reached(
         node_type: str, head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
     # We know this is called in the cluster scaler context
     server_ensemble = sort_nodes_by_seq_id(nodes_info)
-    endpoint_uri = ""
-
-    for node_info in server_ensemble:
-        node_address = "{}:{}".format(
-            node_info[RUNTIME_NODE_IP], ZOOKEEPER_SERVICE_PORT)
-        if len(endpoint_uri) > 0:
-            endpoint_uri += ","
-        endpoint_uri += node_address
-
-    _publish_service_endpoint_to_cluster(endpoint_uri)
-    _publish_service_endpoint_to_workspace(cluster_config, endpoint_uri)
-
-
-def _publish_service_endpoint_to_cluster(endpoint_uri: str) -> None:
-    publish_cluster_variable("zookeeper-uri", endpoint_uri)
-
-
-def _publish_service_endpoint_to_workspace(cluster_config: Dict[str, Any], endpoint_uri: str) -> None:
-    workspace_name = cluster_config["workspace_name"]
-    if workspace_name is None:
-        return
-
-    service_endpoints = {"zookeeper-uri": endpoint_uri}
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    workspace_provider.publish_global_variables(cluster_config, service_endpoints)
+    endpoints = [(node_info[RUNTIME_NODE_IP], ZOOKEEPER_SERVICE_PORT
+                  ) for node_info in server_ensemble]
+    register_service_to_workspace(
+        cluster_config, BUILT_IN_RUNTIME_ZOOKEEPER,
+        service_addresses=endpoints)
+    register_service_to_cluster(
+        BUILT_IN_RUNTIME_ZOOKEEPER,
+        service_addresses=endpoints)
 
 
 def _get_server_config(runtime_config: Dict[str, Any]):

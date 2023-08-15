@@ -2,12 +2,13 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.core_utils import double_quote
-from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config
 from cloudtik.core._private.utils import is_runtime_enabled, \
     get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config, get_config_for_update
+from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
+from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_metastore
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -18,6 +19,8 @@ RUNTIME_PROCESSES = [
 ]
 
 TRINO_RUNTIME_CONFIG_KEY = "trino"
+TRINO_HIVE_METASTORE_URI_KEY = "hive_metastore_uri"
+TRINO_METASTORE_SERVICE_SELECTOR_KEY = "metastore_service_selector"
 
 JVM_MAX_MEMORY_RATIO = 0.8
 QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
@@ -44,23 +47,19 @@ def get_memory_heap_headroom_per_node(jvm_max_memory):
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    workspace_name = cluster_config.get("workspace_name")
-    if workspace_name is None:
-        return cluster_config
-
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
     trino_config = get_config_for_update(runtime_config, TRINO_RUNTIME_CONFIG_KEY)
 
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    global_variables = workspace_provider.subscribe_global_variables(cluster_config)
-
     # Check metastore
-    if not is_runtime_enabled(runtime_config, "metastore"):
-        if trino_config.get("hive_metastore_uri") is None:
-            if trino_config.get("auto_detect_metastore", True):
-                hive_metastore_uri = global_variables.get("hive-metastore-uri")
+    if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
+        if trino_config.get(TRINO_HIVE_METASTORE_URI_KEY) is None:
+            if trino_config.get("metastore_service_discovery", True):
+                hive_metastore_uri = discover_metastore(
+                    trino_config, TRINO_METASTORE_SERVICE_SELECTOR_KEY,
+                    cluster_config=cluster_config,
+                    discovery_type=DiscoveryType.WORKSPACE)
                 if hive_metastore_uri is not None:
-                    trino_config["hive_metastore_uri"] = hive_metastore_uri
+                    trino_config[TRINO_HIVE_METASTORE_URI_KEY] = hive_metastore_uri
 
     return cluster_config
 
@@ -90,8 +89,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     # 2) Try to use defined metastore_uri;
     if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
-    elif trino_config.get("hive_metastore_uri") is not None:
-        runtime_envs["HIVE_METASTORE_URI"] = trino_config.get("hive_metastore_uri")
+    elif trino_config.get(TRINO_HIVE_METASTORE_URI_KEY) is not None:
+        runtime_envs["HIVE_METASTORE_URI"] = trino_config.get(TRINO_HIVE_METASTORE_URI_KEY)
 
     _with_memory_configurations(
         runtime_envs, trino_config=trino_config,

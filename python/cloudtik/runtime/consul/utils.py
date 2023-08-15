@@ -14,12 +14,15 @@ from cloudtik.core._private.service_discovery.runtime_services import get_runtim
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_LABELS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
     SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_LABEL_CLUSTER, \
-    is_service_for_metrics
+    is_service_for_metrics, SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX
 from cloudtik.core._private.utils import \
-    publish_cluster_variable, RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
+    RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
     RUNTIME_CONFIG_KEY
-from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.tags import QUORUM_JOIN_STATUS_INIT
+from cloudtik.runtime.common.service_discovery.cluster import register_service_to_cluster
+from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
+from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_consul
+from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -35,6 +38,9 @@ CONFIG_KEY_RPC_PORT = "rpc_port"
 CONFIG_KEY_SERVICES = "services"
 CONFIG_KEY_DATA_CENTER = "data_center"
 
+CONSUL_SERVER_SERVICE_SELECTOR_KEY = "server_service_selector"
+
+
 CONSUL_SERVER_RPC_PORT = 8300
 CONSUL_SERVER_HTTP_PORT = 8500
 CONSUL_SERVER_DNS_PORT = 8600
@@ -42,7 +48,7 @@ CONSUL_SERVER_DNS_PORT = 8600
 SERVICE_CHECK_INTERVAL_DEFAULT = 10
 SERVICE_CHECK_TIMEOUT_DEFAULT = 5
 
-CONSUL_TAG_CLUSTER_NAME_FORMAT = "cloudtik-c-{}"
+CONSUL_TAG_CLUSTER_NAME_FORMAT = SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX + "{}"
 CONSUL_TAG_PROTOCOL_FORMAT = "cloudtik-p-{}"
 CONSUL_TAG_METRICS = "cloudtik-m-metrics"
 
@@ -70,47 +76,25 @@ def _get_cluster_name_tag(cluster_name):
     return CONSUL_TAG_CLUSTER_NAME_FORMAT.format(cluster_name)
 
 
-def _to_joint_list(endpoint_uri):
-    hosts = []
-    port = CONSUL_SERVER_RPC_PORT
-    host_port_list = [x.strip() for x in endpoint_uri.split(",")]
-    for host_port in host_port_list:
-        parts = [x.strip() for x in host_port.split(":")]
-        n = len(parts)
-        if n == 1:
-            host = parts[0]
-        elif n == 2:
-            host = parts[0]
-            port = int(parts[1])
-        else:
-            raise ValueError(
-                "Invalid Consul endpoint uri: {}".format(endpoint_uri))
-        hosts.append(host)
-
-    join_list = ",".join(hosts)
-    return join_list, port
-
-
 def _bootstrap_join_list(cluster_config: Dict[str, Any]):
-    workspace_name = cluster_config.get("workspace_name")
-    if not workspace_name:
-        raise ValueError("Workspace name should be configured for cluster.")
-
+    consul_config = _get_consul_config_for_update(cluster_config)
     # The consul server cluster must be running and registered
-    # discovered with bootstrap methods (workspace global variables)
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    global_variables = workspace_provider.subscribe_global_variables(cluster_config)
-    consul_uri = global_variables.get("consul-uri")
-    if not consul_uri:
+    # discovered with bootstrap methods (through workspace)
+
+    server_addresses = discover_consul(
+        consul_config, CONSUL_SERVER_SERVICE_SELECTOR_KEY,
+        cluster_config=cluster_config,
+        discovery_type=DiscoveryType.WORKSPACE)
+    if not server_addresses:
         raise RuntimeError("No running consul server cluster is detected.")
 
-    consul_config = _get_consul_config_for_update(cluster_config)
-
-    join_list, rpc_port = _to_joint_list(consul_uri)
+    join_list = ",".join([server_address[0] for server_address in server_addresses])
     consul_config[CONFIG_KEY_JOIN_LIST] = join_list
     # current we don't use it
+    rpc_port = server_addresses[0][1]
+    if not rpc_port:
+        rpc_port = CONSUL_SERVER_RPC_PORT
     consul_config[CONFIG_KEY_RPC_PORT] = rpc_port
-
     return cluster_config
 
 
@@ -230,11 +214,11 @@ def _get_head_service_ports(server_mode, runtime_config: Dict[str, Any]) -> Dict
     }
 
     if server_mode:
-        service_ports["consul_http"] = {
+        service_ports["consul-http"] = {
             "protocol": "TCP",
             "port": CONSUL_SERVER_HTTP_PORT,
         }
-        service_ports["consul_dns"] = {
+        service_ports["consul-dns"] = {
             "protocol": "TCP",
             "port": CONSUL_SERVER_DNS_PORT,
         }
@@ -262,33 +246,17 @@ def _handle_node_constraints_reached(
         node_type: str, head_info: Dict[str, Any], nodes_info: Dict[str, Any]):
     # We know this is called in the cluster scaler context
     server_ensemble = _server_ensemble_from_nodes_info(nodes_info)
-    endpoint_uri = "{}:{}".format(
-        head_info[RUNTIME_NODE_IP], CONSUL_SERVER_RPC_PORT)
+    endpoints = [(head_info[RUNTIME_NODE_IP], CONSUL_SERVER_RPC_PORT)]
+    worker_nodes = [(node_info[RUNTIME_NODE_IP], CONSUL_SERVER_RPC_PORT
+                     ) for node_info in server_ensemble]
+    endpoints += worker_nodes
 
-    for node_info in server_ensemble:
-        node_address = "{}:{}".format(
-            node_info[RUNTIME_NODE_IP], CONSUL_SERVER_RPC_PORT)
-        if len(endpoint_uri) > 0:
-            endpoint_uri += ","
-        endpoint_uri += node_address
-
-    _publish_service_endpoint_to_cluster(endpoint_uri)
-    _publish_service_endpoint_to_workspace(cluster_config, endpoint_uri)
-
-
-def _publish_service_endpoint_to_cluster(endpoint_uri: str) -> None:
-    publish_cluster_variable("consul-uri", endpoint_uri)
-
-
-def _publish_service_endpoint_to_workspace(
-        cluster_config: Dict[str, Any], endpoint_uri: str) -> None:
-    workspace_name = cluster_config["workspace_name"]
-    if workspace_name is None:
-        return
-
-    service_endpoints = {"consul-uri": endpoint_uri}
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    workspace_provider.publish_global_variables(cluster_config, service_endpoints)
+    register_service_to_workspace(
+        cluster_config, BUILT_IN_RUNTIME_CONSUL,
+        service_addresses=endpoints)
+    register_service_to_cluster(
+        BUILT_IN_RUNTIME_CONSUL,
+        service_addresses=endpoints)
 
 
 def _get_consul_minimal_workers(config: Dict[str, Any]):

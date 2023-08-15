@@ -2,12 +2,13 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.core_utils import double_quote
-from cloudtik.core._private.providers import _get_workspace_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config
 from cloudtik.core._private.utils import is_runtime_enabled, \
     get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config, get_config_for_update
+from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
+from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_metastore
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -19,6 +20,7 @@ RUNTIME_PROCESSES = [
 
 PRESTO_RUNTIME_CONFIG_KEY = "presto"
 PRESTO_HIVE_METASTORE_URI_KEY = "hive_metastore_uri"
+PRESTO_METASTORE_SERVICE_SELECTOR_KEY = "metastore_service_selector"
 
 JVM_MAX_MEMORY_RATIO = 0.8
 QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
@@ -50,21 +52,17 @@ def get_memory_heap_headroom_per_node(jvm_max_memory):
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    workspace_name = cluster_config.get("workspace_name")
-    if workspace_name is None:
-        return cluster_config
-
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
     presto_config = get_config_for_update(runtime_config, PRESTO_RUNTIME_CONFIG_KEY)
 
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    global_variables = workspace_provider.subscribe_global_variables(cluster_config)
-
     # Check metastore
-    if not is_runtime_enabled(runtime_config, "metastore"):
+    if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
         if presto_config.get(PRESTO_HIVE_METASTORE_URI_KEY) is None:
-            if presto_config.get("auto_detect_metastore", True):
-                hive_metastore_uri = global_variables.get("hive-metastore-uri")
+            if presto_config.get("metastore_service_discovery", True):
+                hive_metastore_uri = discover_metastore(
+                    presto_config, PRESTO_METASTORE_SERVICE_SELECTOR_KEY,
+                    cluster_config=cluster_config,
+                    discovery_type=DiscoveryType.WORKSPACE)
                 if hive_metastore_uri is not None:
                     presto_config[PRESTO_HIVE_METASTORE_URI_KEY] = hive_metastore_uri
 

@@ -1,3 +1,4 @@
+import copy
 from enum import Enum
 from typing import Optional, Dict, Any
 
@@ -19,6 +20,9 @@ SERVICE_DISCOVERY_NODE_KIND_NODE = "node"
 
 SERVICE_DISCOVERY_TAGS = "tags"
 SERVICE_DISCOVERY_LABELS = "labels"
+
+SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX = "cloudtik-c-"
+SERVICE_DISCOVERY_TAG_SYSTEM_PREFIX = "cloudtik-"
 
 SERVICE_DISCOVERY_LABEL_CLUSTER = "cloudtik-cluster"
 SERVICE_DISCOVERY_LABEL_RUNTIME = "cloudtik-runtime"
@@ -56,6 +60,10 @@ class ServiceScope(Enum):
     """
     WORKSPACE = 1
     CLUSTER = 2
+
+
+class ServiceRegisterException(RuntimeError):
+    pass
 
 
 def get_service_discovery_config(config):
@@ -193,3 +201,22 @@ def exclude_runtime_of_cluster(
         joined_labels[SERVICE_DISCOVERY_LABEL_CLUSTER] = cluster_name
 
     exclude_joined_labels.append(joined_labels)
+    return service_selector
+
+
+def get_service_selector_for_update(config, config_key):
+    service_selector = config.get(
+        config_key)
+    if service_selector is None:
+        service_selector = {}
+    else:
+        service_selector = copy.deepcopy(service_selector)
+    return service_selector
+
+
+def include_runtime_for_selector(service_selector, runtime):
+    runtimes = get_list_for_update(
+        service_selector, SERVICE_SELECTOR_RUNTIMES)
+    if runtime not in runtimes:
+        runtimes.append(runtime)
+    return service_selector

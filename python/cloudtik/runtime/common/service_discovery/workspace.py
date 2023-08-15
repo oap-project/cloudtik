@@ -102,7 +102,7 @@ def query_one_service_from_workspace(
     if not services:
         return None
     # return one of them
-    return next(iter(services.values()))
+    return next(iter(services.items()))
 
 
 def _query_one_service_registry(

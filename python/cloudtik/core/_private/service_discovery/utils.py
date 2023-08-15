@@ -214,7 +214,7 @@ def get_service_selector_for_update(config, config_key):
     return service_selector
 
 
-def select_runtime(service_selector, runtime):
+def include_runtime_for_selector(service_selector, runtime):
     runtimes = get_list_for_update(
         service_selector, SERVICE_SELECTOR_RUNTIMES)
     if runtime not in runtimes:

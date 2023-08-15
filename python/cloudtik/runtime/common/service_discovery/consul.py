@@ -211,15 +211,16 @@ def query_one_service_nodes_from_consul(service_selector):
         return None
 
     for service_name in services:
-        return query_service_nodes(
+        return service_name, query_service_nodes(
             service_name, service_selector)
 
     return None
 
 
 def query_one_service_from_consul(service_selector):
-    service_nodes = query_one_service_nodes_from_consul(service_selector)
-    if not service_nodes:
+    service_and_nodes = query_one_service_nodes_from_consul(service_selector)
+    if not service_and_nodes:
         return None
-    return [get_service_address(
+    service_name, service_nodes = service_and_nodes
+    return service_name, [get_service_address(
         service_node) for service_node in service_nodes]

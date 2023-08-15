@@ -23,20 +23,20 @@ def query_one_service(
             discovery_type == DiscoveryType.CONSUL_LOCAL):
         if get_service_discovery_runtime(runtime_config):
             # try first use service discovery if available
-            service_addresses = query_one_service_from_consul(
+            service = query_one_service_from_consul(
                 service_selector)
-            if service_addresses:
-                return service_addresses
+            if service:
+                return service
         if discovery_type == DiscoveryType.CONSUL_LOCAL:
             return None
 
     if (discovery_type == DiscoveryType.ANY or
             discovery_type == DiscoveryType.WORKSPACE):
         # try workspace discovery
-        service_addresses = query_one_service_from_workspace(
+        service = query_one_service_from_workspace(
             cluster_config, service_selector)
-        if service_addresses:
-            return service_addresses
+        if service:
+            return service
         if discovery_type == DiscoveryType.WORKSPACE:
             return None
 

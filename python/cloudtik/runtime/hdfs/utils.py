@@ -29,7 +29,7 @@ def _get_config(runtime_config: Dict[str, Any]):
     return runtime_config.get(HDFS_RUNTIME_CONFIG_KEY, {})
 
 
-def publish_service_endpoint(
+def register_service(
         cluster_config: Dict[str, Any], head_node_id: str) -> None:
     provider = _get_node_provider(
         cluster_config["provider"], cluster_config["cluster_name"])

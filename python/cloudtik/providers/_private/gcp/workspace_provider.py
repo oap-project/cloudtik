@@ -58,9 +58,10 @@ class GCPWorkspaceProvider(WorkspaceProvider):
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:
-            hex_name = binary_to_hex(name.encode())
-            prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(hex_name)
-            global_variables_prefixed[prefixed_name] = binary_to_hex(global_variables[name].encode())
+            prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(
+                binary_to_hex(name.encode()))
+            global_variables_prefixed[prefixed_name] = binary_to_hex(
+                global_variables[name].encode())
 
         provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
         head_node_id = get_running_head_node(cluster_config, provider)
@@ -72,7 +73,8 @@ class GCPWorkspaceProvider(WorkspaceProvider):
         for head in head_nodes:
             for key, value in head.get("labels", {}).items():
                 if key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
-                    global_variable_name = hex_to_binary(key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]).decode()
+                    global_variable_name = hex_to_binary(
+                        key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]).decode()
                     global_variables[global_variable_name] = hex_to_binary(value).decode()
 
         return global_variables

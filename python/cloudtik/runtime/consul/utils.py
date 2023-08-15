@@ -14,7 +14,7 @@ from cloudtik.core._private.service_discovery.runtime_services import get_runtim
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_LABELS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
     SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_LABEL_CLUSTER, \
-    is_service_for_metrics
+    is_service_for_metrics, SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX
 from cloudtik.core._private.utils import \
     RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
     RUNTIME_CONFIG_KEY
@@ -48,7 +48,7 @@ CONSUL_SERVER_DNS_PORT = 8600
 SERVICE_CHECK_INTERVAL_DEFAULT = 10
 SERVICE_CHECK_TIMEOUT_DEFAULT = 5
 
-CONSUL_TAG_CLUSTER_NAME_FORMAT = "cloudtik-c-{}"
+CONSUL_TAG_CLUSTER_NAME_FORMAT = SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX + "{}"
 CONSUL_TAG_PROTOCOL_FORMAT = "cloudtik-p-{}"
 CONSUL_TAG_METRICS = "cloudtik-m-metrics"
 

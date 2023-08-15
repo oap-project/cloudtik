@@ -2,7 +2,8 @@ from urllib.parse import quote
 
 from cloudtik.core._private.service_discovery.utils import SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, \
     SERVICE_SELECTOR_LABELS, SERVICE_SELECTOR_EXCLUDE_LABELS, SERVICE_DISCOVERY_LABEL_CLUSTER, \
-    SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_CLUSTERS, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS
+    SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_CLUSTERS, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS, \
+    SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX, SERVICE_DISCOVERY_TAG_SYSTEM_PREFIX
 from cloudtik.core._private.util.rest_api import rest_api_get_json
 
 REST_ENDPOINT_URL_FORMAT = "http://{}:{}{}"
@@ -13,9 +14,6 @@ REST_ENDPOINT_CATALOG_SERVICE = REST_ENDPOINT_CATALOG + "/service"
 CONSUL_CLIENT_ADDRESS = "127.0.0.1"
 CONSUL_CLIENT_PORT = 8500
 CONSUL_REQUEST_TIMEOUT = 5
-
-CONSUl_SYSTEM_TAG_PREFIX = "cloudtik-"
-CONSUl_CLUSTER_TAG_PREFIX = "cloudtik-c-"
 
 
 def consul_api_get(endpoint: str):
@@ -60,6 +58,7 @@ def get_expressions_of_service_selector(service_selector):
         # All labels must match (AND)
         label_expressions = []
         for label_name, label_value in labels.items():
+            # TODO: shall we anchor to the start and end to value by default?
             label_expressions.append(
                 'ServiceMeta["{}"] matches "{}"'.format(label_name, label_value))
         expressions.append(" and ".join(label_expressions))
@@ -166,7 +165,7 @@ def get_service_dns_name(
         return "{}.{}.service.cloudtik".format(service_tag, service_name)
     else:
         return "{}{}.{}.service.cloudtik".format(
-            CONSUl_CLUSTER_TAG_PREFIX, service_cluster, service_name)
+            SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX, service_cluster, service_name)
 
 
 def get_rfc2782_service_dns_name(
@@ -184,7 +183,7 @@ def get_rfc2782_service_dns_name(
         return "_{}._{}.service.cloudtik".format(service_name, service_tag)
     else:
         return "_{}._{}{}.service.cloudtik".format(
-            service_name, CONSUl_CLUSTER_TAG_PREFIX, service_cluster)
+            service_name, SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX, service_cluster)
 
 
 def select_dns_service_tag(tags):
@@ -194,9 +193,11 @@ def select_dns_service_tag(tags):
     # select cluster tag if exists, otherwise a user tag
     user_tag = None
     for tag in tags:
-        if tag.startswith(CONSUl_CLUSTER_TAG_PREFIX):
+        if tag.startswith(
+                SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX):
             return tag
-        elif not user_tag and not tag.startswith(CONSUl_SYSTEM_TAG_PREFIX):
+        elif not user_tag and not tag.startswith(
+                SERVICE_DISCOVERY_TAG_SYSTEM_PREFIX):
             user_tag = tag
     if user_tag:
         return user_tag

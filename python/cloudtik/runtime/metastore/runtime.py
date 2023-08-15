@@ -5,7 +5,7 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.metastore.utils import _with_runtime_environment_variables, \
     _get_runtime_processes, _get_runtime_logs, \
-    _get_runtime_endpoints, publish_service_endpoint, _get_head_service_ports, _get_runtime_services
+    _get_runtime_endpoints, register_service, _get_head_service_ports, _get_runtime_services
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class MetastoreRuntime(RuntimeBase):
 
     def cluster_booting_completed(
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:
-        publish_service_endpoint(cluster_config, head_node_id)
+        register_service(cluster_config, head_node_id)
 
     def get_runtime_endpoints(self, cluster_head_ip: str):
         return _get_runtime_endpoints(cluster_head_ip)

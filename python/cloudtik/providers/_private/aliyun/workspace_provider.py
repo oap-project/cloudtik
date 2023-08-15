@@ -56,9 +56,8 @@ class AliyunWorkspaceProvider(WorkspaceProvider):
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:
-            hex_name = binary_to_hex(name.encode())
-            prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(hex_name)
-            global_variables_prefixed[prefixed_name] = binary_to_hex(global_variables[name].encode())
+            prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(name)
+            global_variables_prefixed[prefixed_name] = global_variables[name]
 
         provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
         head_node_id = get_running_head_node(cluster_config, provider)
@@ -72,8 +71,8 @@ class AliyunWorkspaceProvider(WorkspaceProvider):
             for tag in head.tags.tag:
                 tag_key = tag.tag_key
                 if tag_key.startswith(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):
-                    global_variable_name = hex_to_binary(tag_key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]).decode()
-                    global_variables[global_variable_name] = hex_to_binary(tag.tag_value).decode()
+                    global_variable_name = tag_key[len(CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX):]
+                    global_variables[global_variable_name] = tag.tag_value
 
         return global_variables
 

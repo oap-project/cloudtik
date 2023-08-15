@@ -485,9 +485,8 @@ def publish_kubernetes_global_variables(
     global_variables_prefixed = {}
     for name in global_variables:
         prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(name)
-        value = global_variables[name]
-        hex_encoded_value = binary_to_hex(value.encode())
-        global_variables_prefixed[prefixed_name] = hex_encoded_value
+        global_variables_prefixed[prefixed_name] = binary_to_hex(
+            global_variables[name].encode())
 
     provider = _get_node_provider(cluster_config["provider"], cluster_config["cluster_name"])
     head_node_id = get_running_head_node(cluster_config, provider)

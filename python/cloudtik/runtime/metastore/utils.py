@@ -40,7 +40,7 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     return runtime_envs
 
 
-def publish_service_endpoint(cluster_config: Dict[str, Any], head_node_id: str) -> None:
+def register_service(cluster_config: Dict[str, Any], head_node_id: str) -> None:
     provider = _get_node_provider(
         cluster_config["provider"], cluster_config["cluster_name"])
     head_ip = provider.internal_ip(head_node_id)

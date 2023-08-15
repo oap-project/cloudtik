@@ -13,6 +13,8 @@ CLOUDTIK_CLUSTER_CONTROLLER_METRICS_SERVICE_NAME = "cloudtik-controller-metrics"
 CLOUDTIK_CLUSTER_CONTROLLER_METRICS_PORT = CLOUDTIK_METRIC_PORT
 CLOUDTIK_REDIS_SERVICE_PORT = CLOUDTIK_DEFAULT_PORT
 
+SERVICE_DISCOVERY_RUNTIMES = [BUILT_IN_RUNTIME_CONSUL]
+
 
 def get_runtime_services_by_node_type(config: Dict[str, Any]):
     # for all the runtimes, query its services per node type
@@ -84,6 +86,11 @@ def _get_built_in_services(config: Dict[str, Any], cluster_name):
 
 
 def get_service_discovery_runtime(runtime_config):
-    if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_CONSUL):
-        return BUILT_IN_RUNTIME_CONSUL
+    for runtime_type in SERVICE_DISCOVERY_RUNTIMES:
+        if is_runtime_enabled(runtime_config, runtime_type):
+            return runtime_type
     return None
+
+
+def is_service_discovery_runtime(runtime_type):
+    return True if runtime_type in SERVICE_DISCOVERY_RUNTIMES else False

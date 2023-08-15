@@ -44,13 +44,18 @@ class AliyunWorkspaceProvider(WorkspaceProvider):
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  global_variables: Dict[str, Any]):
-        # Add prefix to the variables
+        """
+        The global variables implements as tags. The following basic restrictions apply to tags:
+        Maximum number of tags that can be added to a single resource: 20
+        Tag key: A tag key must be 1 to 128 characters in length and cannot contain http:// or https://.
+        It cannot start with aliyun or acs:.
+        Tag value: A tag value must be 1 to 128 characters in length and cannot contain http:// or https://.
+        It cannot start with aliyun or acs:.
+        """
 
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:
-            # For aliyun labels,a single tag key or tag value supports up to 128 characters,
-            # cannot start with aliyun and acs:, and cannot contain http:// or https://
             hex_name = binary_to_hex(name.encode())
             prefixed_name = CLOUDTIK_GLOBAL_VARIABLE_KEY.format(hex_name)
             global_variables_prefixed[prefixed_name] = binary_to_hex(global_variables[name].encode())

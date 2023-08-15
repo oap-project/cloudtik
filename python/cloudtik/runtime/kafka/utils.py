@@ -1,13 +1,16 @@
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.providers import _get_workspace_provider
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ZOOKEEPER
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
     get_service_discovery_config
 from cloudtik.core._private.utils import \
-    subscribe_cluster_variable, is_runtime_enabled, RUNTIME_CONFIG_KEY, load_properties_file, \
+    is_runtime_enabled, RUNTIME_CONFIG_KEY, load_properties_file, \
     save_properties_file, get_config_for_update
+from cloudtik.runtime.common.service_discovery.cluster import query_service_from_cluster, get_service_addresses_string
+from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
+from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_zookeeper
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -18,6 +21,8 @@ RUNTIME_PROCESSES = [
 ]
 
 KAFKA_RUNTIME_CONFIG_KEY = "kafka"
+KAFKA_ZOOKEEPER_CONNECT_KEY = "zookeeper_connect"
+KAFKA_ZOOKEEPER_SERVICE_SELECTOR_KEY = "zookeeper_service_selector"
 
 KAFKA_SERVICE_NAME = "kafka"
 KAFKA_SERVICE_PORT = 9092
@@ -28,23 +33,19 @@ def _get_config(runtime_config: Dict[str, Any]):
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    workspace_name = cluster_config.get("workspace_name")
-    if workspace_name is None:
-        return cluster_config
-
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
     kafka_config = get_config_for_update(runtime_config, KAFKA_RUNTIME_CONFIG_KEY)
 
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    global_variables = workspace_provider.subscribe_global_variables(cluster_config)
-
     # Check zookeeper
-    if not is_runtime_enabled(runtime_config, "zookeeper"):
-        if kafka_config.get("zookeeper_connect") is None:
-            if kafka_config.get("auto_detect_zookeeper", True):
-                zookeeper_uri = global_variables.get("zookeeper-uri")
+    if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_ZOOKEEPER):
+        if kafka_config.get(KAFKA_ZOOKEEPER_CONNECT_KEY) is None:
+            if kafka_config.get("zookeeper_service_discovery", True):
+                zookeeper_uri = discover_zookeeper(
+                    kafka_config, KAFKA_ZOOKEEPER_SERVICE_SELECTOR_KEY,
+                    cluster_config=cluster_config,
+                    discovery_type=DiscoveryType.WORKSPACE)
                 if zookeeper_uri is not None:
-                    kafka_config["zookeeper_connect"] = zookeeper_uri
+                    kafka_config[KAFKA_ZOOKEEPER_CONNECT_KEY] = zookeeper_uri
 
     return cluster_config
 
@@ -65,13 +66,15 @@ def _get_runtime_logs():
 
 
 def _validate_config(config: Dict[str, Any]):
-    if not is_runtime_enabled(config.get(RUNTIME_CONFIG_KEY), "zookeeper"):
+    if not is_runtime_enabled(
+            config.get(RUNTIME_CONFIG_KEY), BUILT_IN_RUNTIME_ZOOKEEPER):
         # Check zookeeper connect configured
         runtime_config = config.get(RUNTIME_CONFIG_KEY)
         if (runtime_config is None) or (
                 KAFKA_RUNTIME_CONFIG_KEY not in runtime_config) or (
-                "zookeeper_connect" not in runtime_config[KAFKA_RUNTIME_CONFIG_KEY]):
+                KAFKA_ZOOKEEPER_CONNECT_KEY not in runtime_config[KAFKA_RUNTIME_CONFIG_KEY]):
             raise ValueError("Zookeeper connect must be configured!")
+    # TODO: dynamic discover zookeeper through service discovery
 
 
 def _get_runtime_endpoints(cluster_head_ip):
@@ -88,12 +91,18 @@ def _get_zookeeper_connect(runtime_config):
         return None
 
     # check config
-    zookeeper_connect = kafka_config.get("zookeeper_connect")
+    zookeeper_connect = kafka_config.get(KAFKA_ZOOKEEPER_CONNECT_KEY)
     if zookeeper_connect is not None:
         return zookeeper_connect
 
     # check redis endpoint publish
-    zookeeper_connect = subscribe_cluster_variable("zookeeper-uri")
+    service_addresses = query_service_from_cluster(
+        runtime_type=BUILT_IN_RUNTIME_ZOOKEEPER)
+    if not service_addresses:
+        return None
+
+    zookeeper_connect = get_service_addresses_string(
+        service_addresses)
     return zookeeper_connect
 
 

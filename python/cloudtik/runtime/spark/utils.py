@@ -14,8 +14,9 @@ from cloudtik.core._private.utils import \
     is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
     print_json_formatted, get_config_for_update
-from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.core.scaling_policy import ScalingPolicy
+from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
+from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_hdfs, discover_metastore
 from cloudtik.runtime.common.utils import get_runtime_endpoints_of, get_runtime_default_storage_of
 from cloudtik.runtime.spark.scaling_policy import SparkScalingPolicy
 
@@ -32,6 +33,8 @@ RUNTIME_PROCESSES = [
 SPARK_RUNTIME_CONFIG_KEY = "spark"
 SPARK_HDFS_NAMENODE_URI_KEY = "hdfs_namenode_uri"
 SPARK_HIVE_METASTORE_URI_KEY = "hive_metastore_uri"
+SPARK_HDFS_SERVICE_SELECTOR_KEY = "hdfs_service_selector"
+SPARK_METASTORE_SERVICE_SELECTOR_KEY = "metastore_service_selector"
 
 YARN_RESOURCE_MEMORY_RATIO = 0.8
 SPARK_EXECUTOR_MEMORY_RATIO = 1
@@ -130,32 +133,31 @@ def _get_cluster_resources(
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    workspace_name = cluster_config.get("workspace_name")
-    if workspace_name is None:
-        return cluster_config
-
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
     spark_config = get_config_for_update(runtime_config, SPARK_RUNTIME_CONFIG_KEY)
-
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    global_variables = workspace_provider.subscribe_global_variables(cluster_config)
 
     # We now support co-existence of local HDFS and remote HDFS
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;
-    # 3) If subscribed_hdfs_namenode_uri=true,try to subscribe global variables to find remote hdfs_namenode_uri
+    # 3) If hdfs_service_discovery=true, try to discover HDFS service through any service discovery available
 
     if spark_config.get(SPARK_HDFS_NAMENODE_URI_KEY) is None:
-        if spark_config.get("auto_detect_hdfs", False):
-            hdfs_namenode_uri = global_variables.get("hdfs-namenode-uri")
+        if spark_config.get("hdfs_service_discovery", False):
+            hdfs_namenode_uri = discover_hdfs(
+                spark_config, SPARK_HDFS_SERVICE_SELECTOR_KEY,
+                cluster_config=cluster_config,
+                discovery_type=DiscoveryType.WORKSPACE)
             if hdfs_namenode_uri is not None:
                 spark_config[SPARK_HDFS_NAMENODE_URI_KEY] = hdfs_namenode_uri
 
     # Check metastore
     if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
         if spark_config.get(SPARK_HIVE_METASTORE_URI_KEY) is None:
-            if spark_config.get("auto_detect_metastore", True):
-                hive_metastore_uri = global_variables.get("hive-metastore-uri")
+            if spark_config.get("metastore_service_discovery", True):
+                hive_metastore_uri = discover_metastore(
+                    spark_config, SPARK_METASTORE_SERVICE_SELECTOR_KEY,
+                    cluster_config=cluster_config,
+                    discovery_type=DiscoveryType.WORKSPACE)
                 if hive_metastore_uri is not None:
                     spark_config[SPARK_HIVE_METASTORE_URI_KEY] = hive_metastore_uri
 
@@ -359,7 +361,7 @@ def _validate_config(config: Dict[str, Any]):
 
 def _get_runtime_endpoints(cluster_head_ip):
     endpoints = {
-        "yarn-client": {
+        "yarn": {
             "name": "Yarn",
             "url": "{}:{}".format(cluster_head_ip, SPARK_YARN_RESOURCE_MANAGER_PORT)
         },
@@ -382,7 +384,7 @@ def _get_runtime_endpoints(cluster_head_ip):
 
 def _get_head_service_ports(runtime_config: Dict[str, Any]) -> Dict[str, Any]:
     service_ports = {
-        "yarn-client": {
+        "yarn": {
             "protocol": "TCP",
             "port": SPARK_YARN_RESOURCE_MANAGER_PORT,
         },
@@ -494,3 +496,4 @@ def get_runtime_default_storage(config: Dict[str, Any]):
 
 def get_runtime_endpoints(config: Dict[str, Any]):
     return get_runtime_endpoints_of(config, BUILT_IN_RUNTIME_SPARK)
+

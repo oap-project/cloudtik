@@ -1072,10 +1072,14 @@
                             "description": "Whether to set Hadoop default to cluster storage if available.",
                             "default": false
                         },
-                        "auto_detect_hdfs": {
+                        "hdfs_service_discovery": {
                             "type": "boolean",
-                            "description": "Whether to auto detect and use HDFS service in the same workspace.",
+                            "description": "Whether to discover and use HDFS service in the same workspace.",
                             "default": false
+                        },
+                        "hdfs_service_selector": {
+                            "$ref": "#/definitions/service_selector",
+                            "description": "The selector for HDFS service if service discovery is enabled."
                         },
                         "hdfs_namenode_uri": {
                             "type": "string",
@@ -1085,10 +1089,14 @@
                             "type": "string",
                             "description": "HDFS mount method: nfs or fuse. Default fuse if not specified."
                         },
-                        "auto_detect_metastore": {
+                        "metastore_service_discovery": {
                             "type": "boolean",
-                            "description": "Whether to auto detect and use metastore service in the same workspace.",
+                            "description": "Whether to discover and use metastore service in the same workspace.",
                             "default": false
+                        },
+                        "metastore_service_selector": {
+                            "$ref": "#/definitions/service_selector",
+                            "description": "The selector for Metastore service if auto discovery is enabled."
                         },
                         "hive_metastore_uri": {
                             "type": "string",
@@ -1205,18 +1213,18 @@
                             "description": "Whether to set Hadoop default to cluster storage if available.",
                             "default": false
                         },
-                        "auto_detect_hdfs": {
+                        "hdfs_service_discovery": {
                             "type": "boolean",
-                            "description": "Whether to auto detect and use HDFS service in the same workspace.",
+                            "description": "Whether to discover and use HDFS service in the same workspace.",
                             "default": false
                         },
                         "hdfs_namenode_uri": {
                             "type": "string",
                             "description": "HDFS service endpoint if Flink need to access HDFS."
                         },
-                        "auto_detect_metastore": {
+                        "metastore_service_discovery": {
                             "type": "boolean",
-                            "description": "Whether to auto detect and use metastore service in the same workspace.",
+                            "description": "Whether to discover and use metastore service in the same workspace.",
                             "default": false
                         },
                         "hive_metastore_uri": {
@@ -1272,9 +1280,9 @@
                             "type": "object",
                             "description": "Presto catalogs to be configured."
                         },
-                        "auto_detect_metastore": {
+                        "metastore_service_discovery": {
                             "type": "boolean",
-                            "description": "Whether to auto detect and use metastore service in the same workspace.",
+                            "description": "Whether to discover and use metastore service in the same workspace.",
                             "default": false
                         },
                         "hive_metastore_uri": {

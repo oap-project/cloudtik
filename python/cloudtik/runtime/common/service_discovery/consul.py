@@ -202,3 +202,23 @@ def select_dns_service_tag(tags):
         return user_tag
 
     return tags[0]
+
+
+def query_one_service_nodes_from_consul(service_selector):
+    services = query_services(service_selector)
+    if not services:
+        return None
+
+    for service_name in services:
+        return query_service_nodes(
+            service_name, service_selector)
+
+    return None
+
+
+def query_one_service_from_consul(service_selector):
+    service_nodes = query_one_service_nodes_from_consul(service_selector)
+    if not service_nodes:
+        return None
+    return [get_service_address(
+        service_node) for service_node in service_nodes]

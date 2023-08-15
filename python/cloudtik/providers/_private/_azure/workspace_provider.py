@@ -45,6 +45,15 @@ class AzureWorkspaceProvider(WorkspaceProvider):
 
     def publish_global_variables(self, cluster_config: Dict[str, Any],
                                  global_variables: Dict[str, Any]):
+        """
+        The global variables implements as tags. The following basic restrictions apply to tags:
+        Each resource, resource group, and subscription can have a maximum of 50 tag name-value pairs.
+        If you need to apply more tags than the maximum allowed number, use a JSON string for the tag value.
+        The tag name has a limit of 512 characters and the tag value has a limit of 256 characters.
+        For storage accounts, the tag name has a limit of 128 characters
+        and the tag value has a limit of 256 characters.
+        Tag names can't contain these characters: <, >, %, &, \, ?, /
+        """
         # Add prefix to the variables
         global_variables_prefixed = {}
         for name in global_variables:

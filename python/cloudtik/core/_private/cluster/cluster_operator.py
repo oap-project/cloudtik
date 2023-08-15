@@ -33,6 +33,7 @@ from cloudtik.core._private.core_utils import stop_process_tree, double_quote, g
     memory_to_gb, memory_to_gb_string
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.runtime_factory import _get_runtime_cls
+from cloudtik.core._private.service_discovery.utils import ServiceRegisterException
 from cloudtik.core._private.services import validate_redis_address
 from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_IP, NODE_STATE_NODE_ID, NODE_STATE_NODE_KIND, \
@@ -982,7 +983,11 @@ def get_or_create_head_node(config: Dict[str, Any],
             "head_node_id": head_node,
         })
 
-    cluster_booting_completed(config, head_node)
+    try:
+        cluster_booting_completed(config, head_node)
+    except ServiceRegisterException as e:
+        _cli_logger.warning(
+            "There are some issues handling the completion event. {}", str(e))
 
     _cli_logger.newline()
     successful_msg = "Successfully started cluster: {}.".format(config["cluster_name"])

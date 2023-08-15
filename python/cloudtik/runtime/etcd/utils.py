@@ -3,11 +3,12 @@ from typing import Any, Dict
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID
 from cloudtik.core._private.core_utils import exec_with_output, strip_quote
-from cloudtik.core._private.providers import _get_workspace_provider
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ETCD
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, sort_nodes_by_seq_id, \
     load_and_save_yaml, get_runtime_value
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
     get_service_discovery_config
+from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -51,9 +52,7 @@ def _with_runtime_environment_variables(
 
 
 def _get_endpoints(nodes):
-    return ",".join(
-        ["http://{}:{}".format(
-            node[RUNTIME_NODE_SEQ_ID], node[RUNTIME_NODE_IP], ETCD_PEER_PORT) for node in nodes])
+    return [(node[RUNTIME_NODE_IP], ETCD_PEER_PORT) for node in nodes]
 
 
 def _handle_node_constraints_reached(
@@ -62,19 +61,9 @@ def _handle_node_constraints_reached(
     # We know this is called in the cluster scaler context
     initial_cluster = sort_nodes_by_seq_id(nodes_info)
     endpoints = _get_endpoints(initial_cluster)
-
-    # public the endpoint to workspace
-    _publish_endpoints_to_workspace(cluster_config, endpoints)
-
-
-def _publish_endpoints_to_workspace(cluster_config: Dict[str, Any], endpoints: str) -> None:
-    workspace_name = cluster_config["workspace_name"]
-    if workspace_name is None:
-        return
-
-    service_endpoints = {"etcd-endpoints": endpoints}
-    workspace_provider = _get_workspace_provider(cluster_config["provider"], workspace_name)
-    workspace_provider.publish_global_variables(cluster_config, service_endpoints)
+    register_service_to_workspace(
+        cluster_config, BUILT_IN_RUNTIME_ETCD,
+        service_addresses=endpoints)
 
 
 def _get_runtime_endpoints(runtime_config: Dict[str, Any], cluster_head_ip):

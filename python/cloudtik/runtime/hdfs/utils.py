@@ -17,8 +17,6 @@ RUNTIME_PROCESSES = [
     ["proc_datanode", False, "DataNode", "worker"],
 ]
 
-HDFS_RUNTIME_CONFIG_KEY = "hdfs"
-
 HDFS_WEB_PORT = 9870
 
 HDFS_SERVICE_NAME = "hdfs"
@@ -26,7 +24,7 @@ HDFS_SERVICE_PORT = 9000
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(HDFS_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_HDFS, {})
 
 
 def register_service(

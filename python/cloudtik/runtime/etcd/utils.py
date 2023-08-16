@@ -18,15 +18,13 @@ RUNTIME_PROCESSES = [
     ["etcd", True, "etcd", "worker"],
 ]
 
-ETCD_RUNTIME_CONFIG_KEY = "etcd"
-
-ETCD_SERVICE_NAME = "etcd"
+ETCD_SERVICE_NAME = BUILT_IN_RUNTIME_ETCD
 ETCD_SERVICE_PORT = 2379
 ETCD_PEER_PORT = 2380
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(ETCD_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_ETCD, {})
 
 
 def _get_home_dir():

@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_CLUSTER
 from cloudtik.core._private.core_utils import exec_with_output
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_PROMETHEUS
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_PROMETHEUS, BUILT_IN_RUNTIME_GRAFANA
 from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, get_runtime_value, get_runtime_head_ip, \
     save_yaml, get_runtime_node_ip
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime, \
@@ -22,8 +22,6 @@ RUNTIME_PROCESSES = [
         ["grafana", True, "Grafana", "node"],
     ]
 
-
-GRAFANA_RUNTIME_CONFIG_KEY = "grafana"
 GRAFANA_SERVICE_PORT_CONFIG_KEY = "port"
 GRAFANA_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
 GRAFANA_DATA_SOURCES_SCOPE_CONFIG_KEY = "data_sources_scope"
@@ -51,7 +49,7 @@ def get_data_source_name(service_name, cluster_name):
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(GRAFANA_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_GRAFANA, {})
 
 
 def _get_service_port(grafana_config: Dict[str, Any]):

@@ -1,6 +1,7 @@
 import os
 from typing import Any, Dict
 
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_NODE_EXPORTER
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
     get_service_discovery_config, SERVICE_DISCOVERY_PROTOCOL_HTTP
@@ -13,8 +14,6 @@ RUNTIME_PROCESSES = [
         ["node_exporter", True, "Node Exporter", "node"],
     ]
 
-
-NODE_EXPORTER_RUNTIME_CONFIG_KEY = "node_exporter"
 NODE_EXPORTER_SERVICE_PORT_CONFIG_KEY = "port"
 
 NODE_EXPORTER_SERVICE_NAME = "node-exporter"
@@ -22,7 +21,7 @@ NODE_EXPORTER_SERVICE_PORT_DEFAULT = 9100
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(NODE_EXPORTER_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_NODE_EXPORTER, {})
 
 
 def _get_service_port(node_exporter_config: Dict[str, Any]):
@@ -32,7 +31,7 @@ def _get_service_port(node_exporter_config: Dict[str, Any]):
 
 def _get_home_dir():
     return os.path.join(
-        os.getenv("HOME"), "runtime", NODE_EXPORTER_RUNTIME_CONFIG_KEY)
+        os.getenv("HOME"), "runtime", BUILT_IN_RUNTIME_NODE_EXPORTER)
 
 
 def _get_runtime_processes():

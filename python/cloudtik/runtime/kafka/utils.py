@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ZOOKEEPER
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ZOOKEEPER, BUILT_IN_RUNTIME_KAFKA
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
     get_service_discovery_config
@@ -20,21 +20,20 @@ RUNTIME_PROCESSES = [
     ["kafka.Kafka", False, "KafkaBroker", "node"],
 ]
 
-KAFKA_RUNTIME_CONFIG_KEY = "kafka"
 KAFKA_ZOOKEEPER_CONNECT_KEY = "zookeeper_connect"
 KAFKA_ZOOKEEPER_SERVICE_SELECTOR_KEY = "zookeeper_service_selector"
 
-KAFKA_SERVICE_NAME = "kafka"
+KAFKA_SERVICE_NAME = BUILT_IN_RUNTIME_KAFKA
 KAFKA_SERVICE_PORT = 9092
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(KAFKA_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_KAFKA, {})
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
-    kafka_config = get_config_for_update(runtime_config, KAFKA_RUNTIME_CONFIG_KEY)
+    kafka_config = get_config_for_update(runtime_config, BUILT_IN_RUNTIME_KAFKA)
 
     # Check zookeeper
     if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_ZOOKEEPER):
@@ -71,8 +70,8 @@ def _validate_config(config: Dict[str, Any]):
         # Check zookeeper connect configured
         runtime_config = config.get(RUNTIME_CONFIG_KEY)
         if (runtime_config is None) or (
-                KAFKA_RUNTIME_CONFIG_KEY not in runtime_config) or (
-                KAFKA_ZOOKEEPER_CONNECT_KEY not in runtime_config[KAFKA_RUNTIME_CONFIG_KEY]):
+                BUILT_IN_RUNTIME_KAFKA not in runtime_config) or (
+                KAFKA_ZOOKEEPER_CONNECT_KEY not in runtime_config[BUILT_IN_RUNTIME_KAFKA]):
             raise ValueError("Zookeeper connect must be configured!")
     # TODO: dynamic discover zookeeper through service discovery
 
@@ -86,7 +85,7 @@ def _get_zookeeper_connect(runtime_config):
     if runtime_config is None:
         return None
 
-    kafka_config = runtime_config.get(KAFKA_RUNTIME_CONFIG_KEY)
+    kafka_config = runtime_config.get(BUILT_IN_RUNTIME_KAFKA)
     if kafka_config is None:
         return None
 

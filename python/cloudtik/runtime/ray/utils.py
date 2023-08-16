@@ -1,6 +1,7 @@
 import os
 from typing import Any, Dict, Optional
 
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_RAY
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config
 from cloudtik.core._private.utils import get_node_type_config
@@ -17,18 +18,16 @@ RUNTIME_PROCESSES = [
     ["plasma_store", True, "PlasmaStore", "node"],
 ]
 
-RAY_RUNTIME_CONFIG_KEY = "ray"
-
 # The default proportion of available memory allocated to system and runtime overhead
 RAY_DEFAULT_SHARED_MEMORY_PROPORTION = 0.3
 
-RAY_SERVICE_NAME = "ray"
+RAY_SERVICE_NAME = BUILT_IN_RUNTIME_RAY
 RAY_SERVICE_PORT = 6379
 RAY_DASHBOARD_PORT = 8265
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(RAY_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_RAY, {})
 
 
 def _get_runtime_processes():

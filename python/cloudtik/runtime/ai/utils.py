@@ -17,14 +17,12 @@ RUNTIME_PROCESSES = [
     ["mlflow.server:app", False, "MLflow", "head"],
 ]
 
-AI_RUNTIME_CONFIG_KEY = "ai"
-
 MLFLOW_SERVICE_NAME = "mlflow"
 MLFLOW_SERVICE_PORT = 5001
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(AI_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_AI, {})
 
 
 def _get_runtime_processes():
@@ -36,7 +34,7 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
 
     ai_config = _get_config(runtime_config)
     export_runtime_flags(
-        ai_config, AI_RUNTIME_CONFIG_KEY, runtime_envs)
+        ai_config, BUILT_IN_RUNTIME_AI, runtime_envs)
 
     return runtime_envs
 
@@ -52,9 +50,9 @@ def register_service(cluster_config: Dict[str, Any], head_node_id: str) -> None:
 
 
 def _get_runtime_logs():
-    mlflow_logs_dir = os.path.join(os.getenv("HOME"), "runtime", "mlflow", "logs")
-    all_logs = {"mlflow": mlflow_logs_dir
-                }
+    mlflow_logs_dir = os.path.join(
+        os.getenv("HOME"), "runtime", "mlflow", "logs")
+    all_logs = {"mlflow": mlflow_logs_dir}
     return all_logs
 
 

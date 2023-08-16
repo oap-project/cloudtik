@@ -30,7 +30,6 @@ RUNTIME_PROCESSES = [
     ["proc_nodemanager", False, "NodeManager", "worker"],
 ]
 
-SPARK_RUNTIME_CONFIG_KEY = "spark"
 SPARK_HDFS_NAMENODE_URI_KEY = "hdfs_namenode_uri"
 SPARK_HIVE_METASTORE_URI_KEY = "hive_metastore_uri"
 SPARK_HDFS_SERVICE_SELECTOR_KEY = "hdfs_service_selector"
@@ -60,12 +59,12 @@ SPARK_YARN_SERVICE_NAME = "yarn"
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(SPARK_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_SPARK, {})
 
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
     yarn_resource_memory_ratio = YARN_RESOURCE_MEMORY_RATIO
-    spark_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get(SPARK_RUNTIME_CONFIG_KEY, {})
+    spark_config = cluster_config.get(RUNTIME_CONFIG_KEY, {}).get(BUILT_IN_RUNTIME_SPARK, {})
     memory_ratio = spark_config.get("yarn_resource_memory_ratio")
     if memory_ratio:
         yarn_resource_memory_ratio = memory_ratio
@@ -134,7 +133,7 @@ def _get_cluster_resources(
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
-    spark_config = get_config_for_update(runtime_config, SPARK_RUNTIME_CONFIG_KEY)
+    spark_config = get_config_for_update(runtime_config, BUILT_IN_RUNTIME_SPARK)
 
     # We now support co-existence of local HDFS and remote HDFS
     # 1) Try to use local hdfs first;
@@ -215,7 +214,7 @@ def _config_runtime_resources(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
         spark_executor_memory_all - get_spark_executor_overhead(spark_executor_memory_all)
 
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
-    spark_config = get_config_for_update(runtime_config, SPARK_RUNTIME_CONFIG_KEY)
+    spark_config = get_config_for_update(runtime_config, BUILT_IN_RUNTIME_SPARK)
 
     spark_config["yarn_container_resource"] = container_resource
     spark_config["spark_executor_resource"] = executor_resource
@@ -249,7 +248,7 @@ def _get_spark_config(config: Dict[str, Any]):
     if not runtime:
         return None
 
-    spark = runtime.get(SPARK_RUNTIME_CONFIG_KEY)
+    spark = runtime.get(BUILT_IN_RUNTIME_SPARK)
     if not spark:
         return None
 

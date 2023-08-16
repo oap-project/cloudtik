@@ -32,7 +32,6 @@ RUNTIME_PROCESSES = [
     ["consul", True, "Consul", "node"],
 ]
 
-CONSUL_RUNTIME_CONFIG_KEY = "consul"
 CONFIG_KEY_JOIN_LIST = "join_list"
 CONFIG_KEY_RPC_PORT = "rpc_port"
 CONFIG_KEY_SERVICES = "services"
@@ -54,7 +53,7 @@ CONSUL_TAG_METRICS = "cloudtik-m-metrics"
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(CONSUL_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_CONSUL, {})
 
 
 def _get_runtime_processes():
@@ -69,7 +68,7 @@ def _is_agent_server_mode(runtime_config):
 
 def _get_consul_config_for_update(cluster_config):
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
-    return get_config_for_update(runtime_config, CONSUL_RUNTIME_CONFIG_KEY)
+    return get_config_for_update(runtime_config, BUILT_IN_RUNTIME_CONSUL)
 
 
 def _get_cluster_name_tag(cluster_name):

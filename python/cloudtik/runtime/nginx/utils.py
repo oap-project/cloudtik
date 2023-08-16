@@ -21,7 +21,6 @@ RUNTIME_PROCESSES = [
     ["nginx", True, "NGINX", "node"],
 ]
 
-NGINX_RUNTIME_CONFIG_KEY = "nginx"
 NGINX_SERVICE_PORT_CONFIG_KEY = "port"
 
 NGINX_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
@@ -37,7 +36,7 @@ NGINX_BACKEND_SERVICE_PORT_CONFIG_KEY = "service_port"
 NGINX_BACKEND_SERVERS_CONFIG_KEY = "servers"
 NGINX_BACKEND_SELECTOR_CONFIG_KEY = "selector"
 
-NGINX_SERVICE_NAME = "nginx"
+NGINX_SERVICE_NAME = BUILT_IN_RUNTIME_NGINX
 NGINX_SERVICE_PORT_DEFAULT = 80
 
 NGINX_APP_MODE_WEB = "web"
@@ -60,7 +59,7 @@ NGINX_LOAD_BALANCER_UPSTREAM_NAME = "backend"
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(NGINX_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_NGINX, {})
 
 
 def _get_service_port(runtime_config: Dict[str, Any]):
@@ -86,7 +85,7 @@ def _is_high_availability(nginx_config: Dict[str, Any]):
 
 def _get_home_dir():
     return os.path.join(
-        os.getenv("HOME"), "runtime", NGINX_RUNTIME_CONFIG_KEY)
+        os.getenv("HOME"), "runtime", BUILT_IN_RUNTIME_NGINX)
 
 
 def _get_runtime_processes():

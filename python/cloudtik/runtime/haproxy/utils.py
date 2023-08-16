@@ -23,7 +23,6 @@ RUNTIME_PROCESSES = [
     ["haproxy", True, "HAProxy", "node"],
 ]
 
-HAPROXY_RUNTIME_CONFIG_KEY = "haproxy"
 HAPROXY_SERVICE_PORT_CONFIG_KEY = "port"
 HAPROXY_SERVICE_PROTOCOL_CONFIG_KEY = "protocol"
 HAPROXY_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
@@ -41,7 +40,7 @@ HAPROXY_BACKEND_SERVERS_CONFIG_KEY = "servers"
 HAPROXY_BACKEND_SELECTOR_CONFIG_KEY = "selector"
 HAPROXY_BACKEND_SESSION_PERSISTENCE_CONFIG_KEY = "session_persistence"
 
-HAPROXY_SERVICE_NAME = "haproxy"
+HAPROXY_SERVICE_NAME = BUILT_IN_RUNTIME_HAPROXY
 HAPROXY_SERVICE_PORT_DEFAULT = 80
 HAPROXY_SERVICE_PROTOCOL_TCP = "tcp"
 HAPROXY_SERVICE_PROTOCOL_HTTP = "http"
@@ -103,7 +102,7 @@ def get_default_server_name(server_id):
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(HAPROXY_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_HAPROXY, {})
 
 
 def _get_service_port(haproxy_config: Dict[str, Any]):
@@ -138,7 +137,7 @@ def _is_high_availability(haproxy_config: Dict[str, Any]):
 
 def _get_home_dir():
     return os.path.join(
-        os.getenv("HOME"), "runtime", HAPROXY_RUNTIME_CONFIG_KEY)
+        os.getenv("HOME"), "runtime", BUILT_IN_RUNTIME_HAPROXY)
 
 
 def _get_runtime_processes():

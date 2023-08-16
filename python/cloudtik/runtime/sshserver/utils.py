@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 from cloudtik.core._private.core_utils import generate_public_key
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_SSHSERVER
 from cloudtik.core._private.utils import get_config_for_update
 
 RUNTIME_PROCESSES = [
@@ -11,7 +12,6 @@ RUNTIME_PROCESSES = [
     ["cloudtik-ssh-server-sshd_config", False, "SSHServer", "node"],
 ]
 
-SSH_SERVER_RUNTIME_CONFIG_KEY = "sshserver"
 SSH_SERVER_DEFAULT_PORT = 22022
 SSH_PUBLIC_KEY_ERROR = ("For use SSH Server runtime, "
                         "you must specify ssh public key of the cluster ssh private key "
@@ -19,7 +19,7 @@ SSH_PUBLIC_KEY_ERROR = ("For use SSH Server runtime, "
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(SSH_SERVER_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_SSHSERVER, {})
 
 
 def _get_ssh_server_port(runtime_config):

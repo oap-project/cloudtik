@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.core_utils import double_quote
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE, BUILT_IN_RUNTIME_TRINO
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config
 from cloudtik.core._private.utils import is_runtime_enabled, \
@@ -18,7 +18,6 @@ RUNTIME_PROCESSES = [
     ["io.trino.server.TrinoServer", False, "TrinoServer", "node"],
 ]
 
-TRINO_RUNTIME_CONFIG_KEY = "trino"
 TRINO_HIVE_METASTORE_URI_KEY = "hive_metastore_uri"
 TRINO_METASTORE_SERVICE_SELECTOR_KEY = "metastore_service_selector"
 
@@ -26,12 +25,12 @@ JVM_MAX_MEMORY_RATIO = 0.8
 QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
 MEMORY_HEAP_HEADROOM_PER_NODE_RATIO = 0.25
 
-TRINO_SERVICE_NAME = "trino"
+TRINO_SERVICE_NAME = BUILT_IN_RUNTIME_TRINO
 TRINO_SERVICE_PORT = 8081
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(TRINO_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_TRINO, {})
 
 
 def get_jvm_max_memory(total_memory):
@@ -48,7 +47,7 @@ def get_memory_heap_headroom_per_node(jvm_max_memory):
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
-    trino_config = get_config_for_update(runtime_config, TRINO_RUNTIME_CONFIG_KEY)
+    trino_config = get_config_for_update(runtime_config, BUILT_IN_RUNTIME_TRINO)
 
     # Check metastore
     if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
@@ -153,7 +152,7 @@ def configure_connectors(runtime_config: Dict[str, Any]):
     if runtime_config is None:
         return
 
-    trino_config = runtime_config.get(TRINO_RUNTIME_CONFIG_KEY)
+    trino_config = runtime_config.get(BUILT_IN_RUNTIME_TRINO)
     if trino_config is None:
         return
 

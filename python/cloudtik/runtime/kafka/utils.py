@@ -6,9 +6,10 @@ from cloudtik.core._private.runtime_utils import subscribe_runtime_config
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
     get_service_discovery_config
 from cloudtik.core._private.utils import \
-    is_runtime_enabled, RUNTIME_CONFIG_KEY, load_properties_file, \
+    RUNTIME_CONFIG_KEY, load_properties_file, \
     save_properties_file, get_config_for_update
-from cloudtik.runtime.common.service_discovery.cluster import query_service_from_cluster, get_service_addresses_string
+from cloudtik.runtime.common.service_discovery.cluster import query_service_from_cluster, get_service_addresses_string, \
+    has_runtime_in_cluster
 from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
 from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_zookeeper
 
@@ -36,7 +37,7 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     kafka_config = get_config_for_update(runtime_config, BUILT_IN_RUNTIME_KAFKA)
 
     # Check zookeeper
-    if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_ZOOKEEPER):
+    if not has_runtime_in_cluster(runtime_config, BUILT_IN_RUNTIME_ZOOKEEPER):
         if kafka_config.get(KAFKA_ZOOKEEPER_CONNECT_KEY) is None:
             if kafka_config.get("zookeeper_service_discovery", True):
                 zookeeper_uri = discover_zookeeper(
@@ -65,7 +66,7 @@ def _get_runtime_logs():
 
 
 def _validate_config(config: Dict[str, Any]):
-    if not is_runtime_enabled(
+    if not has_runtime_in_cluster(
             config.get(RUNTIME_CONFIG_KEY), BUILT_IN_RUNTIME_ZOOKEEPER):
         # Check zookeeper connect configured
         runtime_config = config.get(RUNTIME_CONFIG_KEY)

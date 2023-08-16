@@ -11,10 +11,11 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config
 from cloudtik.core._private.utils import \
-    is_runtime_enabled, round_memory_size_to_gb, load_head_cluster_config, \
+    round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
     print_json_formatted, get_config_for_update
 from cloudtik.core.scaling_policy import ScalingPolicy
+from cloudtik.runtime.common.service_discovery.cluster import has_runtime_in_cluster
 from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
 from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_hdfs, discover_metastore
 from cloudtik.runtime.common.utils import get_runtime_endpoints_of, get_runtime_default_storage_of
@@ -150,7 +151,7 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
                 spark_config[SPARK_HDFS_NAMENODE_URI_KEY] = hdfs_namenode_uri
 
     # Check metastore
-    if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
+    if not has_runtime_in_cluster(runtime_config, BUILT_IN_RUNTIME_METASTORE):
         if spark_config.get(SPARK_HIVE_METASTORE_URI_KEY) is None:
             if spark_config.get("metastore_service_discovery", True):
                 hive_metastore_uri = discover_metastore(
@@ -307,7 +308,7 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;
     # 3) Try to use provider storage;
-    if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_HDFS):
+    if has_runtime_in_cluster(cluster_runtime_config, BUILT_IN_RUNTIME_HDFS):
         runtime_envs["HDFS_ENABLED"] = True
         _with_hdfs_mount_method(spark_config, runtime_envs)
 
@@ -322,7 +323,7 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
 
     # 1) Try to use local metastore if there is one started;
     # 2) Try to use defined metastore_uri;
-    if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
+    if has_runtime_in_cluster(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
     elif spark_config.get(SPARK_HIVE_METASTORE_URI_KEY) is not None:
         runtime_envs["HIVE_METASTORE_URI"] = spark_config.get(SPARK_HIVE_METASTORE_URI_KEY)
@@ -344,7 +345,7 @@ def _validate_config(config: Dict[str, Any]):
     runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
     # if HDFS enabled, we ignore the cloud storage configurations
-    if is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_HDFS):
+    if has_runtime_in_cluster(runtime_config, BUILT_IN_RUNTIME_HDFS):
         return
     # check if there is remote HDFS configured
     spark_config = _get_config(runtime_config)

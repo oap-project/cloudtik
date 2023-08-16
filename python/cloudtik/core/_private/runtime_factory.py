@@ -36,6 +36,7 @@ BUILT_IN_RUNTIME_GRAFANA = "grafana"
 BUILT_IN_RUNTIME_MYSQL = "mysql"
 BUILT_IN_RUNTIME_POSTGRES = "postgres"
 BUILT_IN_RUNTIME_DNSMASQ = "dnsmasq"
+BUILT_IN_RUNTIME_BIND = "bind"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_PROMETHEUS, BUILT_IN_RUNTIME_NODE_EXPORTER, BUILT_IN_RUNTIME_SPARK]
 
@@ -145,6 +146,11 @@ def _import_dnsmasq():
     return DnsmasqRuntime
 
 
+def _import_bind():
+    from cloudtik.runtime.bind.runtime import BindRuntime
+    return BindRuntime
+
+
 _RUNTIMES = {
     BUILT_IN_RUNTIME_AI: _import_ai,
     BUILT_IN_RUNTIME_SPARK: _import_spark,
@@ -166,7 +172,8 @@ _RUNTIMES = {
     BUILT_IN_RUNTIME_GRAFANA: _import_grafana,
     BUILT_IN_RUNTIME_MYSQL: _import_mysql,
     BUILT_IN_RUNTIME_POSTGRES: _import_postgres,
-    BUILT_IN_RUNTIME_DNSMASQ: _import_dnsmasq(),
+    BUILT_IN_RUNTIME_DNSMASQ: _import_dnsmasq,
+    BUILT_IN_RUNTIME_BIND: _import_bind,
 }
 
 

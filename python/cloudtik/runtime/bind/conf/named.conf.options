@@ -1,0 +1,9 @@
+options {
+  listen-on port {%listen.port%} { 127.0.0.1; };
+  listen-on port {%listen.port%} { {%listen.address%}; };
+
+  directory       "{%data.dir%}";
+
+  dnssec-enable no;
+  dnssec-validation no;
+};

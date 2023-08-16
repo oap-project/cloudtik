@@ -1,0 +1,25 @@
+# Custom commands that will be run on the head node after common setup.
+head_setup_commands:
+    - cloudtik runtime install bind --head
+    - cloudtik runtime configure bind --head
+
+# Custom commands that will be run on worker nodes after common setup.
+worker_setup_commands:
+    - cloudtik runtime install bind
+    - cloudtik runtime configure bind
+
+# Command to start on the head node. You don't need to change this.
+head_start_commands:
+    - cloudtik runtime services bind start --head
+
+# Command to start on worker nodes. You don't need to change this.
+worker_start_commands:
+    - cloudtik runtime services bind start
+
+# Command to start on the head node. You don't need to change this.
+head_stop_commands:
+    - cloudtik runtime services bind stop --head
+
+# Command to start on worker nodes. You don't need to change this.
+worker_stop_commands:
+    - cloudtik runtime services bind stop

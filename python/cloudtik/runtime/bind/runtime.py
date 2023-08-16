@@ -3,14 +3,14 @@ from typing import Any, Dict
 
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
-from cloudtik.runtime.dnsmasq.utils import _get_runtime_processes, \
+from cloudtik.runtime.bind.utils import _get_runtime_processes, \
     _get_runtime_services, _with_runtime_environment_variables
 
 logger = logging.getLogger(__name__)
 
 
-class DnsmasqRuntime(RuntimeBase):
-    """Implementation for Dnsmasq Runtime for a DNS forwarder
+class BindRuntime(RuntimeBase):
+    """Implementation for Bind Runtime for a DNS Server
     which resolves domain names for both local and upstream"""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:

@@ -40,7 +40,7 @@ function configure_dnsmasq() {
     sudo cp ${output_dir}/dnsmasq ${ETC_DEFAULT}/dnsmasq
 
     DNSMASQ_CONF_DIR=${DNSMASQ_HOME}/conf
-    DNSMASQ_CONF_INCLUDE_DIR==${DNSMASQ_CONF_DIR}/conf.d
+    DNSMASQ_CONF_INCLUDE_DIR=${DNSMASQ_CONF_DIR}/conf.d
     mkdir -p ${DNSMASQ_CONF_INCLUDE_DIR}
 
     config_template_file=${output_dir}/dnsmasq.conf

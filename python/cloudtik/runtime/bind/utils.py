@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict
 
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_DNSMASQ, BUILT_IN_RUNTIME_CONSUL
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_BIND, BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
     get_service_discovery_config
@@ -13,27 +13,27 @@ RUNTIME_PROCESSES = [
         # The second element, if True, is to filter ps results by command name.
         # The third element is the process name.
         # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-        ["dnsmasq", True, "DNS Forwarder", "node"],
+        ["named", True, "DNS Server", "node"],
     ]
 
-DNSMASQ_SERVICE_PORT_CONFIG_KEY = "port"
+BIND_SERVICE_PORT_CONFIG_KEY = "port"
 
-DNSMASQ_SERVICE_NAME = BUILT_IN_RUNTIME_DNSMASQ
-DNSMASQ_SERVICE_PORT_DEFAULT = 53
+BIND_SERVICE_NAME = BUILT_IN_RUNTIME_BIND
+BIND_SERVICE_PORT_DEFAULT = 53
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(BUILT_IN_RUNTIME_DNSMASQ, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_BIND, {})
 
 
-def _get_service_port(dnsmasq_config: Dict[str, Any]):
-    return dnsmasq_config.get(
-        DNSMASQ_SERVICE_PORT_CONFIG_KEY, DNSMASQ_SERVICE_PORT_DEFAULT)
+def _get_service_port(bind_config: Dict[str, Any]):
+    return bind_config.get(
+        BIND_SERVICE_PORT_CONFIG_KEY, BIND_SERVICE_PORT_DEFAULT)
 
 
 def _get_home_dir():
     return os.path.join(
-        os.getenv("HOME"), "runtime", BUILT_IN_RUNTIME_DNSMASQ)
+        os.getenv("HOME"), "runtime", BUILT_IN_RUNTIME_BIND)
 
 
 def _get_runtime_processes():
@@ -43,26 +43,26 @@ def _get_runtime_processes():
 def _with_runtime_environment_variables(
         runtime_config, config):
     runtime_envs = {}
-    dnsmasq_config = _get_config(runtime_config)
+    bind_config = _get_config(runtime_config)
 
-    service_port = _get_service_port(dnsmasq_config)
-    runtime_envs["DNSMASQ_SERVICE_PORT"] = service_port
+    service_port = _get_service_port(bind_config)
+    runtime_envs["BIND_SERVICE_PORT"] = service_port
 
     cluster_runtime_config = get_runtime_config(config)
     if has_runtime_in_cluster(
             cluster_runtime_config, BUILT_IN_RUNTIME_CONSUL):
-        runtime_envs["DNSMASQ_CONSUL_RESOLVE"] = True
+        runtime_envs["BIND_CONSUL_RESOLVE"] = True
 
     return runtime_envs
 
 
 def _get_runtime_services(
         runtime_config: Dict[str, Any], cluster_name: str) -> Dict[str, Any]:
-    dnsmasq_config = _get_config(runtime_config)
-    service_discovery_config = get_service_discovery_config(dnsmasq_config)
+    bind_config = _get_config(runtime_config)
+    service_discovery_config = get_service_discovery_config(bind_config)
     service_name = get_canonical_service_name(
-        service_discovery_config, cluster_name, DNSMASQ_SERVICE_NAME)
-    service_port = _get_service_port(dnsmasq_config)
+        service_discovery_config, cluster_name, BIND_SERVICE_NAME)
+    service_port = _get_service_port(bind_config)
     services = {
         service_name: define_runtime_service(
             service_discovery_config, service_port),

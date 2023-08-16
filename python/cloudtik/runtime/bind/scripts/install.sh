@@ -10,14 +10,14 @@ eval set -- "${args}"
 # Util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
-function install_dnsmasq() {
-    if ! command -v dnsmasq &> /dev/null
+function install_bind() {
+    if ! command -v named &> /dev/null
     then
         sudo apt-get -qq update -y > /dev/null; \
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq -y dnsmasq > /dev/null
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq -y bind9 > /dev/null
     fi
 }
 
 set_head_option "$@"
-install_dnsmasq
+install_bind
 clean_install_cache

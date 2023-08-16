@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from cloudtik.core._private import constants
 from cloudtik.core._private.core_utils import exec_with_output, get_list_for_update, get_config_for_update
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_PROMETHEUS
 from cloudtik.core._private.runtime_utils import load_and_save_yaml, \
     get_runtime_config_from_node, save_yaml, get_runtime_head_ip, get_runtime_value
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime, \
@@ -23,7 +24,6 @@ RUNTIME_PROCESSES = [
         ["prometheus", True, "Prometheus", "node"],
     ]
 
-PROMETHEUS_RUNTIME_CONFIG_KEY = "prometheus"
 PROMETHEUS_SERVICE_PORT_CONFIG_KEY = "port"
 PROMETHEUS_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
 PROMETHEUS_SERVICE_DISCOVERY_CONFIG_KEY = "service_discovery"
@@ -38,7 +38,7 @@ PROMETHEUS_PULL_SERVICES_CONFIG_KEY = "pull_services"
 PROMETHEUS_PULL_NODE_TYPES_CONFIG_KEY = "node_types"
 
 
-PROMETHEUS_SERVICE_NAME = "prometheus"
+PROMETHEUS_SERVICE_NAME = BUILT_IN_RUNTIME_PROMETHEUS
 PROMETHEUS_SERVICE_PORT_DEFAULT = 9090
 
 PROMETHEUS_SERVICE_DISCOVERY_FILE = "file"
@@ -52,7 +52,7 @@ PROMETHEUS_PULL_LOCAL_TARGETS_INTERVAL = 15
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(PROMETHEUS_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_PROMETHEUS, {})
 
 
 def _get_service_port(prometheus_config: Dict[str, Any]):
@@ -86,7 +86,7 @@ def _get_runtime_logs():
 
 def _get_config_for_update(cluster_config):
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
-    return get_config_for_update(runtime_config, PROMETHEUS_RUNTIME_CONFIG_KEY)
+    return get_config_for_update(runtime_config, BUILT_IN_RUNTIME_PROMETHEUS)
 
 
 def _bootstrap_runtime_services(config: Dict[str, Any]):

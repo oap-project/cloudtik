@@ -22,9 +22,7 @@ RUNTIME_PROCESSES = [
     ["org.apache.zookeeper.server.quorum.QuorumPeerMain", False, "ZooKeeper", "worker"],
 ]
 
-ZOOKEEPER_RUNTIME_CONFIG_KEY = "zookeeper"
-
-ZOOKEEPER_SERVICE_NAME = "zookeeper"
+ZOOKEEPER_SERVICE_NAME = BUILT_IN_RUNTIME_ZOOKEEPER
 ZOOKEEPER_SERVICE_PORT = 2181
 
 ZOOKEEPER_QUORUM_RETRY = 30
@@ -36,7 +34,7 @@ class NoQuorumError(RuntimeError):
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(ZOOKEEPER_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_ZOOKEEPER, {})
 
 
 def _get_home_dir():
@@ -80,7 +78,7 @@ def _handle_node_constraints_reached(
 
 
 def _get_server_config(runtime_config: Dict[str, Any]):
-    zookeeper_config = runtime_config.get(ZOOKEEPER_RUNTIME_CONFIG_KEY)
+    zookeeper_config = runtime_config.get(BUILT_IN_RUNTIME_ZOOKEEPER)
     if not zookeeper_config:
         return None
 

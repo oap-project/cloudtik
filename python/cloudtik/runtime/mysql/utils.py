@@ -1,6 +1,7 @@
 import os
 from typing import Any, Dict
 
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_MYSQL
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
     get_service_discovery_config
@@ -14,8 +15,6 @@ RUNTIME_PROCESSES = [
         ["mysqld", True, "MySQL", "node"],
     ]
 
-
-MYSQL_RUNTIME_CONFIG_KEY = "mysql"
 MYSQL_SERVICE_PORT_CONFIG_KEY = "port"
 
 MYSQL_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
@@ -26,14 +25,14 @@ MYSQL_DATABASE_NAME_CONFIG_KEY = "name"
 MYSQL_DATABASE_USER_CONFIG_KEY = "user"
 MYSQL_DATABASE_PASSWORD_CONFIG_KEY = "password"
 
-MYSQL_SERVICE_NAME = "mysql"
+MYSQL_SERVICE_NAME = BUILT_IN_RUNTIME_MYSQL
 MYSQL_SERVICE_PORT_DEFAULT = 3306
 
 MYSQL_ROOT_PASSWORD_DEFAULT = "cloudtik"
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(MYSQL_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_MYSQL, {})
 
 
 def _get_service_port(mysql_config: Dict[str, Any]):
@@ -43,7 +42,7 @@ def _get_service_port(mysql_config: Dict[str, Any]):
 
 def _get_home_dir():
     return os.path.join(
-        os.getenv("HOME"), "runtime", MYSQL_RUNTIME_CONFIG_KEY)
+        os.getenv("HOME"), "runtime", BUILT_IN_RUNTIME_MYSQL)
 
 
 def _get_runtime_processes():

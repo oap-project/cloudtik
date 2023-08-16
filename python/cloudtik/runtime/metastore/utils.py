@@ -17,14 +17,12 @@ RUNTIME_PROCESSES = [
     ["mysql", False, "MySQL", "head"],
 ]
 
-METASTORE_RUNTIME_CONFIG_KEY = "metastore"
-
-METASTORE_SERVICE_NAME = "metastore"
+METASTORE_SERVICE_NAME = BUILT_IN_RUNTIME_METASTORE
 METASTORE_SERVICE_PORT = 9083
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(METASTORE_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_METASTORE, {})
 
 
 def _get_runtime_processes():
@@ -36,7 +34,7 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
 
     metastore_config = _get_config(runtime_config)
     export_runtime_flags(
-        metastore_config, METASTORE_RUNTIME_CONFIG_KEY, runtime_envs)
+        metastore_config, BUILT_IN_RUNTIME_METASTORE, runtime_envs)
     return runtime_envs
 
 

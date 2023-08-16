@@ -1,6 +1,7 @@
 import os
 from typing import Any, Dict
 
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_POSTGRES
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
     get_service_discovery_config
@@ -14,8 +15,6 @@ RUNTIME_PROCESSES = [
         ["postgres", True, "Postgres", "node"],
     ]
 
-
-POSTGRES_RUNTIME_CONFIG_KEY = "postgres"
 POSTGRES_SERVICE_PORT_CONFIG_KEY = "port"
 
 POSTGRES_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
@@ -27,7 +26,7 @@ POSTGRES_DATABASE_NAME_CONFIG_KEY = "name"
 POSTGRES_DATABASE_USER_CONFIG_KEY = "user"
 POSTGRES_DATABASE_PASSWORD_CONFIG_KEY = "password"
 
-POSTGRES_SERVICE_NAME = "postgres"
+POSTGRES_SERVICE_NAME = BUILT_IN_RUNTIME_POSTGRES
 POSTGRES_SERVICE_PORT_DEFAULT = 5432
 
 POSTGRES_ADMIN_USER_DEFAULT = "cloudtik"
@@ -35,7 +34,7 @@ POSTGRES_ADMIN_PASSWORD_DEFAULT = "cloudtik"
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(POSTGRES_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_POSTGRES, {})
 
 
 def _get_service_port(postgres_config: Dict[str, Any]):
@@ -45,7 +44,7 @@ def _get_service_port(postgres_config: Dict[str, Any]):
 
 def _get_home_dir():
     return os.path.join(
-        os.getenv("HOME"), "runtime", POSTGRES_RUNTIME_CONFIG_KEY)
+        os.getenv("HOME"), "runtime", BUILT_IN_RUNTIME_POSTGRES)
 
 
 def _get_runtime_processes():

@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.core_utils import double_quote
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE, BUILT_IN_RUNTIME_PRESTO
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config
 from cloudtik.core._private.utils import is_runtime_enabled, \
@@ -18,7 +18,6 @@ RUNTIME_PROCESSES = [
     ["com.facebook.presto.server.PrestoServer", False, "PrestoServer", "node"],
 ]
 
-PRESTO_RUNTIME_CONFIG_KEY = "presto"
 PRESTO_HIVE_METASTORE_URI_KEY = "hive_metastore_uri"
 PRESTO_METASTORE_SERVICE_SELECTOR_KEY = "metastore_service_selector"
 
@@ -27,12 +26,12 @@ QUERY_MAX_MEMORY_PER_NODE_RATIO = 0.5
 QUERY_MAX_TOTAL_MEMORY_PER_NODE_RATIO = 0.7
 MEMORY_HEAP_HEADROOM_PER_NODE_RATIO = 0.25
 
-PRESTO_SERVICE_NAME = "presto"
+PRESTO_SERVICE_NAME = BUILT_IN_RUNTIME_PRESTO
 PRESTO_SERVICE_PORT = 8081
 
 
 def _get_config(runtime_config: Dict[str, Any]):
-    return runtime_config.get(PRESTO_RUNTIME_CONFIG_KEY, {})
+    return runtime_config.get(BUILT_IN_RUNTIME_PRESTO, {})
 
 
 def get_jvm_max_memory(total_memory):
@@ -53,7 +52,7 @@ def get_memory_heap_headroom_per_node(jvm_max_memory):
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     runtime_config = get_config_for_update(cluster_config, RUNTIME_CONFIG_KEY)
-    presto_config = get_config_for_update(runtime_config, PRESTO_RUNTIME_CONFIG_KEY)
+    presto_config = get_config_for_update(runtime_config, BUILT_IN_RUNTIME_PRESTO)
 
     # Check metastore
     if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
@@ -160,7 +159,7 @@ def configure_connectors(runtime_config: Dict[str, Any]):
     if runtime_config is None:
         return
 
-    presto_config = runtime_config.get(PRESTO_RUNTIME_CONFIG_KEY)
+    presto_config = runtime_config.get(BUILT_IN_RUNTIME_PRESTO)
     if presto_config is None:
         return
 

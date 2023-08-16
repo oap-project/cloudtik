@@ -3223,3 +3223,7 @@ def get_database_port(database_config):
         engine = get_database_engine(database_config)
         port = 3306 if engine == "mysql" else 5432
     return port
+
+
+def get_runtime_config(config):
+    return config.get(RUNTIME_CONFIG_KEY)

@@ -5,8 +5,9 @@ from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE, BUILT_IN_RUNTIME_TRINO
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config
-from cloudtik.core._private.utils import is_runtime_enabled, \
+from cloudtik.core._private.utils import \
     get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config, get_config_for_update
+from cloudtik.runtime.common.service_discovery.cluster import has_runtime_in_cluster
 from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
 from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_metastore
 
@@ -50,7 +51,8 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     trino_config = get_config_for_update(runtime_config, BUILT_IN_RUNTIME_TRINO)
 
     # Check metastore
-    if not is_runtime_enabled(runtime_config, BUILT_IN_RUNTIME_METASTORE):
+    if not has_runtime_in_cluster(
+            runtime_config, BUILT_IN_RUNTIME_METASTORE):
         if trino_config.get(TRINO_HIVE_METASTORE_URI_KEY) is None:
             if trino_config.get("metastore_service_discovery", True):
                 hive_metastore_uri = discover_metastore(
@@ -86,7 +88,8 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
 
     # 1) Try to use local metastore if there is one started;
     # 2) Try to use defined metastore_uri;
-    if is_runtime_enabled(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
+    if has_runtime_in_cluster(
+            cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
     elif trino_config.get(TRINO_HIVE_METASTORE_URI_KEY) is not None:
         runtime_envs["HIVE_METASTORE_URI"] = trino_config.get(TRINO_HIVE_METASTORE_URI_KEY)

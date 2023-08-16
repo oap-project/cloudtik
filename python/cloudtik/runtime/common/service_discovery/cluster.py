@@ -1,4 +1,4 @@
-from cloudtik.core._private.utils import publish_cluster_variable, subscribe_cluster_variable
+from cloudtik.core._private.utils import publish_cluster_variable, subscribe_cluster_variable, is_runtime_enabled
 from cloudtik.runtime.common.service_discovery.utils import get_service_addresses_string, \
     get_service_addresses_from_string
 
@@ -39,3 +39,7 @@ def query_service_from_cluster(
     if not registry_addresses:
         return None
     return get_service_addresses_from_string(registry_addresses)
+
+
+def has_runtime_in_cluster(runtime_config, runtime_type):
+    return is_runtime_enabled(runtime_config, runtime_type)

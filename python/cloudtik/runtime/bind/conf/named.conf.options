@@ -4,6 +4,8 @@ options {
 
   directory       "{%data.dir%}";
 
+  recursion yes;
+
   dnssec-enable no;
   dnssec-validation no;
 };

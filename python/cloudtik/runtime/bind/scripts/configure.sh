@@ -39,6 +39,7 @@ function configure_data_dir() {
     fi
 
     mkdir -p ${data_dir}
+    sudo chown -R root:bind ${data_dir} >/dev/null 2>&1
     sed -i "s!{%data.dir%}!${data_dir}!g" ${output_dir}/named.conf.options
 }
 

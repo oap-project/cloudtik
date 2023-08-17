@@ -10,10 +10,11 @@ from cloudtik.core._private.service_discovery.runtime_services import get_servic
     get_runtime_services_by_node_type
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, \
-    define_runtime_service_on_head_or_all, get_service_discovery_config, is_service_for_metrics, SERVICE_DISCOVERY_PORT, \
+    define_runtime_service_on_head_or_all, get_service_discovery_config, SERVICE_DISCOVERY_PORT, \
     SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, SERVICE_SELECTOR_LABELS, SERVICE_SELECTOR_EXCLUDE_LABELS, \
     SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_CLUSTERS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
-    SERVICE_DISCOVERY_LABEL_CLUSTER, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS, SERVICE_DISCOVERY_PROTOCOL_HTTP
+    SERVICE_DISCOVERY_LABEL_CLUSTER, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS, SERVICE_DISCOVERY_PROTOCOL_HTTP, \
+    has_runtime_service_feature, SERVICE_DISCOVERY_FEATURE_METRICS
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
@@ -97,7 +98,8 @@ def _bootstrap_runtime_services(config: Dict[str, Any]):
         for service_name, service in services_for_node_type.items():
             runtime_type, runtime_service = service
             # check whether this service provide metric or not
-            if is_service_for_metrics(runtime_service):
+            if has_runtime_service_feature(
+                    runtime_service, SERVICE_DISCOVERY_FEATURE_METRICS):
                 if service_name not in pull_services:
                     service_port = runtime_service[SERVICE_DISCOVERY_PORT]
                     pull_service = {
@@ -225,7 +227,7 @@ def _get_runtime_services(
             service_discovery_config, service_port,
             _is_high_availability(prometheus_config),
             protocol=SERVICE_DISCOVERY_PROTOCOL_HTTP,
-            metrics=True)
+            features=[SERVICE_DISCOVERY_FEATURE_METRICS])
     }
     return services
 

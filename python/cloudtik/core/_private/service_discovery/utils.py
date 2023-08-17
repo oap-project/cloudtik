@@ -1,6 +1,6 @@
 import copy
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from cloudtik.core._private.core_utils import deserialize_config, serialize_config, \
     get_list_for_update
@@ -22,6 +22,7 @@ SERVICE_DISCOVERY_TAGS = "tags"
 SERVICE_DISCOVERY_LABELS = "labels"
 
 SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX = "cloudtik-c-"
+SERVICE_DISCOVERY_TAG_FEATURE_PREFIX = "cloudtik-f-"
 SERVICE_DISCOVERY_TAG_SYSTEM_PREFIX = "cloudtik-"
 
 SERVICE_DISCOVERY_LABEL_CLUSTER = "cloudtik-cluster"
@@ -30,9 +31,20 @@ SERVICE_DISCOVERY_LABEL_RUNTIME = "cloudtik-runtime"
 SERVICE_DISCOVERY_CHECK_INTERVAL = "check_interval"
 SERVICE_DISCOVERY_CHECK_TIMEOUT = "check_timeout"
 
-# A boolean value indicate whether this is a service for exporting metrics
-# for auto discovering the metrics services from collector server
-SERVICE_DISCOVERY_METRICS = "metrics"
+# A set of predefined features that a service belongs to
+# A single service can provide more than one features
+SERVICE_DISCOVERY_FEATURES = "features"
+
+SERVICE_DISCOVERY_FEATURE_DATABASE = "database"
+SERVICE_DISCOVERY_FEATURE_STORAGE = "storage"
+SERVICE_DISCOVERY_FEATURE_ANALYTICS = "analytics"
+SERVICE_DISCOVERY_FEATURE_SCHEDULER = "scheduler"
+SERVICE_DISCOVERY_FEATURE_DNS = "dns"
+SERVICE_DISCOVERY_FEATURE_LOAD_BALANCER = "load-balancer"
+SERVICE_DISCOVERY_FEATURE_KEY_VALUE = "key-value"
+SERVICE_DISCOVERY_FEATURE_METRICS = "metrics"
+SERVICE_DISCOVERY_FEATURE_MESSAGING = "messaging"
+
 
 # Standard runtime configurations for service discovery
 SERVICE_DISCOVERY_CONFIG_SERVICE_DISCOVERY = "service"
@@ -100,7 +112,7 @@ def define_runtime_service(
         service_port,
         node_kind=SERVICE_DISCOVERY_NODE_KIND_NODE,
         protocol: str = None,
-        metrics: bool = False):
+        features: List[str] = None):
     if not protocol:
         protocol = SERVICE_DISCOVERY_PROTOCOL_TCP
     service_def = {
@@ -117,8 +129,8 @@ def define_runtime_service(
     labels = service_discovery_config.get(SERVICE_DISCOVERY_CONFIG_LABELS)
     if labels:
         service_def[SERVICE_DISCOVERY_LABELS] = labels
-    if metrics:
-        service_def[SERVICE_DISCOVERY_METRICS] = metrics
+    if features:
+        service_def[SERVICE_DISCOVERY_FEATURES] = features
 
     return service_def
 
@@ -127,33 +139,33 @@ def define_runtime_service_on_worker(
         service_discovery_config: Optional[Dict[str, Any]],
         service_port,
         protocol: str = None,
-        metrics: bool = False):
+        features: List[str] = None):
     return define_runtime_service(
         service_discovery_config,
         service_port,
         node_kind=SERVICE_DISCOVERY_NODE_KIND_WORKER,
         protocol=protocol,
-        metrics=metrics)
+        features=features)
 
 
 def define_runtime_service_on_head(
         service_discovery_config,
         service_port,
         protocol: str = None,
-        metrics: bool = False):
+        features: List[str] = None):
     return define_runtime_service(
         service_discovery_config,
         service_port,
         node_kind=SERVICE_DISCOVERY_NODE_KIND_HEAD,
         protocol=protocol,
-        metrics=metrics)
+        features=features)
 
 
 def define_runtime_service_on_head_or_all(
         service_discovery_config,
         service_port, head_or_all,
         protocol: str = None,
-        metrics: bool = False):
+        features: List[str] = None):
     node_kind = SERVICE_DISCOVERY_NODE_KIND_NODE \
         if head_or_all else SERVICE_DISCOVERY_NODE_KIND_HEAD
     return define_runtime_service(
@@ -161,7 +173,7 @@ def define_runtime_service_on_head_or_all(
         service_port,
         node_kind=node_kind,
         protocol=protocol,
-        metrics=metrics)
+        features=features)
 
 
 def match_service_node(runtime_service, head):
@@ -178,8 +190,13 @@ def match_service_node(runtime_service, head):
     return False
 
 
-def is_service_for_metrics(runtime_service):
-    return runtime_service.get(SERVICE_DISCOVERY_METRICS, False)
+def get_runtime_service_features(runtime_service):
+    return runtime_service.get(SERVICE_DISCOVERY_FEATURES)
+
+
+def has_runtime_service_feature(runtime_service, feature):
+    features = get_runtime_service_features(runtime_service)
+    return False if not features or feature not in features else True
 
 
 def serialize_service_selector(service_selector):

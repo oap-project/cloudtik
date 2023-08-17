@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_MYSQL
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
-    get_service_discovery_config
+    get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_DATABASE
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
@@ -124,6 +124,7 @@ def _get_runtime_services(
     service_port = _get_service_port(mysql_config)
     services = {
         service_name: define_runtime_service(
-            service_discovery_config, service_port),
+            service_discovery_config, service_port,
+            features=[SERVICE_DISCOVERY_FEATURE_DATABASE]),
     }
     return services

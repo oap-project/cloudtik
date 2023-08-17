@@ -10,7 +10,7 @@ from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, g
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, \
     get_service_discovery_config, serialize_service_selector, define_runtime_service_on_head_or_all, \
-    exclude_runtime_of_cluster
+    exclude_runtime_of_cluster, SERVICE_DISCOVERY_FEATURE_LOAD_BALANCER
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 from cloudtik.runtime.common.service_discovery.consul import get_rfc2782_service_dns_name
 from cloudtik.runtime.haproxy.admin_api import get_backend_server_name
@@ -327,7 +327,8 @@ def _get_runtime_services(
     services = {
         service_name: define_runtime_service_on_head_or_all(
             service_discovery_config, service_port,
-            _is_high_availability(haproxy_config))
+            _is_high_availability(haproxy_config),
+            features=[SERVICE_DISCOVERY_FEATURE_LOAD_BALANCER])
     }
     return services
 

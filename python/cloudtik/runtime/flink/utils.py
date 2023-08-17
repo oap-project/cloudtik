@@ -7,7 +7,7 @@ from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
     BUILT_IN_RUNTIME_FLINK
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
-    get_service_discovery_config
+    get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_SCHEDULER
 from cloudtik.core._private.utils import round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
     print_json_formatted, get_config_for_update
@@ -368,7 +368,8 @@ def _get_runtime_services(
         service_discovery_config, cluster_name, FLINK_YARN_SERVICE_NAME)
     services = {
         yarn_service_name: define_runtime_service_on_head(
-            service_discovery_config, FLINK_YARN_RESOURCE_MANAGER_PORT),
+            service_discovery_config, FLINK_YARN_RESOURCE_MANAGER_PORT,
+            features=[SERVICE_DISCOVERY_FEATURE_SCHEDULER]),
     }
     return services
 

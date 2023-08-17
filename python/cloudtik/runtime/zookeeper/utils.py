@@ -9,7 +9,7 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ZOOKEEPER
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, \
     sort_nodes_by_seq_id
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
-    get_service_discovery_config, ServiceRegisterException
+    get_service_discovery_config, ServiceRegisterException, SERVICE_DISCOVERY_FEATURE_KEY_VALUE
 from cloudtik.core._private.utils import \
     load_properties_file, save_properties_file
 from cloudtik.runtime.common.service_discovery.cluster import register_service_to_cluster
@@ -101,7 +101,8 @@ def _get_runtime_services(
         service_discovery_config, cluster_name, ZOOKEEPER_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_worker(
-            service_discovery_config, ZOOKEEPER_SERVICE_PORT),
+            service_discovery_config, ZOOKEEPER_SERVICE_PORT,
+            features=[SERVICE_DISCOVERY_FEATURE_KEY_VALUE]),
     }
     return services
 

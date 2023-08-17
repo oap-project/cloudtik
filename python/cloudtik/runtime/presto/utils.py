@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.core_utils import double_quote
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE, BUILT_IN_RUNTIME_PRESTO
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
-    get_service_discovery_config
+    get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_ANALYTICS
 from cloudtik.core._private.utils import \
     get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config, get_config_for_update
 from cloudtik.runtime.common.service_discovery.cluster import has_runtime_in_cluster
@@ -202,6 +202,7 @@ def _get_runtime_services(
         service_discovery_config, cluster_name, PRESTO_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_head(
-            service_discovery_config, PRESTO_SERVICE_PORT),
+            service_discovery_config, PRESTO_SERVICE_PORT,
+            features=[SERVICE_DISCOVERY_FEATURE_ANALYTICS]),
     }
     return services

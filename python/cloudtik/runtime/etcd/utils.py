@@ -8,7 +8,7 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ETCD
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, sort_nodes_by_seq_id, \
     load_and_save_yaml, get_runtime_value
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
-    get_service_discovery_config, ServiceRegisterException
+    get_service_discovery_config, ServiceRegisterException, SERVICE_DISCOVERY_FEATURE_KEY_VALUE
 from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,8 @@ def _get_runtime_services(
         service_discovery_config, cluster_name, ETCD_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_worker(
-            service_discovery_config, ETCD_SERVICE_PORT),
+            service_discovery_config, ETCD_SERVICE_PORT,
+            features=[SERVICE_DISCOVERY_FEATURE_KEY_VALUE]),
     }
     return services
 

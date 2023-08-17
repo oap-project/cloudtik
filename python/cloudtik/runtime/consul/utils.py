@@ -15,7 +15,8 @@ from cloudtik.core._private.service_discovery.runtime_services import get_runtim
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_LABELS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
     SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_LABEL_CLUSTER, \
-    is_service_for_metrics, SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX, ServiceRegisterException
+    SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX, ServiceRegisterException, \
+    get_runtime_service_features, SERVICE_DISCOVERY_TAG_FEATURE_PREFIX
 from cloudtik.core._private.utils import \
     RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
     RUNTIME_CONFIG_KEY
@@ -50,9 +51,8 @@ CONSUL_SERVER_DNS_PORT = 8600
 SERVICE_CHECK_INTERVAL_DEFAULT = 10
 SERVICE_CHECK_TIMEOUT_DEFAULT = 5
 
-CONSUL_TAG_CLUSTER_NAME_FORMAT = SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX + "{}"
-CONSUL_TAG_PROTOCOL_FORMAT = "cloudtik-p-{}"
-CONSUL_TAG_METRICS = "cloudtik-m-metrics"
+CONSUL_TAG_CLUSTER_FORMAT = SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX + "{}"
+CONSUL_TAG_FEATURE_FORMAT = SERVICE_DISCOVERY_TAG_FEATURE_PREFIX + "{}"
 
 
 def _get_config(runtime_config: Dict[str, Any]):
@@ -75,7 +75,11 @@ def _get_consul_config_for_update(cluster_config):
 
 
 def _get_cluster_name_tag(cluster_name):
-    return CONSUL_TAG_CLUSTER_NAME_FORMAT.format(cluster_name)
+    return CONSUL_TAG_CLUSTER_FORMAT.format(cluster_name)
+
+
+def _get_feature_tag(cluster_name):
+    return CONSUL_TAG_FEATURE_FORMAT.format(cluster_name)
 
 
 def _bootstrap_join_list(cluster_config: Dict[str, Any]):
@@ -134,10 +138,12 @@ def _generate_service_config(cluster_name, runtime_type, runtime_service):
     cluster_name_tag = _get_cluster_name_tag(cluster_name)
     tags.append(cluster_name_tag)
 
-    # metrics tag
-    metrics = is_service_for_metrics(service_config)
-    if metrics:
-        tags.append(CONSUL_TAG_METRICS)
+    # features tag
+    features = get_runtime_service_features(service_config)
+    if features:
+        for feature in features:
+            feature_tag = _get_feature_tag(feature)
+            tags.append(feature_tag)
 
     # TODO: protocol as tag
 

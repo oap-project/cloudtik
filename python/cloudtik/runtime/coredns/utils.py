@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_COREDNS, BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
-    get_service_discovery_config
+    get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_DNS, SERVICE_DISCOVERY_FEATURE_METRICS
 from cloudtik.core._private.utils import get_runtime_config
 from cloudtik.runtime.common.service_discovery.cluster import has_runtime_in_cluster
 
@@ -19,7 +19,9 @@ RUNTIME_PROCESSES = [
 COREDNS_SERVICE_PORT_CONFIG_KEY = "port"
 
 COREDNS_SERVICE_NAME = BUILT_IN_RUNTIME_COREDNS
+COREDNS_METRICS_SERVICE_NAME = BUILT_IN_RUNTIME_COREDNS + "-metrics"
 COREDNS_SERVICE_PORT_DEFAULT = 53
+COREDNS_METRICS_SERVICE_PORT_DEFAULT = 9253
 
 
 def _get_config(runtime_config: Dict[str, Any]):
@@ -63,8 +65,15 @@ def _get_runtime_services(
     service_name = get_canonical_service_name(
         service_discovery_config, cluster_name, COREDNS_SERVICE_NAME)
     service_port = _get_service_port(coredns_config)
+    # TODO: what about member_of if there are two services for a single runtime
+    metrics_service_name = get_canonical_service_name(
+        service_discovery_config, cluster_name, COREDNS_METRICS_SERVICE_NAME)
     services = {
         service_name: define_runtime_service(
-            service_discovery_config, service_port),
+            service_discovery_config, service_port,
+            features=[SERVICE_DISCOVERY_FEATURE_DNS]),
+        metrics_service_name: define_runtime_service(
+            service_discovery_config, COREDNS_METRICS_SERVICE_PORT_DEFAULT,
+            features=[SERVICE_DISCOVERY_FEATURE_METRICS]),
     }
     return services

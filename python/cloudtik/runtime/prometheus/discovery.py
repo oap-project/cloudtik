@@ -73,7 +73,7 @@ class DiscoverLocalTargets(PullJob):
                  redis_address=None,
                  redis_password=None):
         if not redis_address:
-            raise RuntimeError("Radis address is needed for pulling local targets.")
+            raise RuntimeError("Redis address is needed for pulling local targets.")
 
         (redis_ip, redis_port) = redis_address.split(":")
 

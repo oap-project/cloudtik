@@ -44,7 +44,7 @@ scrape_configs:
     consul_sd_configs:
       # An optional list of tags used to filter nodes for a given service. Services must contain all tags in the list.
       - tags:
-          - 'cloudtik-m-metrics'
+          - 'cloudtik-f-metrics'
 
         # A list of services for which targets are retrieved. If omitted, all services
         # are scraped.

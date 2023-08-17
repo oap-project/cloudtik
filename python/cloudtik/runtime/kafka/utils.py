@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ZOOKEEPER, BUILT_IN_RUNTIME_KAFKA
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
-    get_service_discovery_config
+    get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_MESSAGING
 from cloudtik.core._private.utils import \
     RUNTIME_CONFIG_KEY, load_properties_file, \
     save_properties_file, get_config_for_update
@@ -141,6 +141,7 @@ def _get_runtime_services(
         service_discovery_config, cluster_name, KAFKA_SERVICE_NAME)
     services = {
         service_name: define_runtime_service_on_worker(
-            service_discovery_config, KAFKA_SERVICE_PORT),
+            service_discovery_config, KAFKA_SERVICE_PORT,
+            features=[SERVICE_DISCOVERY_FEATURE_MESSAGING]),
     }
     return services

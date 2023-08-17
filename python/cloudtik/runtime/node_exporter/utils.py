@@ -4,7 +4,7 @@ from typing import Any, Dict
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_NODE_EXPORTER
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
-    get_service_discovery_config, SERVICE_DISCOVERY_PROTOCOL_HTTP
+    get_service_discovery_config, SERVICE_DISCOVERY_PROTOCOL_HTTP, SERVICE_DISCOVERY_FEATURE_METRICS
 
 RUNTIME_PROCESSES = [
         # The first element is the substring to filter.
@@ -67,6 +67,6 @@ def _get_runtime_services(
         service_name: define_runtime_service(
             service_discovery_config, service_port,
             protocol=SERVICE_DISCOVERY_PROTOCOL_HTTP,
-            metrics=True),
+            features=[SERVICE_DISCOVERY_FEATURE_METRICS]),
     }
     return services

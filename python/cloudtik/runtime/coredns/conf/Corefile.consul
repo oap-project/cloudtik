@@ -1,0 +1,9 @@
+cloudtik:{%bind.port%} {
+    bind 127.0.0.1 {%bind.ip%}
+    prometheus {%bind.ip%}:9253
+    forward . 127.0.0.1:8600
+    log
+    errors
+    reload
+    loadbalance round_robin
+}

@@ -8,7 +8,6 @@ args=$(getopt -a -o h:: -l head:: -- "$@")
 eval set -- "${args}"
 
 export PROMETHEUS_VERSION=2.45.0
-export PROMETHEUS_NODE_EXPORTER_VERSION=1.6.1
 
 export USER_HOME=/home/$(whoami)
 export RUNTIME_PATH=$USER_HOME/runtime

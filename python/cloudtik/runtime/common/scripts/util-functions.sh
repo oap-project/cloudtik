@@ -114,7 +114,7 @@ function stop_process_by_name() {
     if [ -n "${MY_PID}" ]; then
         echo "Stopping ${PROCESS_NAME}..."
         # SIGTERM = 15
-        kill -15 ${MY_PID} >/dev/null 2>&1
+        sudo kill -15 ${MY_PID} >/dev/null 2>&1
     fi
 }
 
@@ -125,6 +125,6 @@ function stop_process_by_pid_file() {
     if [ -n "${MY_PID}" ]; then
         echo "Stopping ${PROCESS_NAME}..."
         # SIGTERM = 15
-        kill -15 ${MY_PID} >/dev/null 2>&1
+        sudo kill -15 ${MY_PID} >/dev/null 2>&1
     fi
 }

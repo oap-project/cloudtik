@@ -1,0 +1,11 @@
+.:{%bind.port%} {
+    bind 127.0.0.1 {%bind.ip%}
+    prometheus {%bind.ip%}:9253
+    forward . /etc/resolv.conf
+    log
+    errors
+    cache
+    loop
+    reload
+    loadbalance round_robin
+}

@@ -39,6 +39,7 @@ SERVICE_DISCOVERY_CONFIG_SERVICE_DISCOVERY = "service"
 SERVICE_DISCOVERY_CONFIG_MEMBER_OF = "member_of"
 SERVICE_DISCOVERY_CONFIG_TAGS = "tags"
 SERVICE_DISCOVERY_CONFIG_LABELS = "labels"
+SERVICE_DISCOVERY_CONFIG_PREFER_WORKSPACE = "prefer_workspace"
 
 # The config keys for a standard service selector
 SERVICE_SELECTOR_SERVICES = "services"
@@ -68,6 +69,12 @@ class ServiceRegisterException(RuntimeError):
 
 def get_service_discovery_config(config):
     return config.get(SERVICE_DISCOVERY_CONFIG_SERVICE_DISCOVERY, {})
+
+
+def is_prefer_workspace_discovery(
+        service_discovery_config: Optional[Dict[str, Any]]):
+    return service_discovery_config.get(
+        SERVICE_DISCOVERY_CONFIG_PREFER_WORKSPACE, False)
 
 
 def get_canonical_service_name(

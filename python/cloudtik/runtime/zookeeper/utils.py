@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 from shlex import quote
@@ -8,11 +9,14 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ZOOKEEPER
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, \
     sort_nodes_by_seq_id
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
-    get_service_discovery_config
+    get_service_discovery_config, ServiceRegisterException
 from cloudtik.core._private.utils import \
     load_properties_file, save_properties_file
 from cloudtik.runtime.common.service_discovery.cluster import register_service_to_cluster
 from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
+
+logger = logging.getLogger(__name__)
+
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -69,9 +73,13 @@ def _handle_node_constraints_reached(
     server_ensemble = sort_nodes_by_seq_id(nodes_info)
     endpoints = [(node_info[RUNTIME_NODE_IP], ZOOKEEPER_SERVICE_PORT
                   ) for node_info in server_ensemble]
-    register_service_to_workspace(
-        cluster_config, BUILT_IN_RUNTIME_ZOOKEEPER,
-        service_addresses=endpoints)
+
+    try:
+        register_service_to_workspace(
+            cluster_config, BUILT_IN_RUNTIME_ZOOKEEPER,
+            service_addresses=endpoints)
+    except ServiceRegisterException as e:
+        logger.warning("Error happened: {}", str(e))
     register_service_to_cluster(
         BUILT_IN_RUNTIME_ZOOKEEPER,
         service_addresses=endpoints)

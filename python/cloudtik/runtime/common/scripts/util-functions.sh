@@ -121,7 +121,7 @@ function stop_process_by_name() {
 function stop_process_by_pid_file() {
     local PROCESS_PID_FILE=$1
     local PROCESS_NAME=$(basename "$PROCESS_PID_FILE")
-    local MY_PID=$(pgrep --pidfile ${PROCESS_PID_FILE})
+    local MY_PID=$(sudo pgrep --pidfile ${PROCESS_PID_FILE})
     if [ -n "${MY_PID}" ]; then
         echo "Stopping ${PROCESS_NAME}..."
         # SIGTERM = 15

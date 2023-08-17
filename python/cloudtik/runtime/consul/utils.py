@@ -1,3 +1,4 @@
+import logging
 import copy
 import json
 import os
@@ -14,7 +15,7 @@ from cloudtik.core._private.service_discovery.runtime_services import get_runtim
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_LABELS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
     SERVICE_DISCOVERY_CHECK_INTERVAL, SERVICE_DISCOVERY_CHECK_TIMEOUT, SERVICE_DISCOVERY_LABEL_CLUSTER, \
-    is_service_for_metrics, SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX
+    is_service_for_metrics, SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX, ServiceRegisterException
 from cloudtik.core._private.utils import \
     RUNTIME_TYPES_CONFIG_KEY, _get_node_type_specific_runtime_config, \
     RUNTIME_CONFIG_KEY
@@ -23,6 +24,8 @@ from cloudtik.runtime.common.service_discovery.cluster import register_service_t
 from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
 from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_consul
 from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
+
+logger = logging.getLogger(__name__)
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -250,9 +253,13 @@ def _handle_node_constraints_reached(
                      ) for node_info in server_ensemble]
     endpoints += worker_nodes
 
-    register_service_to_workspace(
-        cluster_config, BUILT_IN_RUNTIME_CONSUL,
-        service_addresses=endpoints)
+    try:
+        register_service_to_workspace(
+            cluster_config, BUILT_IN_RUNTIME_CONSUL,
+            service_addresses=endpoints)
+    except ServiceRegisterException as e:
+        logger.warning("Error happened: {}", str(e))
+
     register_service_to_cluster(
         BUILT_IN_RUNTIME_CONSUL,
         service_addresses=endpoints)

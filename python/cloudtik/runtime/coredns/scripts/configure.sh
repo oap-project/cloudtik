@@ -31,6 +31,7 @@ function check_coredns_installed() {
 
 function configure_coredns() {
     prepare_base_conf
+    mkdir -p ${COREDNS_HOME}/logs
 
     COREDNS_CONF_DIR=${COREDNS_HOME}/conf
     mkdir -p ${COREDNS_CONF_DIR}
@@ -43,7 +44,7 @@ function configure_coredns() {
       `grep "{%bind.port%}" -rl ${output_dir}`
 
     # generate additional name server records for specific (service discovery) domain
-    if [ "${BIND_CONSUL_RESOLVE}" == "true" ]; then
+    if [ "${COREDNS_CONSUL_RESOLVE}" == "true" ]; then
         # TODO: handle consul port other than default
         echo "import ${COREDNS_CONF_DIR}/Corefile.consul" >> ${config_template_file}
         cp ${output_dir}/Corefile.consul ${COREDNS_CONF_DIR}/Corefile.consul

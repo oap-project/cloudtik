@@ -987,7 +987,7 @@ def get_or_create_head_node(config: Dict[str, Any],
         cluster_booting_completed(config, head_node)
     except ServiceRegisterException as e:
         _cli_logger.warning(
-            "There are some issues handling the completion event. {}", str(e))
+            "There is an error handling the completion event. {}", str(e))
 
     _cli_logger.newline()
     successful_msg = "Successfully started cluster: {}.".format(config["cluster_name"])

@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Any, Dict
 
@@ -7,8 +8,10 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ETCD
 from cloudtik.core._private.runtime_utils import RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, sort_nodes_by_seq_id, \
     load_and_save_yaml, get_runtime_value
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_worker, \
-    get_service_discovery_config
+    get_service_discovery_config, ServiceRegisterException
 from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
+
+logger = logging.getLogger(__name__)
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -59,9 +62,12 @@ def _handle_node_constraints_reached(
     # We know this is called in the cluster scaler context
     initial_cluster = sort_nodes_by_seq_id(nodes_info)
     endpoints = _get_endpoints(initial_cluster)
-    register_service_to_workspace(
-        cluster_config, BUILT_IN_RUNTIME_ETCD,
-        service_addresses=endpoints)
+    try:
+        register_service_to_workspace(
+            cluster_config, BUILT_IN_RUNTIME_ETCD,
+            service_addresses=endpoints)
+    except ServiceRegisterException as e:
+        logger.warning("Error happened: {}", str(e))
 
 
 def _get_runtime_endpoints(runtime_config: Dict[str, Any], cluster_head_ip):

@@ -6,7 +6,8 @@ from cloudtik.core._private.service_discovery.runtime_services import is_service
 from cloudtik.core._private.service_discovery.utils import ServiceRegisterException, SERVICE_SELECTOR_CLUSTERS, \
     SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, SERVICE_SELECTOR_LABELS, \
     SERVICE_SELECTOR_EXCLUDE_LABELS, SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX, \
-    SERVICE_DISCOVERY_LABEL_CLUSTER, SERVICE_DISCOVERY_LABEL_RUNTIME
+    SERVICE_DISCOVERY_LABEL_CLUSTER, SERVICE_DISCOVERY_LABEL_RUNTIME, get_service_discovery_config, \
+    is_prefer_workspace_discovery
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.runtime.common.service_discovery.utils import get_service_addresses_string, \
@@ -51,7 +52,10 @@ def register_service_to_workspace(
         raise ValueError("Must specify service addresses when registering a service.")
 
     runtime_config = cluster_config.get(RUNTIME_CONFIG_KEY)
-    if (not is_service_discovery_runtime(runtime_type) and
+    runtime_type_config = runtime_config.get(runtime_type, {})
+    service_discovery_config = get_service_discovery_config(runtime_type_config)
+    if (not is_prefer_workspace_discovery(service_discovery_config) and
+            not is_service_discovery_runtime(runtime_type) and
             get_service_discovery_runtime(runtime_config)):
         # We don't register service to workspace for discovery when there is discovery service to use.
         # The bootstrap service discovery service should run without other services

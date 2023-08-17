@@ -37,6 +37,7 @@ BUILT_IN_RUNTIME_MYSQL = "mysql"
 BUILT_IN_RUNTIME_POSTGRES = "postgres"
 BUILT_IN_RUNTIME_DNSMASQ = "dnsmasq"
 BUILT_IN_RUNTIME_BIND = "bind"
+BUILT_IN_RUNTIME_COREDNS = "coredns"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_PROMETHEUS, BUILT_IN_RUNTIME_NODE_EXPORTER, BUILT_IN_RUNTIME_SPARK]
 
@@ -151,6 +152,11 @@ def _import_bind():
     return BindRuntime
 
 
+def _import_coredns():
+    from cloudtik.runtime.coredns.runtime import CoreDNSRuntime
+    return CoreDNSRuntime
+
+
 _RUNTIMES = {
     BUILT_IN_RUNTIME_AI: _import_ai,
     BUILT_IN_RUNTIME_SPARK: _import_spark,
@@ -174,6 +180,7 @@ _RUNTIMES = {
     BUILT_IN_RUNTIME_POSTGRES: _import_postgres,
     BUILT_IN_RUNTIME_DNSMASQ: _import_dnsmasq,
     BUILT_IN_RUNTIME_BIND: _import_bind,
+    BUILT_IN_RUNTIME_COREDNS: _import_coredns,
 }
 
 

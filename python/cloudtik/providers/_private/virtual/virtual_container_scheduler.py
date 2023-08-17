@@ -628,7 +628,7 @@ class VirtualContainerScheduler:
 
             # delete bind src
             scheduler_executor.run(
-                "rm -rf '{path}'".format(path=bind_src),
+                "sudo rm -rf '{path}'".format(path=bind_src),
                 run_env="host")
 
     def _list_containers(self, tag_filters, include_stopped=False):

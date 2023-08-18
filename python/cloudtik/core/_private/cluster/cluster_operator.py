@@ -12,6 +12,7 @@ import tempfile
 import time
 import urllib
 import urllib.parse
+import uuid
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -24,6 +25,7 @@ from cloudtik.core import tags
 from cloudtik.core._private import services, constants
 from cloudtik.core._private.call_context import CallContext
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config, _bootstrap_config, try_logging_config
+from cloudtik.core._private.cluster.cluster_exec import exec_cluster
 from cloudtik.core._private.cluster.cluster_tunnel_request import request_tunnel_to_head
 from cloudtik.core._private.cluster.cluster_utils import create_node_updater_for_exec
 from cloudtik.core._private.cluster.node_availability_tracker import NodeAvailabilitySummary
@@ -1336,7 +1338,7 @@ def _rsync(config: Dict[str, Any],
         else:
             updater.sync_file_mounts(rsync)
 
-    head_node = _get_running_head_node(config)
+    head_node = _get_running_head_node(config, _provider=provider)
     if not node_ip:
         # No node specified, rsync with head or rsync up with all nodes
         rsync_to_node(head_node, source, target, is_head_node=True)
@@ -1344,8 +1346,17 @@ def _rsync(config: Dict[str, Any],
             # rsync up with all workers
             source_for_target = target
             if os.path.isdir(source):
+                # source is the contents of the target folder
                 source_for_target = source_for_target.rstrip("/")
                 source_for_target += "/."
+            else:
+                # if it is a file, and the target is a directory
+                if target[-1] == "/" or is_directory_on_head(
+                        config=config,
+                        call_context=call_context,
+                        path=target):
+                    source_file = os.path.basename(source)
+                    source_for_target = os.path.join(target, source_file)
 
             rsync_to_node_from_head(config,
                                     call_context=call_context,
@@ -1357,8 +1368,8 @@ def _rsync(config: Dict[str, Any],
         if not source or not target:
             cli_logger.abort("Need to specify both source and target when rsync with specific node")
 
-        target_base = os.path.basename(target)
-        target_on_head = tempfile.mktemp(prefix=f"{target_base}_")
+        # Use the tmp dir and UUID as a temp target
+        target_on_head = os.path.join("/tmp", str(uuid.uuid4()))
         if down:
             # rsync down
             # first run rsync from head with the specific node
@@ -1367,8 +1378,24 @@ def _rsync(config: Dict[str, Any],
                                     source=source, target=target_on_head, down=True,
                                     node_ip=node_ip)
             # then rsync local node with the head
-            if source[-1] == "/":
+
+            # We need to know whether the source is a file or a directory to handle this right
+            # 1. if the source is a file, target_on_head is the file, if target is a directory or end with "/"
+            #    we need to add the source file name to target
+            # 2. if the source is a directory, target_on_head is the directory with contents
+            #    we need append "/" here
+            is_source_dir = True if source[-1] == "/" or is_directory_on_head(
+                config=config,
+                call_context=call_context,
+                path=target_on_head) else False
+            if is_source_dir:
                 target_on_head += "/."
+            else:
+                if target[-1] == "/" or os.path.isdir(target):
+                    # modify target to include the source name
+                    source_file = os.path.basename(source)
+                    target = os.path.join(target, source_file)
+
             rsync_to_node(head_node, target_on_head, target, is_head_node=True)
         else:
             # rsync up
@@ -1378,10 +1405,33 @@ def _rsync(config: Dict[str, Any],
             # then rsync from head to the specific node
             if os.path.isdir(source):
                 target_on_head += "/."
+            else:
+                # if it is a file, target_on_head is a file
+                if target[-1] == "/" or is_directory_on_head(
+                        config=config,
+                        call_context=call_context,
+                        path=target):
+                    # if the target is a directory, we add the file name to the final target
+                    source_file = os.path.basename(source)
+                    target = os.path.join(target, source_file)
+
             rsync_to_node_from_head(config,
                                     call_context=call_context,
                                     source=target_on_head, target=target, down=False,
                                     node_ip=node_ip)
+
+
+def is_directory_on_head(config: Dict[str, Any],
+                         call_context: CallContext,
+                         path: str):
+    cmd = '([ -d "{}" ] && echo true) || true'.format(path)
+    output = exec_cluster(
+        config, call_context,
+        cmd=cmd,
+        with_output=True).strip()
+    if output == "true":
+        return True
+    return False
 
 
 def rsync_to_node_from_head(config: Dict[str, Any],

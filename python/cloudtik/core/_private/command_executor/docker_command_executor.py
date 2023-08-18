@@ -87,13 +87,35 @@ class DockerCommandExecutor(CommandExecutor):
             silent=silent)
 
     def run_rsync_up(self, source, target, options=None):
+        """
+        We should distinguish the handling for file and directory sources.
+        For source = file,
+        1. if the target is a folder (existing folder or ends with "/")
+        We should not use uuid as intermediate name as the target needs the source name.
+        2. if the target is not a folder (the file name)
+        We can use the uuid as intermediate name and the target name will be used.
+
+        For source = directory, we can use uuid as intermediate name,
+        1. if source doesn't end with "/", which means copy the source (including source name)
+        2. if source end with "/", which means copy the contents of the source (doesn't include source name)
+        When copy from intermediate folder to target, we should always end intermediate name with "/".
+        """
         options = options or {}
         do_with_rsync = self._check_container_status() and not options.get(
                 "docker_mount_if_possible", False)
         identical = False if do_with_rsync else True
+
+        is_source_dir = os.path.isdir(source)
+        identifier_path = None
+        if not is_source_dir and (
+                target[-1] == "/" or self._is_directory(target)):
+            # target needs the source name
+            identical = True
+            identifier_path = source
+
         host_destination = get_docker_host_mount_location_for_object(
             self.host_command_executor.cluster_name, target,
-            identical=identical)
+            identical=identical, identifier_path=identifier_path)
 
         host_mount_location = os.path.dirname(host_destination.rstrip("/"))
         self.host_command_executor.run(
@@ -104,7 +126,7 @@ class DockerCommandExecutor(CommandExecutor):
         self.host_command_executor.run_rsync_up(
             source, host_destination, options=options)
         if do_with_rsync:
-            if os.path.isdir(source):
+            if is_source_dir:
                 # Adding a "." means that docker copies the *contents*
                 # Without it, docker copies the source *into* the target
                 host_destination += "/."
@@ -127,9 +149,30 @@ class DockerCommandExecutor(CommandExecutor):
                 silent=self.call_context.is_rsync_silent())
 
     def run_rsync_down(self, source, target, options=None):
+        """
+        We should distinguish the handling for file and directory.
+        For source = file,
+        1. if the target is a folder (existing folder or ends with "/")
+        We should not use uuid as intermediate name as the target needs the source name.
+        2. if the target is not a folder (the file name)
+        We can use the uuid as intermediate name and the target name will be used.
+
+        For source = directory, we can use uuid as intermediate name,
+        1. if source doesn't end with "/", which means copy the source (including source name)
+        2. if source end with "/", which means copy the contents of the source (doesn't include source name)
+        When copy from intermediate folder to target, we should always end intermediate name with "/".
+        """
         options = options or {}
         do_with_rsync = not options.get("docker_mount_if_possible", False)
         identical = False if do_with_rsync else True
+
+        # Check the source is a file or a directory
+        is_source_dir = self._is_directory(source)
+        if not is_source_dir and (
+                target[-1] == "/" or os.path.isdir(target)):
+            # target needs the source name
+            identical = True
+
         host_source = get_docker_host_mount_location_for_object(
             self.host_command_executor.cluster_name, source,
             identical=identical)
@@ -138,20 +181,35 @@ class DockerCommandExecutor(CommandExecutor):
             f"mkdir -p {host_mount_location} && chown -R "
             f"{self.host_command_executor.ssh_user} {host_mount_location}",
             silent=self.call_context.is_rsync_silent())
-        if source[-1] == "/":
-            source += "."
-            # Adding a "." means that docker copies the *contents*
-            # Without it, docker copies the source *into* the target
         if do_with_rsync:
+            docker_source = source
+            if docker_source[-1] == "/":
+                docker_source += "."
+                # Adding a "." means that docker copies the *contents*
+                # Without it, docker copies the source *into* the target
             # NOTE: `--delete` is okay here because the container is the source
             # of truth.
             self.host_command_executor.run(
                 "rsync -e '{} exec -i' -avz --delete {}:{} {}".format(
                     self.get_docker_cmd(), self.container_name,
-                    self._docker_expand_user(source), host_source),
+                    self._docker_expand_user(docker_source), host_source),
                 silent=self.call_context.is_rsync_silent())
+
+            if is_source_dir:
+                # because the host source directory is uuid which is meaningless for user
+                if host_source[-1] != "/":
+                    host_source += "/"
+
         self.host_command_executor.run_rsync_down(
             host_source, target, options=options)
+
+    def _is_directory(self, path):
+        output = self.run_with_retry(
+            '([ -d "{}" ] && echo true) || true'.format(path),
+            with_output=True).decode("utf-8").strip()
+        if output == "true":
+            return True
+        return False
 
     def remote_shell_command_str(self):
         inner_str = self.host_command_executor.remote_shell_command_str().replace(

@@ -30,21 +30,13 @@ function check_bind_installed() {
     fi
 }
 
-function configure_data_dir() {
-    local data_disk_dir=$(get_first_data_disk_dir)
-    if [ -z "$data_disk_dir" ]; then
-        data_dir="${BIND_HOME}/data"
-    else
-        data_dir="$data_disk_dir/bind/data"
-    fi
-
-    mkdir -p ${data_dir}
-    sudo chown -R root:bind ${data_dir} >/dev/null 2>&1
-    sed -i "s!{%data.dir%}!${data_dir}!g" ${output_dir}/named.conf.options
-}
-
 function configure_bind() {
     prepare_base_conf
+
+    BIND_LOGS_DIR=${BIND_HOME}/logs
+    mkdir -p ${BIND_LOGS_DIR}
+    sudo chown root:bind ${BIND_LOGS_DIR} >/dev/null 2>&1
+    sudo chmod -R 775 ${BIND_LOGS_DIR}
 
     ETC_DEFAULT=/etc/default
     sudo mkdir -p ${ETC_DEFAULT}
@@ -57,12 +49,18 @@ function configure_bind() {
 
     config_template_file=${output_dir}/named.conf
 
-    sed -i "s#{%bind.home%}#${BIND_HOME}#g" ${config_template_file}
+    sed -i "s#{%bind.home%}#${BIND_HOME}#g" \
+      ${config_template_file} ${output_dir}/named.conf.logging
 
     sed -i "s#{%listen.address%}#${NODE_IP_ADDRESS}#g" ${output_dir}/named.conf.options
     sed -i "s#{%listen.port%}#${BIND_SERVICE_PORT}#g" ${output_dir}/named.conf.options
 
-    configure_data_dir
+    if [ -z "${BIND_DNSSEC_VALIDATION}" ]; then
+        DNSSEC_VALIDATION="yes"
+    else
+        DNSSEC_VALIDATION="${BIND_DNSSEC_VALIDATION}"
+    fi
+    sed -i "s#{%dnssec.validation%}#${DNSSEC_VALIDATION}#g" ${output_dir}/named.conf.options
 
     # generate additional name server records for specific (service discovery) domain
     if [ "${BIND_CONSUL_RESOLVE}" == "true" ]; then
@@ -72,6 +70,7 @@ function configure_bind() {
     fi
 
     cp ${output_dir}/named.conf.options ${BIND_CONF_DIR}/named.conf.options
+    cp ${output_dir}/named.conf.logging ${BIND_CONF_DIR}/named.conf.logging
     cp ${config_template_file} ${BIND_CONF_DIR}/named.conf
 }
 

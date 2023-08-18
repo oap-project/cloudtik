@@ -1681,6 +1681,62 @@
                             }
                         }
                     }
+                },
+                "dnsmasq": {
+                    "type": "object",
+                    "description": "Dnsmasq runtime configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 53,
+                            "description": "DNS server port."
+                        },
+                        "high_availability": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to run a server on each node for high availability."
+                        }
+                    }
+                },
+                "coredns": {
+                    "type": "object",
+                    "description": "CoreDNS runtime configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 53,
+                            "description": "DNS server port."
+                        },
+                        "high_availability": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to run a server on each node for high availability."
+                        }
+                    }
+                },
+                "bind": {
+                    "type": "object",
+                    "description": "Bind (Named) runtime configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 53,
+                            "description": "DNS server port."
+                        },
+                        "high_availability": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to run a server on each node for high availability."
+                        },
+                        "dnssec_validation": {
+                            "type": "string",
+                            "default": "yes",
+                            "description": "The DNSSEC validation setting: yes, auto, no."
+                        }
+                    }
                 }
             }
         }

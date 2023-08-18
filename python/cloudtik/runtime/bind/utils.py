@@ -17,6 +17,7 @@ RUNTIME_PROCESSES = [
     ]
 
 BIND_SERVICE_PORT_CONFIG_KEY = "port"
+BIND_DNSSEC_VALIDATION_CONFIG_KEY = "dnssec_validation"
 
 BIND_SERVICE_NAME = BUILT_IN_RUNTIME_BIND
 BIND_SERVICE_PORT_DEFAULT = 53
@@ -47,6 +48,10 @@ def _with_runtime_environment_variables(
 
     service_port = _get_service_port(bind_config)
     runtime_envs["BIND_SERVICE_PORT"] = service_port
+
+    dnssec_validation = bind_config.get(BIND_DNSSEC_VALIDATION_CONFIG_KEY)
+    if dnssec_validation:
+        runtime_envs["BIND_DNSSEC_VALIDATION"] = dnssec_validation
 
     cluster_runtime_config = get_runtime_config(config)
     if has_runtime_in_cluster(

@@ -1,11 +1,25 @@
 options {
-  listen-on port {%listen.port%} { 127.0.0.1; };
-  listen-on port {%listen.port%} { {%listen.address%}; };
+  listen-on port {%listen.port%} {
+    127.0.0.1;
+    {%listen.address%};
+  };
 
-  directory       "{%data.dir%}";
+  directory       "/var/cache/bind";
 
   recursion yes;
 
   dnssec-enable no;
-  dnssec-validation no;
+//
+// WARNING: A lot of forward failure caused by this option.
+// For docker bridge DNS server, only "yes" works and fail for "auto" or "no" (NOTIMP)
+// For consul DNS server, it works with "yes" and "no" but fail for "auto"
+// Even "yes" is set, if there is no configured trust anchor, validation does not take place.
+// From docker bridge DNS server case, "yes" without trust anchor is still different from "no"
+// We expect some may works with only "auto"
+// Due to this complexity, we provide a option to user to choose. The default will be "yes"
+// One can also use validate-except { <string>; ... };
+//
+  dnssec-validation {%dnssec.validation%};
+
+  auth-nxdomain no;    # conform to RFC1035
 };

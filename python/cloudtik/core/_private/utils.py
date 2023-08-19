@@ -705,7 +705,7 @@ def _reorder_runtimes_for_dependency(config):
                 # the higher priority ones should show after the lower ones.
                 runtime_index = reordered_runtimes.index(runtime_type)
                 reordered_runtimes.pop(runtime_index)
-                reordered_runtimes.insert(0)
+                reordered_runtimes.insert(0, runtime_type)
             else:
                 make_sure_dependency_order(
                     reordered_runtimes, runtime=runtime_type, dependency=dependency)

@@ -73,7 +73,7 @@ function configure_bind() {
     ORIGIN_RESOLV_CONF="${BIND_HOME}/conf/resolv.conf"
 
     # backup the system resolv conf only once
-    if [ ! -f "${ORIGIN_RESOLV_CONF}"]; then
+    if [ ! -f "${ORIGIN_RESOLV_CONF}" ]; then
         cp ${SYSTEM_RESOLV_CONF} ${ORIGIN_RESOLV_CONF}
     fi
 

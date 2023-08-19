@@ -134,7 +134,7 @@ function update_resolv_conf() {
     cp /etc/resolv.conf ${BACKUP_RESOLV_CONF}
     shift
     SCRIPTS_DIR=$(dirname ${BASH_SOURCE[0]})
-    sudo python ${SCRIPTS_DIR}/resolv-conf.py "$@"
+    sudo env PATH=$PATH python ${SCRIPTS_DIR}/resolv-conf.py "$@"
 }
 
 function restore_resolv_conf() {

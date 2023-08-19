@@ -69,7 +69,6 @@ function configure_dnsmasq() {
 
     sed -i "s#{%upstream.resolv.conf%}#${UPSTREAM_RESOLV_CONF}#g" \
       ${config_template_file}
-    # python configure script will update the system resolv.conf
 
     cp ${config_template_file} ${DNSMASQ_CONF_INCLUDE_DIR}/dnsmasq.conf
 

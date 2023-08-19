@@ -78,7 +78,6 @@ function configure_bind() {
     fi
 
     # python configure script will write named.conf.upstream
-    # and if necessary update the system resolv.conf
     echo "include \"${BIND_HOME}/conf/named.conf.upstream\";" >> ${config_template_file}
 
     cp ${output_dir}/named.conf.options ${BIND_CONF_DIR}/named.conf.options

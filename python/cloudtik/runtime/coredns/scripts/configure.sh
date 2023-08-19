@@ -65,7 +65,7 @@ function configure_coredns() {
     fi
 
     sed -i "s#{%upstream.resolv.conf%}#${UPSTREAM_RESOLV_CONF}#g" \
-      ${COREDNS_CONF_DIR}/Corefile.upstream
+      ${output_dir}/Corefile.upstream
 
     echo "import ${COREDNS_CONF_DIR}/Corefile.upstream" >> ${config_template_file}
     cp ${output_dir}/Corefile.upstream ${COREDNS_CONF_DIR}/Corefile.upstream

@@ -49,6 +49,10 @@ def parse_resolv_conf(resolv_conf):
         for line in lines:
             if line.startswith("#"):
                 continue
+            line = line.rstrip()
+            if not line:
+                continue
+
             tokens = re.split(' |\t', line)
             if not tokens:
                 continue

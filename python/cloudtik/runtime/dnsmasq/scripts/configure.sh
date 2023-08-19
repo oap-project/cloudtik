@@ -57,7 +57,7 @@ function configure_dnsmasq() {
     ORIGIN_RESOLV_CONF="${DNSMASQ_HOME}/conf/resolv.conf"
 
     # backup the system resolv conf only once
-    if [ ! -f "${ORIGIN_RESOLV_CONF}"]; then
+    if [ ! -f "${ORIGIN_RESOLV_CONF}" ]; then
         cp ${SYSTEM_RESOLV_CONF} ${ORIGIN_RESOLV_CONF}
     fi
 

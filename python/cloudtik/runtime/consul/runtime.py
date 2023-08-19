@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, Tuple, Optional
 
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_NONE
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.consul.utils import _with_runtime_environment_variables, \
@@ -83,3 +84,7 @@ class ConsulRuntime(RuntimeBase):
         #4 The forth element, if node, the process should on all nodes, if head, the process should on head node.
         """
         return _get_runtime_processes()
+
+    @staticmethod
+    def get_dependencies():
+        return [BUILT_IN_RUNTIME_NONE]

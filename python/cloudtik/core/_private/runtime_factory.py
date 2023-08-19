@@ -15,6 +15,12 @@ _runtime_instances = ConcurrentObjectCache()
 
 RUNTIME_MINIMAL_EXTERNAL_CONFIG = {}
 
+# special runtime used by runtime dependencies
+# A special name designate all other runtimes
+BUILT_IN_RUNTIME_ALL = "all"
+# A special name designate the runtime itself is high order
+BUILT_IN_RUNTIME_NONE = "none"
+
 BUILT_IN_RUNTIME_AI = "ai"
 BUILT_IN_RUNTIME_SPARK = "spark"
 BUILT_IN_RUNTIME_HDFS = "hdfs"

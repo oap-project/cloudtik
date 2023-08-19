@@ -38,7 +38,8 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
 from cloudtik.core._private.core_utils import load_class, double_quote, check_process_exists, get_cloudtik_temp_dir, \
     get_config_for_update
 from cloudtik.core._private.crypto import AESCipher
-from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES
+from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES, \
+    BUILT_IN_RUNTIME_ALL, BUILT_IN_RUNTIME_NONE
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.core._private.providers import _get_default_config, _get_node_provider, _get_provider_config_object, \
     _get_node_provider_cls
@@ -689,8 +690,25 @@ def _reorder_runtimes_for_dependency(config):
 
         # For each dependency, if it is appeared behind the current runtime, move it ahead
         for dependency in dependencies:
-            make_sure_dependency_order(
-                reordered_runtimes, runtime=runtime_type, dependency=dependency)
+            # handle special runtime dependencies
+            if dependency == BUILT_IN_RUNTIME_ALL:
+                # move myself to last and ignore other dependencies
+                # if there is multiple runtimes with all dependency,
+                # user need to keep them ordered if they have dependencies
+                runtime_index = reordered_runtimes.index(runtime_type)
+                reordered_runtimes.pop(runtime_index)
+                reordered_runtimes.append(runtime_type)
+                break
+            elif dependency == BUILT_IN_RUNTIME_NONE:
+                # move myself to first and the remaining dependencies will also put to its front
+                # if there is multiple runtimes with none dependency,
+                # the higher priority ones should show after the lower ones.
+                runtime_index = reordered_runtimes.index(runtime_type)
+                reordered_runtimes.pop(runtime_index)
+                reordered_runtimes.insert(0)
+            else:
+                make_sure_dependency_order(
+                    reordered_runtimes, runtime=runtime_type, dependency=dependency)
 
     runtime_config[RUNTIME_TYPES_CONFIG_KEY] = reordered_runtimes
 

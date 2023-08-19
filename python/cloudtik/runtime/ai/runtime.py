@@ -1,6 +1,8 @@
 import logging
 from typing import Any, Dict
 
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_MYSQL, BUILT_IN_RUNTIME_POSTGRES, \
+    BUILT_IN_RUNTIME_SSHSERVER
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.ai.utils import _with_runtime_environment_variables, \
     _get_runtime_processes, _get_runtime_logs, _get_runtime_endpoints, register_service, _get_head_service_ports, \
@@ -45,3 +47,7 @@ class AIRuntime(RuntimeBase):
     @staticmethod
     def get_processes():
         return _get_runtime_processes()
+
+    @staticmethod
+    def get_dependencies():
+        return [BUILT_IN_RUNTIME_MYSQL, BUILT_IN_RUNTIME_POSTGRES, BUILT_IN_RUNTIME_SSHSERVER]

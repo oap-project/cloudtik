@@ -1,6 +1,8 @@
 import logging
 from typing import Any, Dict
 
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_MYSQL, \
+    BUILT_IN_RUNTIME_POSTGRES
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.metastore.utils import _with_runtime_environment_variables, \
@@ -55,3 +57,7 @@ class MetastoreRuntime(RuntimeBase):
         #4 The forth element, if node, the process should on all nodes, if head, the process should on head node.
         """
         return _get_runtime_processes()
+
+    @staticmethod
+    def get_dependencies():
+        return [BUILT_IN_RUNTIME_MYSQL, BUILT_IN_RUNTIME_POSTGRES]

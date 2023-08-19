@@ -10,7 +10,7 @@ from cloudtik.core._private.core_utils import get_list_for_update, get_config_fo
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core._private.runtime_utils import get_runtime_node_type, get_runtime_node_ip, \
     get_runtime_config_from_node, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, subscribe_nodes_info, sort_nodes_by_seq_id, \
-    load_and_save_json
+    load_and_save_json, get_runtime_value
 from cloudtik.core._private.service_discovery.runtime_services import get_runtime_services_by_node_type
 from cloudtik.core._private.service_discovery.utils import SERVICE_DISCOVERY_PORT, \
     SERVICE_DISCOVERY_TAGS, SERVICE_DISCOVERY_LABELS, SERVICE_DISCOVERY_LABEL_RUNTIME, \
@@ -305,12 +305,12 @@ def _get_services_of_node_type(runtime_config, node_type):
 
 
 def configure_agent(head):
-    consul_server = os.environ.get("CONSUL_SERVER")
+    consul_server = get_runtime_value("CONSUL_SERVER")
     server_mode = True if consul_server == "true" else False
     _configure_agent(server_mode, head)
 
     if server_mode:
-        quorum_join = os.environ.get(CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN)
+        quorum_join = get_runtime_value(CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN)
         if quorum_join == QUORUM_JOIN_STATUS_INIT:
             _update_server_config_for_join()
 
@@ -322,7 +322,7 @@ def _configure_agent(server_mode, head):
         # join list for servers
         if head:
             # for head, use its own address
-            node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_NODE_IP)
+            node_ip = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_IP)
             if not node_ip:
                 raise RuntimeError("Missing node ip environment variable for the running node.")
             join_list = [node_ip]
@@ -331,19 +331,19 @@ def _configure_agent(server_mode, head):
             join_list = _get_join_list_from_nodes_info()
     else:
         # client mode, get from the CONSUL_JOIN_LIST environments
-        join_list_str = os.environ.get("CONSUL_JOIN_LIST")
+        join_list_str = get_runtime_value("CONSUL_JOIN_LIST")
         if not join_list_str:
             raise RuntimeError("Missing join list environment variable for the running node.")
         join_list = join_list_str.split(',')
 
-    cluster_name = os.environ.get(CLOUDTIK_RUNTIME_ENV_CLUSTER)
+    cluster_name = get_runtime_value(CLOUDTIK_RUNTIME_ENV_CLUSTER)
     _update_agent_config(join_list, cluster_name)
 
 
 def _get_join_list_from_nodes_info():
     nodes_info = subscribe_nodes_info()
     join_nodes = sort_nodes_by_seq_id(nodes_info)
-    head_node_ip = os.environ.get(CLOUDTIK_RUNTIME_ENV_HEAD_IP)
+    head_node_ip = get_runtime_value(CLOUDTIK_RUNTIME_ENV_HEAD_IP)
     if not head_node_ip:
         raise RuntimeError("Missing head node ip environment variable for the running node.")
 

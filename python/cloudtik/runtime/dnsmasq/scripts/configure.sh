@@ -49,9 +49,27 @@ function configure_dnsmasq() {
 
     # dnsmasq will use /etc/resolv.conf for upstream.
     # TODO: if we want to use this DNS server as the system default, we need:
-    # 1. copy the /etc/resolv.conf to new file (how do we know this is the original)
-    # 2. direct dnsmasq to use the new copy as upstream
+    # 1. copy the /etc/resolv.conf to a backup file if backup file not exists
+    # 2. direct dnsmasq to use the backup copy as upstream
     # 3. modify /etc/resolve.conf to use dnsmasq as resolver
+
+    SYSTEM_RESOLV_CONF="/etc/resolv.conf"
+    ORIGIN_RESOLV_CONF="${DNSMASQ_HOME}/conf/resolv.conf"
+
+    # backup the system resolv conf only once
+    if [ ! -f "${ORIGIN_RESOLV_CONF}"]; then
+        cp ${SYSTEM_RESOLV_CONF} ${ORIGIN_RESOLV_CONF}
+    fi
+
+    if [ "${DNSMASQ_DEFAULT_RESOLVER}" == "true" ]; then
+        UPSTREAM_RESOLV_CONF=${ORIGIN_RESOLV_CONF}
+    else
+        UPSTREAM_RESOLV_CONF=${SYSTEM_RESOLV_CONF}
+    fi
+
+    sed -i "s#{%upstream.resolv.conf%}#${UPSTREAM_RESOLV_CONF}#g" \
+      ${config_template_file}
+    # python configure script will update the system resolv.conf
 
     cp ${config_template_file} ${DNSMASQ_CONF_INCLUDE_DIR}/dnsmasq.conf
 

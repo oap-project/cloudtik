@@ -128,3 +128,18 @@ function stop_process_by_pid_file() {
         sudo kill -15 ${MY_PID} >/dev/null 2>&1
     fi
 }
+
+function update_resolv_conf() {
+    local BACKUP_RESOLV_CONF=$1
+    cp /etc/resolv.conf ${BACKUP_RESOLV_CONF}
+    shift
+    SCRIPTS_DIR=$(dirname ${BASH_SOURCE[0]})
+    sudo python ${SCRIPTS_DIR}/resolv-conf.py "$@"
+}
+
+function restore_resolv_conf() {
+    local BACKUP_RESOLV_CONF=$1
+    if [ -f "${BACKUP_RESOLV_CONF}" ]; then
+        sudo cp ${BACKUP_RESOLV_CONF} /etc/resolv.conf
+    fi
+}

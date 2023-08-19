@@ -50,6 +50,23 @@ function configure_coredns() {
         cp ${output_dir}/Corefile.consul ${COREDNS_CONF_DIR}/Corefile.consul
     fi
 
+    SYSTEM_RESOLV_CONF="/etc/resolv.conf"
+    ORIGIN_RESOLV_CONF="${COREDNS_HOME}/conf/resolv.conf"
+
+    # backup the system resolv conf only once
+    if [ ! -f "${ORIGIN_RESOLV_CONF}"]; then
+        cp ${SYSTEM_RESOLV_CONF} ${ORIGIN_RESOLV_CONF}
+    fi
+
+    if [ "${COREDNS_DEFAULT_RESOLVER}" == "true" ]; then
+        UPSTREAM_RESOLV_CONF=${ORIGIN_RESOLV_CONF}
+    else
+        UPSTREAM_RESOLV_CONF=${SYSTEM_RESOLV_CONF}
+    fi
+
+    sed -i "s#{%upstream.resolv.conf%}#${UPSTREAM_RESOLV_CONF}#g" \
+      ${COREDNS_CONF_DIR}/Corefile.upstream
+
     echo "import ${COREDNS_CONF_DIR}/Corefile.upstream" >> ${config_template_file}
     cp ${output_dir}/Corefile.upstream ${COREDNS_CONF_DIR}/Corefile.upstream
 

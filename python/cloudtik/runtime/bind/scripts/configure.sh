@@ -69,6 +69,18 @@ function configure_bind() {
         echo "include \"${BIND_HOME}/conf/named.conf.consul\";" >> ${config_template_file}
     fi
 
+    SYSTEM_RESOLV_CONF="/etc/resolv.conf"
+    ORIGIN_RESOLV_CONF="${BIND_HOME}/conf/resolv.conf"
+
+    # backup the system resolv conf only once
+    if [ ! -f "${ORIGIN_RESOLV_CONF}"]; then
+        cp ${SYSTEM_RESOLV_CONF} ${ORIGIN_RESOLV_CONF}
+    fi
+
+    # python configure script will write named.conf.upstream
+    # and if necessary update the system resolv.conf
+    echo "include \"${BIND_HOME}/conf/named.conf.upstream\";" >> ${config_template_file}
+
     cp ${output_dir}/named.conf.options ${BIND_CONF_DIR}/named.conf.options
     cp ${output_dir}/named.conf.logging ${BIND_CONF_DIR}/named.conf.logging
     cp ${config_template_file} ${BIND_CONF_DIR}/named.conf

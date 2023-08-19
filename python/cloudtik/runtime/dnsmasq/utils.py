@@ -17,6 +17,7 @@ RUNTIME_PROCESSES = [
     ]
 
 DNSMASQ_SERVICE_PORT_CONFIG_KEY = "port"
+DNSMASQ_DEFAULT_RESOLVER_CONFIG_KEY = "default_resolver"
 
 DNSMASQ_SERVICE_NAME = BUILT_IN_RUNTIME_DNSMASQ
 DNSMASQ_SERVICE_PORT_DEFAULT = 53
@@ -52,6 +53,11 @@ def _with_runtime_environment_variables(
     if has_runtime_in_cluster(
             cluster_runtime_config, BUILT_IN_RUNTIME_CONSUL):
         runtime_envs["DNSMASQ_CONSUL_RESOLVE"] = True
+
+    default_resolver = dnsmasq_config.get(
+        DNSMASQ_DEFAULT_RESOLVER_CONFIG_KEY, False)
+    if default_resolver:
+        runtime_envs["DNSMASQ_DEFAULT_RESOLVER"] = True
 
     return runtime_envs
 

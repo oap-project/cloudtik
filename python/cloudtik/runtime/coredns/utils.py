@@ -17,6 +17,7 @@ RUNTIME_PROCESSES = [
     ]
 
 COREDNS_SERVICE_PORT_CONFIG_KEY = "port"
+COREDNS_DEFAULT_RESOLVER_CONFIG_KEY = "default_resolver"
 
 COREDNS_SERVICE_NAME = BUILT_IN_RUNTIME_COREDNS
 COREDNS_METRICS_SERVICE_NAME = BUILT_IN_RUNTIME_COREDNS + "-metrics"
@@ -54,6 +55,11 @@ def _with_runtime_environment_variables(
     if has_runtime_in_cluster(
             cluster_runtime_config, BUILT_IN_RUNTIME_CONSUL):
         runtime_envs["COREDNS_CONSUL_RESOLVE"] = True
+
+    default_resolver = coredns_config.get(
+        COREDNS_DEFAULT_RESOLVER_CONFIG_KEY, False)
+    if default_resolver:
+        runtime_envs["COREDNS_DEFAULT_RESOLVER"] = True
 
     return runtime_envs
 

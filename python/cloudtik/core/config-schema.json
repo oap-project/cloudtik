@@ -1696,6 +1696,11 @@
                             "type": "boolean",
                             "default": false,
                             "description": "Whether to run a server on each node for high availability."
+                        },
+                        "default_resolver": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to set this DNS server as the system default resolver in /etc/resolv.conf."
                         }
                     }
                 },
@@ -1713,6 +1718,11 @@
                             "type": "boolean",
                             "default": false,
                             "description": "Whether to run a server on each node for high availability."
+                        },
+                        "default_resolver": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to set this DNS server as the system default resolver in /etc/resolv.conf."
                         }
                     }
                 },
@@ -1735,6 +1745,11 @@
                             "type": "string",
                             "default": "yes",
                             "description": "The DNSSEC validation setting: yes, auto, no."
+                        },
+                        "default_resolver": {
+                            "type": "boolean",
+                            "default": false,
+                            "description": "Whether to set this DNS server as the system default resolver in /etc/resolv.conf."
                         }
                     }
                 }

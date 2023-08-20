@@ -1102,14 +1102,14 @@ def get_cloudtik_setup_command(config) -> str:
 
 def get_cloudtik_head_start_command(config) -> str:
     # ulimit -n 65536; cloudtik node start --head --node-ip-address=$CLOUDTIK_NODE_IP --port=6789
-    # --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml --runtimes=$CLOUDTIK_RUNTIMES
+    # --cluster-config=~/cloudtik_bootstrap_config.yaml --runtimes=$CLOUDTIK_RUNTIMES
     no_controller_on_head = config.get("no_controller_on_head", False)
     start_command = "ulimit -n 65536; cloudtik node start --head --node-ip-address=$CLOUDTIK_NODE_IP"
     start_command += " --port={}".format(CLOUDTIK_DEFAULT_PORT)
     if no_controller_on_head:
         start_command += " --no-controller"
     else:
-        start_command += " --cluster-scaling-config=~/cloudtik_bootstrap_config.yaml"
+        start_command += " --cluster-config=~/cloudtik_bootstrap_config.yaml"
     start_command += " --runtimes=$CLOUDTIK_RUNTIMES --node-type=$CLOUDTIK_NODE_TYPE"
     return start_command
 

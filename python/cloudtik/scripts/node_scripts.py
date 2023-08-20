@@ -103,7 +103,7 @@ def node():
     help="a JSON serialized dictionary mapping resource name to "
     "resource quantity")
 @click.option(
-    "--cluster-scaling-config",
+    "--cluster-config",
     required=False,
     type=str,
     help="the file that contains the autoscaling config")
@@ -149,7 +149,7 @@ def node():
 def start(node_ip_address, address, port, head,
           redis_password, redis_shard_ports, redis_max_memory,
           memory, num_cpus, num_gpus, resources,
-          cluster_scaling_config, temp_dir, metrics_export_port,
+          cluster_config, temp_dir, metrics_export_port,
           no_redirect_output, runtimes, node_type, no_controller):
     """Start the main daemon processes on the local machine."""
     # Convert hostnames to numerical IP address.
@@ -200,7 +200,7 @@ def start(node_ip_address, address, port, head,
             redis_max_memory=redis_max_memory,
             num_redis_shards=num_redis_shards,
             redis_max_clients=None,
-            cluster_scaling_config=cluster_scaling_config,
+            cluster_config=cluster_config,
         )
 
         # Fail early when starting a new cluster when one is already running

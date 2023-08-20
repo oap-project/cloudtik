@@ -50,7 +50,7 @@ class ClusterController:
 
     def __init__(self,
                  redis_address,
-                 cluster_scaling_config,
+                 cluster_config,
                  redis_password=None,
                  controller_ip=None,
                  stop_event: Optional[Event] = None,
@@ -89,7 +89,7 @@ class ClusterController:
         # Can be used to signal graceful exit from controller loop.
         self.stop_event = stop_event  # type: Optional[Event]
         self.retry_on_failure = retry_on_failure
-        self.cluster_scaling_config = cluster_scaling_config
+        self.cluster_config = cluster_config
         self.cluster_scaler = None
         self.resource_scaling_policy = ResourceScalingPolicy(
             self.head_ip, self.scaling_state_client)
@@ -135,7 +135,7 @@ class ClusterController:
 
     def _initialize_cluster_scaler(self):
         self.cluster_scaler = ClusterScaler(
-            self.cluster_scaling_config,
+            self.cluster_config,
             self.cluster_metrics,
             cluster_metrics_updater=self.cluster_metrics_updater,
             resource_scaling_policy=self.resource_scaling_policy,
@@ -173,7 +173,7 @@ class ClusterController:
         if self.cluster_scaler is None:
             return  # Nothing to clean up.
 
-        if self.cluster_scaling_config is None:
+        if self.cluster_config is None:
             # This is a logic error in the program. Can't do anything.
             logger.error(
                 "Controller: Cleanup failed due to lack of cluster config.")
@@ -184,7 +184,7 @@ class ClusterController:
         while not clean:
             try:
                 teardown_cluster(
-                    config_file=self.cluster_scaling_config,
+                    config_file=self.cluster_config,
                     yes=True,  # Non-interactive.
                     workers_only=True,  # Retain head node for logs.
                     override_cluster_name=None,
@@ -247,10 +247,10 @@ if __name__ == "__main__":
         type=str,
         help="the address to use for Redis")
     parser.add_argument(
-        "--cluster-scaling-config",
+        "--cluster-config",
         required=False,
         type=str,
-        help="the path to the autoscaling config file")
+        help="the path to the cluster config file")
     parser.add_argument(
         "--redis-password",
         required=False,
@@ -319,14 +319,14 @@ if __name__ == "__main__":
     logger.info(f"CloudTik commit: {cloudtik.__commit__}")
     logger.info(f"Controller started with command: {sys.argv}")
 
-    if args.cluster_scaling_config:
-        cluster_scaling_config = os.path.expanduser(args.cluster_scaling_config)
+    if args.cluster_config:
+        cluster_config = os.path.expanduser(args.cluster_config)
     else:
-        cluster_scaling_config = None
+        cluster_config = None
 
     controller = ClusterController(
         args.redis_address,
-        cluster_scaling_config,
+        cluster_config,
         redis_password=args.redis_password,
         controller_ip=args.controller_ip)
 

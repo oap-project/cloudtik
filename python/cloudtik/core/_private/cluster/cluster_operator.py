@@ -1100,7 +1100,7 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
             remote_key_path: config["auth"]["ssh_private_key"],
         })
 
-    remote_config = provider.prepare_for_head_node(config, remote_config)
+    remote_config = provider.prepare_config_for_head(config, remote_config)
     remote_config = encrypt_config(remote_config)
 
     remote_config_file.write(json.dumps(remote_config))

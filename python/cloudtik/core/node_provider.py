@@ -252,7 +252,7 @@ class NodeProvider:
         else:
             return SSHCommandExecutor(call_context, **common_args)
 
-    def prepare_for_head_node(
+    def prepare_config_for_head(
             self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new remote cluster config with custom configs for head node.
         The cluster config may also be updated for setting up the head"""

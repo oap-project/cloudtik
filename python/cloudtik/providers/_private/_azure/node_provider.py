@@ -298,7 +298,7 @@ class AzureNodeProvider(NodeProvider):
             return self.cached_nodes[node_id]
         return self._get_node(node_id=node_id)
 
-    def prepare_for_head_node(
+    def prepare_config_for_head(
             self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new cluster config with custom configs for head node."""
         managed_identity_client_id = self._get_managed_identity_client_id(cluster_config)

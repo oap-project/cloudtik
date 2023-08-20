@@ -202,7 +202,7 @@ class HUAWEICLOUDNodeProvider(NodeProvider):
             created_nodes_dict[created_server.id] = created_server
         return created_nodes_dict
 
-    def prepare_for_head_node(self, cluster_config: Dict[str, Any],
+    def prepare_config_for_head(self, cluster_config: Dict[str, Any],
                               remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new cluster config with custom configs for head node."""
         # Since the head will use the ECS agency to access cloud,

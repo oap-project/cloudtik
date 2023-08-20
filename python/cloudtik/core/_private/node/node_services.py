@@ -569,7 +569,7 @@ class NodeServicesStarter:
             self._logs_dir,
             stdout_file=stdout_file,
             stderr_file=stderr_file,
-            cluster_scaling_config=self._start_params.cluster_scaling_config,
+            cluster_config=self._start_params.cluster_config,
             redis_password=self._start_params.redis_password,
             fate_share=self.kernel_fate_share,
             logging_level=self.logging_level,

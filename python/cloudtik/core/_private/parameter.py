@@ -45,7 +45,7 @@ class StartParams:
         include_log_monitor (bool): If True, then start a log monitor to
             monitor the log files for all processes on this node and push their
             contents to Redis.
-        cluster_scaling_config: path to autoscaling config file.
+        cluster_config: path to cluster config file.
         metrics_export_port(int): The port at which metrics are exposed
             through a Prometheus endpoint.
         env_vars (dict): Override environment variables for the node.
@@ -76,7 +76,7 @@ class StartParams:
                  temp_dir=None,
                  runtime_dir_name=None,
                  include_log_monitor=None,
-                 cluster_scaling_config=None,
+                 cluster_config=None,
                  metrics_export_port=None,
                  env_vars=None,
                  resources=None,
@@ -101,7 +101,7 @@ class StartParams:
         self.runtime_dir_name = (
             runtime_dir_name or constants.CLOUDTIK_DEFAULT_RUNTIME_DIR_NAME)
         self.include_log_monitor = include_log_monitor
-        self.cluster_scaling_config = cluster_scaling_config
+        self.cluster_config = cluster_config
         self.metrics_export_port = metrics_export_port
         self.env_vars = env_vars
         self.num_cpus = num_cpus

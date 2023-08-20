@@ -1140,7 +1140,7 @@ def start_cluster_controller(
         logs_dir,
         stdout_file=None,
         stderr_file=None,
-        cluster_scaling_config=None,
+        cluster_config=None,
         redis_password=None,
         fate_share=None,
         logging_level=None,
@@ -1156,7 +1156,7 @@ def start_cluster_controller(
             no redirection should happen, then this should be None.
         stderr_file: A file handle opened for writing to redirect stderr to. If
             no redirection should happen, then this should be None.
-        cluster_scaling_config: path to autoscaling config file.
+        cluster_config: path to cluster config file.
         redis_password (str): The password of the redis server.
         logging_level (str): The logging level to use for the process.
         max_bytes (int): Log rotation parameter. Corresponding to
@@ -1180,8 +1180,8 @@ def start_cluster_controller(
     ]
     if logging_level:
         command.append("--logging-level=" + logging_level)
-    if cluster_scaling_config:
-        command.append("--cluster-scaling-config=" + str(cluster_scaling_config))
+    if cluster_config:
+        command.append("--cluster-config=" + str(cluster_config))
     if redis_password:
         command.append("--redis-password=" + redis_password)
     if controller_ip:

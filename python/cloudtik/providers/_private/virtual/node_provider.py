@@ -98,7 +98,7 @@ class VirtualNodeProvider(NodeProvider):
             docker_config=docker_config
         )
 
-    def prepare_for_head_node(
+    def prepare_config_for_head(
             self, cluster_config: Dict[str, Any],
             remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new cluster config with custom configs for head node."""

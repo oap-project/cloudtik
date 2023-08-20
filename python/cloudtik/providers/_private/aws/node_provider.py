@@ -531,7 +531,7 @@ class AWSNodeProvider(NodeProvider):
 
         return self._get_node(node_id)
 
-    def prepare_for_head_node(
+    def prepare_config_for_head(
             self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
         """Returns a new cluster config with custom configs for head node."""
         # Since the head will use the instance profile and role to access cloud,

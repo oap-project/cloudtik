@@ -238,7 +238,7 @@ class KubernetesNodeProvider(NodeProvider):
         return KubernetesCommandExecutor(call_context, log_prefix, self.namespace,
                                          node_id, auth_config, process_runner)
 
-    def prepare_for_head_node(
+    def prepare_config_for_head(
             self, cluster_config: Dict[str, Any], remote_config: Dict[str, Any]) -> Dict[str, Any]:
         # rsync ssh_public_key to head node authorized_keys,
         if not is_use_internal_ip(cluster_config):

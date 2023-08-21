@@ -55,7 +55,7 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return cluster_config
 
 
-def _configure_on_head(cluster_config: Dict[str, Any]):
+def _prepare_config_on_head(cluster_config: Dict[str, Any]):
     runtime_config = get_runtime_config(cluster_config)
     kafka_config = _get_config(runtime_config)
 

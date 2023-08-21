@@ -70,7 +70,7 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return cluster_config
 
 
-def _configure_on_head(cluster_config: Dict[str, Any]):
+def _prepare_config_on_head(cluster_config: Dict[str, Any]):
     runtime_config = get_runtime_config(cluster_config)
     trino_config = _get_config(runtime_config)
     if not _is_metastore_service_discovery(trino_config):
@@ -119,11 +119,6 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     trino_config = _get_config(runtime_config)
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
 
-    # 1) Try to use defined metastore_uri;
-    # 2) Try to use local metastore if there is one started;
-    hive_metastore_uri = trino_config.get(TRINO_HIVE_METASTORE_URI_KEY)
-    if hive_metastore_uri:
-        runtime_envs["TRINO_HIVE_METASTORE_URI"] = hive_metastore_uri
     if has_runtime_in_cluster(
             cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
@@ -138,6 +133,15 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     runtime_envs.update(provider_envs)
 
     return runtime_envs
+
+
+def _configure(runtime_config, head: bool):
+    # TODO: move more runtime specific environment_variables to here
+    # only needed for applying head service discovery settings
+    trino_config = _get_config(runtime_config)
+    hive_metastore_uri = trino_config.get(TRINO_HIVE_METASTORE_URI_KEY)
+    if hive_metastore_uri:
+        os.environ["TRINO_HIVE_METASTORE_URI"] = hive_metastore_uri
 
 
 def _get_runtime_logs():

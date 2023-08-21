@@ -169,7 +169,7 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     return cluster_config
 
 
-def _configure_on_head(cluster_config: Dict[str, Any]):
+def _prepare_config_on_head(cluster_config: Dict[str, Any]):
     cluster_config = _discover_metastore_on_head(cluster_config)
     return cluster_config
 
@@ -359,15 +359,18 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     provider_envs = provider.with_environment_variables(node_type_config, node_id)
     runtime_envs.update(provider_envs)
 
-    # 1) Try to use defined metastore_uri;
-    # 2) Try to use local metastore if there is one started;
-    hive_metastore_uri = spark_config.get(SPARK_HIVE_METASTORE_URI_KEY)
-    if hive_metastore_uri:
-        runtime_envs["SPARK_HIVE_METASTORE_URI"] = hive_metastore_uri
     if has_runtime_in_cluster(
             cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
     return runtime_envs
+
+
+def _configure(runtime_config, head: bool):
+    # TODO: move more runtime specific environment_variables to here
+    spark_config = _get_config(runtime_config)
+    hive_metastore_uri = spark_config.get(SPARK_HIVE_METASTORE_URI_KEY)
+    if hive_metastore_uri:
+        os.environ["SPARK_HIVE_METASTORE_URI"] = hive_metastore_uri
 
 
 def get_runtime_logs():

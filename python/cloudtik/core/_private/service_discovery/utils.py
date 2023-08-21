@@ -1,5 +1,5 @@
 import copy
-from enum import Enum
+from enum import Enum, auto
 from typing import Optional, Dict, Any, List
 
 from cloudtik.core._private.core_utils import deserialize_config, serialize_config, \
@@ -61,6 +61,12 @@ SERVICE_SELECTOR_EXCLUDE_LABELS = "exclude_labels"
 SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS = "exclude_joined_labels"
 SERVICE_SELECTOR_RUNTIMES = "runtimes"
 SERVICE_SELECTOR_CLUSTERS = "clusters"
+
+
+class ServiceAddressType(Enum):
+    NODE_IP = auto()
+    NODE_FQDN = auto()
+    SERVICE_FQDN = auto()
 
 
 class ServiceScope(Enum):

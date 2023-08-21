@@ -158,9 +158,7 @@ def _generate_service_config(cluster_name, runtime_type, runtime_service):
 def _with_runtime_environment_variables(
         server_mode, runtime_config, config):
     runtime_envs = {}
-
     consul_config = _get_config(runtime_config)
-
     data_center = consul_config.get(CONFIG_KEY_DATA_CENTER)
     if not data_center:
         # default to use workspace name as datacenter unless override

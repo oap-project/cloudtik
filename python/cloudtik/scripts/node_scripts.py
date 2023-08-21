@@ -106,7 +106,7 @@ def node():
     "--cluster-config",
     required=False,
     type=str,
-    help="the file that contains the autoscaling config")
+    help="the file that contains the cluster config")
 @click.option(
     "--temp-dir",
     hidden=True,

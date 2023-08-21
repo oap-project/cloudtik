@@ -36,7 +36,7 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
     CLOUDTIK_ENCRYPTION_PREFIX
 from cloudtik.core._private.core_utils import load_class, double_quote, check_process_exists, get_cloudtik_temp_dir, \
-    get_config_for_update
+    get_config_for_update, get_json_object_md5
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.runtime_factory import _get_runtime, _get_runtime_cls, DEFAULT_RUNTIMES, \
     BUILT_IN_RUNTIME_ALL, BUILT_IN_RUNTIME_NONE
@@ -541,6 +541,11 @@ def prepare_internal_commands(config, built_in_commands):
     cloudtik_setup_command = get_cloudtik_setup_command(config)
     setup_commands += [cloudtik_setup_command]
     built_in_commands["setup_commands"] = setup_commands
+
+    head_setup_commands = built_in_commands.get("head_setup_commands", [])
+    cloudtik_head_configure_command = get_cloudtik_head_configure_command(config)
+    head_setup_commands += [cloudtik_head_configure_command]
+    built_in_commands["head_setup_commands"] = head_setup_commands
 
     cloudtik_stop_command = get_cloudtik_stop_command(config)
 
@@ -1098,6 +1103,11 @@ def get_cloudtik_setup_command(config) -> str:
         setup_command += get_pip_install_command(provider_type, default_wheel_url)
 
     return setup_command
+
+
+def get_cloudtik_head_configure_command(config) -> str:
+    configure_command = "cloudtik head configure"
+    return configure_command
 
 
 def get_cloudtik_head_start_command(config) -> str:
@@ -3245,3 +3255,26 @@ def get_database_port(database_config):
 
 def get_runtime_config(config):
     return config.get(RUNTIME_CONFIG_KEY)
+
+
+def configure_runtime_on_head(config):
+    runtime_config = config.get(RUNTIME_CONFIG_KEY)
+    if runtime_config is None:
+        return
+
+    old_digest = get_json_object_md5(config)
+
+    # Iterate through all the runtimes
+    runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
+    for runtime_type in runtime_types:
+        runtime = _get_runtime(runtime_type, runtime_config)
+        config = runtime.configure_on_head(
+            config)
+
+    new_digest = get_json_object_md5(config)
+    if new_digest != old_digest:
+        # save the new config
+        encrypted_config = encrypt_config(config)
+        cluster_config_file = get_head_bootstrap_config()
+        with open(cluster_config_file, "w") as f:
+            f.write(json.dumps(encrypted_config))

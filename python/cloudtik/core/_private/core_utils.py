@@ -853,17 +853,26 @@ def get_named_log_file_handles(logs_dir, name, redirect_output=None):
 
 
 def get_json_object_hash(json_object):
-    if json_object is None:
-        json_data = ""
-    else:
-        json_data = json.dumps(json_object, sort_keys=True)
-    return get_string_hash(json_data)
+    json_str = "" if json_object is None else json.dumps(
+        json_object, sort_keys=True)
+    return get_string_hash(json_str)
 
 
 def get_string_hash(str_data):
     hasher = hashlib.sha1()
     hasher.update(str_data.encode("utf-8"))
     return hasher.hexdigest()
+
+
+def get_json_object_md5(json_object):
+    json_str = "" if json_object is None else json.dumps(
+        json_object, sort_keys=True)
+    return get_string_hash(json_str)
+
+
+def get_string_md5(str_data):
+    return hashlib.md5(
+        str_data.encode("utf-8")).hexdigest()
 
 
 def serialize_config(config):

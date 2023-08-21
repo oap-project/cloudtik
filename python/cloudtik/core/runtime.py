@@ -47,6 +47,15 @@ class Runtime:
         The verification may mean a slow process to check with a server"""
         pass
 
+    def configure_on_head(
+            self, cluster_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Configure runtime such as using service discovery to configure
+        internal service addresses the runtime depends.
+        The head configuration will be updated and saved with the returned configuration.
+        """
+        return cluster_config
+
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,
             node_id: str) -> Dict[str, Any]:

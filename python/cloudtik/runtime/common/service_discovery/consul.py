@@ -14,19 +14,19 @@ REST_ENDPOINT_CATALOG_SERVICES = REST_ENDPOINT_CATALOG + "/services"
 REST_ENDPOINT_CATALOG_SERVICE = REST_ENDPOINT_CATALOG + "/service"
 
 CONSUL_CLIENT_ADDRESS = "127.0.0.1"
-CONSUL_CLIENT_PORT = 8500
+CONSUL_HTTP_PORT = 8500
 CONSUL_REQUEST_TIMEOUT = 5
 
 
 def consul_api_get(
         endpoint: str, address: Optional[Tuple[str, int]] = None):
     if address:
-        host, port = address
+        host, _ = address
         endpoint_url = REST_ENDPOINT_URL_FORMAT.format(
-            host, port, endpoint)
+            host, CONSUL_HTTP_PORT, endpoint)
     else:
         endpoint_url = REST_ENDPOINT_URL_FORMAT.format(
-            CONSUL_CLIENT_ADDRESS, CONSUL_CLIENT_PORT, endpoint)
+            CONSUL_CLIENT_ADDRESS, CONSUL_HTTP_PORT, endpoint)
     return rest_api_get_json(endpoint_url, timeout=CONSUL_REQUEST_TIMEOUT)
 
 

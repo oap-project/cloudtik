@@ -3262,7 +3262,7 @@ def configure_runtime_on_head(config):
     if runtime_config is None:
         return
 
-    old_digest = get_json_object_md5(config)
+    old_config_digest = get_json_object_md5(config)
 
     # Iterate through all the runtimes
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
@@ -3271,8 +3271,8 @@ def configure_runtime_on_head(config):
         config = runtime.configure_on_head(
             config)
 
-    new_digest = get_json_object_md5(config)
-    if new_digest != old_digest:
+    new_config_digest = get_json_object_md5(config)
+    if new_config_digest != old_config_digest:
         # save the new config
         encrypted_config = encrypt_config(config)
         cluster_config_file = get_head_bootstrap_config()

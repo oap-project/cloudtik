@@ -10,7 +10,7 @@ from cloudtik.core._private.service_discovery.utils import get_canonical_service
     get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_SCHEDULER
 from cloudtik.core._private.utils import round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
-    print_json_formatted, get_config_for_update
+    print_json_formatted, get_config_for_update, get_runtime_config
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.common.service_discovery.cluster import has_runtime_in_cluster
 from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
@@ -54,6 +54,10 @@ FLINK_YARN_SERVICE_NAME = "yarn"
 
 def _get_config(runtime_config: Dict[str, Any]):
     return runtime_config.get(BUILT_IN_RUNTIME_FLINK, {})
+
+
+def _is_metastore_service_discovery(flink_config):
+    return flink_config.get("metastore_service_discovery", True)
 
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
@@ -133,20 +137,54 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
                 flink_config, FLINK_HDFS_SERVICE_SELECTOR_KEY,
                 cluster_config=cluster_config,
                 discovery_type=DiscoveryType.WORKSPACE)
-            if hdfs_namenode_uri is not None:
+            if hdfs_namenode_uri:
                 flink_config[FLINK_HDFS_NAMENODE_URI_KEY] = hdfs_namenode_uri
 
     # Check metastore
-    if not has_runtime_in_cluster(runtime_config, BUILT_IN_RUNTIME_METASTORE):
-        if flink_config.get(FLINK_HIVE_METASTORE_URI_KEY) is None:
-            if flink_config.get("metastore_service_discovery", True):
-                hive_metastore_uri = discover_metastore(
-                    flink_config, FLINK_METASTORE_SERVICE_SELECTOR_KEY,
-                    cluster_config=cluster_config,
-                    discovery_type=DiscoveryType.WORKSPACE)
-                if hive_metastore_uri is not None:
-                    flink_config[FLINK_HIVE_METASTORE_URI_KEY] = hive_metastore_uri
+    if (not flink_config.get(FLINK_HIVE_METASTORE_URI_KEY) and
+            not has_runtime_in_cluster(
+                runtime_config, BUILT_IN_RUNTIME_METASTORE)):
+        if _is_metastore_service_discovery(flink_config):
+            hive_metastore_uri = discover_metastore(
+                flink_config, FLINK_METASTORE_SERVICE_SELECTOR_KEY,
+                cluster_config=cluster_config,
+                discovery_type=DiscoveryType.WORKSPACE)
+            if hive_metastore_uri is not None:
+                flink_config[FLINK_HIVE_METASTORE_URI_KEY] = hive_metastore_uri
 
+    return cluster_config
+
+
+def _prepare_config_on_head(cluster_config: Dict[str, Any]):
+    cluster_config = _discover_metastore_on_head(cluster_config)
+    return cluster_config
+
+
+def _discover_metastore_on_head(cluster_config: Dict[str, Any]):
+    runtime_config = get_runtime_config(cluster_config)
+    flink_config = _get_config(runtime_config)
+    if not _is_metastore_service_discovery(flink_config):
+        return cluster_config
+
+    hive_metastore_uri = flink_config.get(FLINK_HIVE_METASTORE_URI_KEY)
+    if hive_metastore_uri:
+        # Metastore already configured
+        return cluster_config
+
+    if has_runtime_in_cluster(
+            runtime_config, BUILT_IN_RUNTIME_METASTORE):
+        # There is a metastore
+        return cluster_config
+
+    # There is service discovery to come here
+    hive_metastore_uri = discover_metastore(
+        flink_config, FLINK_METASTORE_SERVICE_SELECTOR_KEY,
+        cluster_config=cluster_config,
+        discovery_type=DiscoveryType.CLUSTER)
+    if hive_metastore_uri:
+        flink_config = get_config_for_update(
+            runtime_config, BUILT_IN_RUNTIME_FLINK)
+        flink_config[FLINK_HIVE_METASTORE_URI_KEY] = hive_metastore_uri
     return cluster_config
 
 
@@ -240,8 +278,8 @@ def update_flink_configurations():
     save_properties_file(flink_conf_file, flink_conf, separator=': ', comments=comments)
 
 
-def _with_hadoop_default(spark_config, runtime_envs):
-    hadoop_default_cluster = spark_config.get("hadoop_default_cluster", False)
+def _with_hadoop_default(flink_config, runtime_envs):
+    hadoop_default_cluster = flink_config.get("hadoop_default_cluster", False)
     if hadoop_default_cluster:
         runtime_envs["HADOOP_DEFAULT_CLUSTER"] = hadoop_default_cluster
 
@@ -277,13 +315,18 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     provider_envs = provider.with_environment_variables(node_type_config, node_id)
     runtime_envs.update(provider_envs)
 
-    # 1) Try to use local metastore if there is one started;
-    # 2) Try to use defined metastore_uri;
-    if has_runtime_in_cluster(cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
+    if has_runtime_in_cluster(
+            cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):
         runtime_envs["METASTORE_ENABLED"] = True
-    elif flink_config.get(FLINK_HIVE_METASTORE_URI_KEY) is not None:
-        runtime_envs["HIVE_METASTORE_URI"] = flink_config.get(FLINK_HIVE_METASTORE_URI_KEY)
     return runtime_envs
+
+
+def _configure(runtime_config, head: bool):
+    # TODO: move more runtime specific environment_variables to here
+    flink_config = _get_config(runtime_config)
+    hive_metastore_uri = flink_config.get(FLINK_HIVE_METASTORE_URI_KEY)
+    if hive_metastore_uri:
+        os.environ["FLINK_HIVE_METASTORE_URI"] = hive_metastore_uri
 
 
 def get_runtime_logs():

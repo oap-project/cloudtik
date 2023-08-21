@@ -543,8 +543,8 @@ def prepare_internal_commands(config, built_in_commands):
     built_in_commands["setup_commands"] = setup_commands
 
     head_setup_commands = built_in_commands.get("head_setup_commands", [])
-    cloudtik_head_configure_command = get_cloudtik_head_configure_command(config)
-    head_setup_commands += [cloudtik_head_configure_command]
+    cloudtik_head_prepare_command = get_cloudtik_head_prepare_command(config)
+    head_setup_commands += [cloudtik_head_prepare_command]
     built_in_commands["head_setup_commands"] = head_setup_commands
 
     cloudtik_stop_command = get_cloudtik_stop_command(config)
@@ -1105,9 +1105,8 @@ def get_cloudtik_setup_command(config) -> str:
     return setup_command
 
 
-def get_cloudtik_head_configure_command(config) -> str:
-    configure_command = "cloudtik head configure"
-    return configure_command
+def get_cloudtik_head_prepare_command(config) -> str:
+    return "cloudtik head prepare"
 
 
 def get_cloudtik_head_start_command(config) -> str:
@@ -3258,7 +3257,7 @@ def get_runtime_config(config):
     return config.get(RUNTIME_CONFIG_KEY, {})
 
 
-def configure_runtime_on_head(config):
+def prepare_runtime_config_on_head(config):
     runtime_config = config.get(RUNTIME_CONFIG_KEY)
     if runtime_config is None:
         return
@@ -3269,7 +3268,7 @@ def configure_runtime_on_head(config):
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
     for runtime_type in runtime_types:
         runtime = _get_runtime(runtime_type, runtime_config)
-        config = runtime.configure_on_head(
+        config = runtime.prepare_config_on_head(
             config)
 
     new_config_digest = get_json_object_md5(config)

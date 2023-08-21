@@ -10,7 +10,8 @@ from cloudtik.core._private.cli_logger import (add_click_logging_options,
                                                cli_logger)
 from cloudtik.core._private.cluster.cluster_operator import (
     start_node_from_head, stop_node_from_head)
-from cloudtik.core._private.runtime_factory import _get_runtime_home
+from cloudtik.core._private.runtime_factory import _get_runtime_home, _get_runtime
+from cloudtik.core._private.runtime_utils import get_runtime_config_from_node
 from cloudtik.core._private.utils import run_bash_scripts, run_system_command, with_script_args
 from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 
@@ -100,6 +101,12 @@ def _run_runtime_script(
         _run_runtime_bash_script_by_name(
             runtime_type, command, head,
             script_args, script_name)
+
+
+def _run_runtime_configure(runtime_type, head: bool):
+    runtime_config = get_runtime_config_from_node(head)
+    _runtime = _get_runtime(runtime_type, runtime_config)
+    _runtime.configure(head)
 
 
 @click.group(cls=NaturalOrderGroup)
@@ -267,6 +274,8 @@ def install(runtime, head, reverse, script_args):
          "This flag reverse the order.")
 @click.argument("script_args", nargs=-1)
 def configure(runtime, head, reverse, script_args):
+    _run_runtime_configure(
+        runtime, head)
     _run_runtime_script(
         runtime, None, head, reverse,
         script_args, RUNTIME_CONFIGURE_SCRIPT_NAME)

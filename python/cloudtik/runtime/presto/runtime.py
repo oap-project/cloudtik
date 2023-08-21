@@ -6,7 +6,8 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.presto.utils import _with_runtime_environment_variables, \
     _is_runtime_scripts, _get_runnable_command, _get_runtime_processes, \
-    _get_runtime_logs, _get_runtime_endpoints, _config_depended_services, _get_head_service_ports, _get_runtime_services
+    _get_runtime_logs, _get_runtime_endpoints, _config_depended_services, _get_head_service_ports, \
+    _get_runtime_services, _prepare_config_on_head, _configure
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,15 @@ class PrestoRuntime(RuntimeBase):
         cluster_config = _config_depended_services(cluster_config)
         return cluster_config
 
+    def prepare_config_on_head(
+            self, cluster_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Configure runtime such as using service discovery to configure
+        internal service addresses the runtime depends.
+        The head configuration will be updated and saved with the returned configuration.
+        """
+        return _prepare_config_on_head(cluster_config)
+
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,
             node_id: str) -> Dict[str, Any]:
@@ -30,6 +40,13 @@ class PrestoRuntime(RuntimeBase):
         """
         return _with_runtime_environment_variables(
             self.runtime_config, config=config, provider=provider, node_id=node_id)
+
+    def configure(
+            self, head: bool):
+        """ This method is called on every node as the first step of
+        executing runtime configure command.
+        """
+        _configure(self.runtime_config, head)
 
     def get_runnable_command(self, target: str, runtime_options: Optional[List[str]]):
         """Return the runnable command for the target script.

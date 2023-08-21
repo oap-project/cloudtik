@@ -18,7 +18,7 @@ from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.kv_store import kv_initialize_with_address
 from cloudtik.core._private.utils import CLOUDTIK_CLUSTER_SCALING_ERROR, \
     CLOUDTIK_CLUSTER_SCALING_STATUS, get_head_bootstrap_config, \
-    load_head_cluster_config, parse_bundles_json, parse_resources, configure_runtime_on_head
+    load_head_cluster_config, parse_bundles_json, parse_resources, prepare_runtime_config_on_head
 from cloudtik.scripts.utils import NaturalOrderGroup, add_command_alias
 
 logger = logging.getLogger(__name__)
@@ -747,10 +747,10 @@ def cluster_dump(hosts: Optional[str] = None,
 
 @head.command()
 @add_click_logging_options
-def configure():
+def prepare():
     # Note that this is used for head node only
     config = load_head_cluster_config()
-    configure_runtime_on_head(config)
+    prepare_runtime_config_on_head(config)
 
 
 @click.group(cls=NaturalOrderGroup)
@@ -891,4 +891,4 @@ head.add_command(process_status)
 head.add_command(resource_metrics)
 head.add_command(health_check)
 head.add_command(cluster_dump)
-head.add_command(configure)
+head.add_command(prepare)

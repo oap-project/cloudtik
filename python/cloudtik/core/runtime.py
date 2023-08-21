@@ -47,7 +47,7 @@ class Runtime:
         The verification may mean a slow process to check with a server"""
         pass
 
-    def configure_on_head(
+    def prepare_config_on_head(
             self, cluster_config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Configure runtime such as using service discovery to configure
@@ -63,6 +63,16 @@ class Runtime:
         For example: {"ENV_NAME": value}
         """
         return {}
+
+    def configure(
+            self, head: bool):
+        """ This method is called on every node as the first step of
+        executing runtime configure command.
+        After this configure method complete successfully, configure scripts are executed
+        within the context of this configure method such that the environment variables are
+        set in this method will be available in configure scripts
+        """
+        pass
 
     def get_runtime_shared_memory_ratio(
             self, config: Dict[str, Any], node_type: str) -> float:

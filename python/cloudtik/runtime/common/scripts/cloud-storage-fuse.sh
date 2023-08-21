@@ -166,10 +166,10 @@ function configure_cloud_fs() {
     fi
 
     # cluster local storage
-    if [ "$HDFS_ENABLED" == "true" ]; then
-        configure_local_hdfs_fs
-    elif [ ! -z "${HDFS_NAMENODE_URI}" ]; then
+    if [ ! -z "${HDFS_NAMENODE_URI}" ]; then
         configure_hdfs_fs
+    elif [ "$HDFS_ENABLED" == "true" ]; then
+        configure_local_hdfs_fs
     fi
 }
 

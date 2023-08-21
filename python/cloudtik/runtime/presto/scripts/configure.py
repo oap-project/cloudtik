@@ -1,7 +1,6 @@
 import argparse
 
-from cloudtik.core._private.runtime_utils import subscribe_runtime_config
-from cloudtik.core._private.utils import load_head_cluster_config, RUNTIME_CONFIG_KEY
+from cloudtik.core._private.runtime_utils import get_runtime_config_from_node
 from cloudtik.runtime.presto.utils import configure_connectors
 
 
@@ -13,11 +12,7 @@ def main():
     args = parser.parse_args()
 
     # Configure other connectors
-    if args.head:
-        runtime_config = load_head_cluster_config().get(
-            RUNTIME_CONFIG_KEY)
-    else:
-        runtime_config = subscribe_runtime_config()
+    runtime_config = get_runtime_config_from_node(args.head)
     configure_connectors(runtime_config)
 
 

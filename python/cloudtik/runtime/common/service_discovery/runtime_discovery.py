@@ -4,6 +4,7 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_
     BUILT_IN_RUNTIME_CONSUL, BUILT_IN_RUNTIME_ZOOKEEPER
 from cloudtik.core._private.service_discovery.utils import get_service_selector_for_update, include_runtime_for_selector
 from cloudtik.runtime.common.service_discovery.discovery import query_one_service
+from cloudtik.runtime.common.service_discovery.utils import get_service_addresses_string
 
 
 def discover_runtime_service_addresses(
@@ -44,12 +45,15 @@ def discover_zookeeper(
         service_selector_key: str,
         cluster_config: Dict[str, Any],
         discovery_type):
-    return discover_runtime_service_addresses(
+    service_addresses = discover_runtime_service_addresses(
         config, service_selector_key,
         runtime_type=BUILT_IN_RUNTIME_ZOOKEEPER,
         cluster_config=cluster_config,
         discovery_type=discovery_type,
     )
+    if not service_addresses:
+        return None
+    return get_service_addresses_string(service_addresses)
 
 
 def discover_hdfs(

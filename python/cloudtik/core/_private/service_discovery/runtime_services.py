@@ -15,6 +15,9 @@ CLOUDTIK_REDIS_SERVICE_PORT = CLOUDTIK_DEFAULT_PORT
 
 SERVICE_DISCOVERY_RUNTIMES = [BUILT_IN_RUNTIME_CONSUL]
 
+CONSUL_CONFIG_JOIN_LIST = "join_list"
+CONSUL_CONFIG_RPC_PORT = "rpc_port"
+
 
 def get_runtime_services_by_node_type(config: Dict[str, Any]):
     # for all the runtimes, query its services per node type
@@ -94,3 +97,13 @@ def get_service_discovery_runtime(runtime_config):
 
 def is_service_discovery_runtime(runtime_type):
     return True if runtime_type in SERVICE_DISCOVERY_RUNTIMES else False
+
+
+def get_consul_server_addresses(runtime_config: Dict[str, Any]):
+    consul_config = runtime_config.get(BUILT_IN_RUNTIME_CONSUL, {})
+    join_list = consul_config.get(CONSUL_CONFIG_JOIN_LIST)
+    if not join_list:
+        return None
+    hosts = join_list.split(',')
+    port = consul_config.get(CONSUL_CONFIG_RPC_PORT)
+    return [(host, port) for host in hosts]

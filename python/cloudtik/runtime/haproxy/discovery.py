@@ -3,7 +3,7 @@ import logging
 from cloudtik.core._private.service_discovery.utils import deserialize_service_selector
 from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.runtime.common.service_discovery.consul \
-    import query_services, query_service_nodes, get_service_address
+    import query_services, query_service_nodes, get_service_address_of_node
 from cloudtik.runtime.haproxy.admin_api import list_backend_servers, enable_backend_slot, disable_backend_slot, \
     add_backend_slot, get_backend_server_address, delete_backend_slot, list_backends
 from cloudtik.runtime.haproxy.utils import update_configuration, get_default_server_name, \
@@ -99,7 +99,7 @@ class DiscoverBackendServers(PullJob):
             # each node is a data source. if many nodes form a load balancer in a cluster
             # it should be filtered by service selector using service name ,tags or labels
             for service_node in service_nodes:
-                server_address = get_service_address(service_node)
+                server_address = get_service_address_of_node(service_node)
                 backend_servers.append(server_address)
         if not backend_servers:
             logger.warning("No live servers return from the service selector.")
@@ -145,7 +145,7 @@ class DiscoverAPIGatewayBackendServers(PullJob):
 
             backend_servers = []
             for service_node in service_nodes:
-                server_address = get_service_address(service_node)
+                server_address = get_service_address_of_node(service_node)
                 backend_servers.append(server_address)
 
             # TODO: currently use service_name as backend_name and path prefix for simplicity

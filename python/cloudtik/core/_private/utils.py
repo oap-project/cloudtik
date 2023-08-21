@@ -3254,7 +3254,8 @@ def get_database_port(database_config):
 
 
 def get_runtime_config(config):
-    return config.get(RUNTIME_CONFIG_KEY)
+    # There key cannot be empty for current implementation
+    return config.get(RUNTIME_CONFIG_KEY, {})
 
 
 def configure_runtime_on_head(config):

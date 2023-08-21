@@ -1,10 +1,12 @@
+from typing import Optional, Tuple
 from urllib.parse import quote
 
 from cloudtik.core._private.service_discovery.utils import SERVICE_SELECTOR_SERVICES, SERVICE_SELECTOR_TAGS, \
     SERVICE_SELECTOR_LABELS, SERVICE_SELECTOR_EXCLUDE_LABELS, SERVICE_DISCOVERY_LABEL_CLUSTER, \
     SERVICE_SELECTOR_RUNTIMES, SERVICE_SELECTOR_CLUSTERS, SERVICE_SELECTOR_EXCLUDE_JOINED_LABELS, \
-    SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX, SERVICE_DISCOVERY_TAG_SYSTEM_PREFIX
+    SERVICE_DISCOVERY_TAG_CLUSTER_PREFIX, SERVICE_DISCOVERY_TAG_SYSTEM_PREFIX, ServiceAddressType
 from cloudtik.core._private.util.rest_api import rest_api_get_json
+
 
 REST_ENDPOINT_URL_FORMAT = "http://{}:{}{}"
 REST_ENDPOINT_CATALOG = "/v1/catalog"
@@ -16,9 +18,15 @@ CONSUL_CLIENT_PORT = 8500
 CONSUL_REQUEST_TIMEOUT = 5
 
 
-def consul_api_get(endpoint: str):
-    endpoint_url = REST_ENDPOINT_URL_FORMAT.format(
-        CONSUL_CLIENT_ADDRESS, CONSUL_CLIENT_PORT, endpoint)
+def consul_api_get(
+        endpoint: str, address: Optional[Tuple[str, int]] = None):
+    if address:
+        host, port = address
+        endpoint_url = REST_ENDPOINT_URL_FORMAT.format(
+            host, port, endpoint)
+    else:
+        endpoint_url = REST_ENDPOINT_URL_FORMAT.format(
+            CONSUL_CLIENT_ADDRESS, CONSUL_CLIENT_PORT, endpoint)
     return rest_api_get_json(endpoint_url, timeout=CONSUL_REQUEST_TIMEOUT)
 
 
@@ -115,38 +123,49 @@ def _get_endpoint_with_service_selector(base_endpoint, service_selector):
     return endpoint
 
 
-def query_services(service_selector):
+def query_services(
+        service_selector, address: Optional[Tuple[str, int]] = None):
     # query all the services with a service selector
     query_endpoint = _get_endpoint_with_service_selector(
         REST_ENDPOINT_CATALOG_SERVICES, service_selector)
 
-    # The response is a dictionary of services
-    return consul_api_get(query_endpoint)
+    # The response is a dictionary of services with the value is the list of tags
+    return consul_api_get(query_endpoint, address=address)
 
 
-def query_service_nodes(service_name, service_selector):
+def query_service_nodes(
+        service_name, service_selector,
+        address: Optional[Tuple[str, int]] = None):
     service_endpoint = "{}/{}".format(
             REST_ENDPOINT_CATALOG_SERVICE, service_name)
     query_endpoint = _get_endpoint_with_service_selector(
         service_endpoint, service_selector)
 
     # The response is a list of server nodes of this service
-    return consul_api_get(query_endpoint)
+    return consul_api_get(query_endpoint, address=address)
 
 
-def get_service_name(service_node):
+def get_service_name_of_node(service_node):
     return service_node["ServiceName"]
 
 
-def get_service_address(service_node):
-    service_host = service_node.get("ServiceAddress")
-    if not service_host:
-        service_host = service_node.get("Address")
+def get_service_address_of_node(
+        service_node, address_type: ServiceAddressType = ServiceAddressType.NODE_IP):
+    if address_type == ServiceAddressType.NODE_IP:
+        service_host = service_node.get("ServiceAddress")
+        if not service_host:
+            service_host = service_node.get("Address")
+    else:
+        # use the node DNS FQDN: <node>.node[.<datacenter>.dc].<domain>
+        node_name = service_node.get("Node")
+        datacenter = service_node.get("Datacenter")
+        service_host = "{}.node.{}.cloudtik".format(node_name, datacenter)
+
     port = service_node["ServicePort"]
     return service_host, port
 
 
-def get_service_cluster(service_node):
+def get_service_cluster_of_node(service_node):
     # This is our service implementation specific
     # each service will be labeled with its cluster name
     service_meta = service_node.get(
@@ -205,22 +224,63 @@ def select_dns_service_tag(tags):
     return tags[0]
 
 
-def query_one_service_nodes_from_consul(service_selector):
-    services = query_services(service_selector)
+def get_service_fqdn_address(service_name, service_tags):
+    service_tag = select_dns_service_tag(service_tags)
+    return get_service_dns_name(service_name, service_tag)
+
+
+def query_one_service_nodes_from_consul(
+        service_selector, address: Optional[Tuple[str, int]] = None):
+    services = query_services(service_selector, address=address)
     if not services:
         return None
 
     for service_name in services:
         return service_name, query_service_nodes(
-            service_name, service_selector)
+            service_name, service_selector, address=address)
 
     return None
 
 
-def query_one_service_from_consul(service_selector):
-    service_and_nodes = query_one_service_nodes_from_consul(service_selector)
-    if not service_and_nodes:
+def query_one_service_from_consul(
+        service_selector, address_type: ServiceAddressType = ServiceAddressType.NODE_IP,
+        address: Optional[Tuple[str, int]] = None):
+    if address_type == ServiceAddressType.SERVICE_FQDN:
+        # return service FQDN
+        services = query_services(service_selector, address=address)
+        if not services:
+            return None
+        service_name, service_tags = next(iter(services.items()))
+        return get_service_fqdn_address(service_name, service_tags)
+    else:
+        # return service nodes IP or nodes FQDN
+        service_and_nodes = query_one_service_nodes_from_consul(
+            service_selector, address=address)
+        if not service_and_nodes:
+            return None
+        service_name, service_nodes = service_and_nodes
+        return service_name, [get_service_address_of_node(
+            service_node, address_type=address_type) for service_node in service_nodes]
+
+
+def query_services_from_consul(
+        service_selector, address_type: ServiceAddressType = ServiceAddressType.NODE_IP,
+        address: Optional[Tuple[str, int]] = None):
+    services = query_services(service_selector, address=address)
+    if not services:
         return None
-    service_name, service_nodes = service_and_nodes
-    return service_name, [get_service_address(
-        service_node) for service_node in service_nodes]
+
+    services_to_return = {}
+    if address_type == ServiceAddressType.SERVICE_FQDN:
+        # return service FQDN
+        for service_name, service_tags in services.items():
+            services_to_return[service_name] = get_service_fqdn_address(
+                service_name, service_tags)
+    else:
+        # return service nodes IP or nodes FQDN
+        for service_name, service_tags in services.items():
+            service_nodes = query_service_nodes(
+                service_name, service_selector, address=address)
+            services_to_return[service_name] = [get_service_address_of_node(
+                service_node, address_type=address_type) for service_node in service_nodes]
+    return services_to_return

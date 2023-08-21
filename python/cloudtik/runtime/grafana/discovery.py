@@ -6,8 +6,8 @@ from cloudtik.core._private.service_discovery.utils import SERVICE_SELECTOR_RUNT
 from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.core._private.util.rest_api import rest_api_get_json, rest_api_post_json, rest_api_delete_json, \
     REST_API_AUTH_TYPE, REST_API_AUTH_BASIC, REST_API_AUTH_BASIC_USERNAME, REST_API_AUTH_BASIC_PASSWORD
-from cloudtik.runtime.common.service_discovery.consul import query_services, query_service_nodes, get_service_name, \
-    get_service_address, get_service_cluster
+from cloudtik.runtime.common.service_discovery.consul import query_services, query_service_nodes, get_service_name_of_node, \
+    get_service_address_of_node, get_service_cluster_of_node
 from cloudtik.runtime.grafana.utils import get_data_source_name, get_prometheus_data_source, \
     GRAFANA_DATA_SOURCE_AUTO_CREATED
 
@@ -24,10 +24,10 @@ DATA_SOURCE_RUNTIMES = [
 def _get_prometheus_data_source(service_node):
     # How to make sure the name is unique
     # with cluster name?
-    service_name = get_service_name(service_node)
-    cluster_name = get_service_cluster(service_node)
+    service_name = get_service_name_of_node(service_node)
+    cluster_name = get_service_cluster_of_node(service_node)
     name = get_data_source_name(service_name, cluster_name)
-    service_host, service_port = get_service_address(service_node)
+    service_host, service_port = get_service_address_of_node(service_node)
     url = "http://{}:{}".format(service_host, service_port)
     return get_prometheus_data_source(name, url, is_default=False)
 

@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict
 
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_NONE, BUILT_IN_RUNTIME_CONSUL
 from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.coredns.utils import _get_runtime_processes, \
@@ -31,3 +32,7 @@ class CoreDNSRuntime(RuntimeBase):
     @staticmethod
     def get_processes():
         return _get_runtime_processes()
+
+    @staticmethod
+    def get_dependencies():
+        return [BUILT_IN_RUNTIME_NONE, BUILT_IN_RUNTIME_CONSUL]

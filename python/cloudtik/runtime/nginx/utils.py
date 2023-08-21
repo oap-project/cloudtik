@@ -11,7 +11,8 @@ from cloudtik.core._private.service_discovery.utils import get_canonical_service
     get_service_discovery_config, define_runtime_service_on_head_or_all, exclude_runtime_of_cluster, \
     serialize_service_selector, SERVICE_DISCOVERY_PROTOCOL_HTTP, SERVICE_DISCOVERY_FEATURE_LOAD_BALANCER
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
-from cloudtik.runtime.common.service_discovery.consul import get_service_dns_name, select_dns_service_tag
+from cloudtik.runtime.common.service_discovery.consul import get_service_dns_name, \
+    get_service_fqdn_address
 
 RUNTIME_PROCESSES = [
     # The first element is the substring to filter.
@@ -492,9 +493,8 @@ def update_api_gateway_dns_backends(
 
         service_port = backend_service["service_port"]
         tags = backend_service.get("tags")
-        service_tag = select_dns_service_tag(tags)
-        service_dns_name = get_service_dns_name(
-            backend_name, service_tag)
+        service_dns_name = get_service_fqdn_address(
+            backend_name, tags)
 
         variable_name = backend_name.replace('-', '_')
         with open(router_file, "w") as f:

@@ -4,7 +4,7 @@ from cloudtik.core._private.core_utils import get_json_object_hash
 from cloudtik.core._private.service_discovery.utils import deserialize_service_selector
 from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.runtime.common.service_discovery.consul \
-    import query_services, query_service_nodes, get_service_address
+    import query_services, query_service_nodes, get_service_address_of_node
 from cloudtik.runtime.nginx.utils import update_load_balancer_configuration, \
     update_api_gateway_dynamic_backends, update_api_gateway_dns_backends
 
@@ -48,7 +48,7 @@ class DiscoverBackendServers(DiscoverJob):
             # each node is a data source. if many nodes form a load balancer in a cluster
             # it should be filtered by service selector using service name ,tags or labels
             for service_node in service_nodes:
-                server_address = get_service_address(service_node)
+                server_address = get_service_address_of_node(service_node)
                 server_key = "{}:{}".format(server_address[0], server_address[1])
                 backend_servers[server_key] = server_address
         if not backend_servers:
@@ -89,7 +89,7 @@ class DiscoverAPIGatewayBackendServers(DiscoverJob):
 
             backend_servers = {}
             for service_node in service_nodes:
-                server_address = get_service_address(service_node)
+                server_address = get_service_address_of_node(service_node)
                 server_key = "{}:{}".format(server_address[0], server_address[1])
                 backend_servers[server_key] = server_address
 
@@ -144,7 +144,7 @@ class DiscoverAPIGatewayBackends(DiscoverJob):
     def get_dns_backend_service(service_nodes):
         # get service port in one of the servers
         service_node = service_nodes[0]
-        server_address = get_service_address(service_node)
+        server_address = get_service_address_of_node(service_node)
 
         # get a common set of tags
         tags = set(service_node.get("ServiceTags", []))

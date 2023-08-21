@@ -6,7 +6,7 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.kafka.utils import _with_runtime_environment_variables, \
     _get_runtime_processes, _validate_config, _get_runtime_logs, \
-    _get_runtime_endpoints, _config_depended_services, _get_runtime_services
+    _get_runtime_endpoints, _config_depended_services, _get_runtime_services, _configure_on_head
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,15 @@ class KafkaRuntime(RuntimeBase):
     def validate_config(self, cluster_config: Dict[str, Any]):
         """Validate cluster configuration from runtime perspective."""
         _validate_config(cluster_config)
+
+    def configure_on_head(
+            self, cluster_config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Configure runtime such as using service discovery to configure
+        internal service addresses the runtime depends.
+        The head configuration will be updated and saved with the returned configuration.
+        """
+        return _configure_on_head(cluster_config)
 
     def with_environment_variables(
             self, config: Dict[str, Any], provider: NodeProvider,

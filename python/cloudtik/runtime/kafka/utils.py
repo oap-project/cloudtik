@@ -56,14 +56,14 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _prepare_config_on_head(cluster_config: Dict[str, Any]):
-    cluster_config = _configure_zookeeper_on_head(cluster_config)
+    cluster_config = _discover_zookeeper_on_head(cluster_config)
 
     # call validate config to fail earlier
     _validate_config(cluster_config, final=True)
     return cluster_config
 
 
-def _configure_zookeeper_on_head(cluster_config: Dict[str, Any]):
+def _discover_zookeeper_on_head(cluster_config: Dict[str, Any]):
     runtime_config = get_runtime_config(cluster_config)
     kafka_config = _get_config(runtime_config)
 

@@ -233,6 +233,7 @@ function update_config_for_hadoop_storage() {
             return 0
         fi
     fi
+
     if [ "${cloud_storage_provider}" == "aws" ]; then
         update_config_for_aws
     elif [ "${cloud_storage_provider}" == "azure" ]; then
@@ -325,9 +326,9 @@ function update_data_disks_config() {
 function update_metastore_config() {
     # To be improved for external metastore cluster
     FLINK_DEFAULTS=${output_dir}/flink/flink-conf.yaml
-    if [ ! -z "$FLINK_HIVE_METASTORE_URI" ] || [ "$METASTORE_ENABLED" == "true" ]; then
-        if [ ! -z "$FLINK_HIVE_METASTORE_URI" ]; then
-            hive_metastore_uris="$FLINK_HIVE_METASTORE_URI"
+    if [ ! -z "$HIVE_METASTORE_URI" ] || [ "$METASTORE_ENABLED" == "true" ]; then
+        if [ ! -z "$HIVE_METASTORE_URI" ]; then
+            hive_metastore_uris="$HIVE_METASTORE_URI"
         else
             METASTORE_IP=${HEAD_ADDRESS}
             hive_metastore_uris="thrift://${METASTORE_IP}:9083"

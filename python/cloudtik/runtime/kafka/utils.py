@@ -56,6 +56,14 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _prepare_config_on_head(cluster_config: Dict[str, Any]):
+    cluster_config = _discover_zookeeper_on_head(cluster_config)
+
+    # call validate config to fail earlier
+    _validate_config(cluster_config, final=True)
+    return cluster_config
+
+
+def _discover_zookeeper_on_head(cluster_config: Dict[str, Any]):
     runtime_config = get_runtime_config(cluster_config)
     kafka_config = _get_config(runtime_config)
 
@@ -74,14 +82,10 @@ def _prepare_config_on_head(cluster_config: Dict[str, Any]):
                     kafka_config, KAFKA_ZOOKEEPER_SERVICE_SELECTOR_KEY,
                     cluster_config=cluster_config,
                     discovery_type=DiscoveryType.CLUSTER)
-    if not zookeeper_uri:
-        raise RuntimeError(
-            "No Zookeeper service is discovered. "
-            "You can either configure manually or start a discoverable Zookeeper service.")
-
-    kafka_config = get_config_for_update(
-        runtime_config, BUILT_IN_RUNTIME_KAFKA)
-    kafka_config[KAFKA_ZOOKEEPER_CONNECT_KEY] = zookeeper_uri
+    if zookeeper_uri:
+        kafka_config = get_config_for_update(
+            runtime_config, BUILT_IN_RUNTIME_KAFKA)
+        kafka_config[KAFKA_ZOOKEEPER_CONNECT_KEY] = zookeeper_uri
     return cluster_config
 
 
@@ -100,7 +104,7 @@ def _get_runtime_logs():
     return all_logs
 
 
-def _validate_config(config: Dict[str, Any]):
+def _validate_config(config: Dict[str, Any], final=False):
     # Check zookeeper connect configured
     runtime_config = get_runtime_config(config)
     kafka_config = _get_config(runtime_config)
@@ -108,7 +112,7 @@ def _validate_config(config: Dict[str, Any]):
     if not zookeeper_uri and not has_runtime_in_cluster(
             runtime_config, BUILT_IN_RUNTIME_ZOOKEEPER):
         # if there is service discovery mechanism, assume we can get from service discovery
-        if (not _is_zookeeper_service_discovery(kafka_config) or
+        if (final or not _is_zookeeper_service_discovery(kafka_config) or
                 not get_service_discovery_runtime(runtime_config)):
             raise ValueError("Zookeeper must be configured for Kafka.")
 

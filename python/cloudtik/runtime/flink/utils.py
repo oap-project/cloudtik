@@ -3,9 +3,10 @@ from typing import Any, Dict, Optional
 
 from cloudtik.core._private.cluster.cluster_config import _load_cluster_config
 from cloudtik.core._private.cluster.cluster_tunnel_request import _request_rest_to_head
-from cloudtik.core._private.core_utils import double_quote
+from cloudtik.core._private.core_utils import double_quote, get_string_value_for_env
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
     BUILT_IN_RUNTIME_FLINK
+from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_SCHEDULER
 from cloudtik.core._private.utils import round_memory_size_to_gb, load_head_cluster_config, \
@@ -58,6 +59,10 @@ def _get_config(runtime_config: Dict[str, Any]):
 
 def _is_metastore_service_discovery(flink_config):
     return flink_config.get("metastore_service_discovery", True)
+
+
+def _is_hdfs_service_discovery(spark_config):
+    return spark_config.get("hdfs_service_discovery", True)
 
 
 def get_yarn_resource_memory_ratio(cluster_config: Dict[str, Any]):
@@ -129,10 +134,10 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     # We now support co-existence of local HDFS and remote HDFS
     # 1) Try to use local hdfs first;
     # 2) Try to use defined hdfs_namenode_uri;
-    # 3) If hdfs_service_discovery=true, try to discover HDFS service through any service discovery available
+    # 3) Try to discover HDFS service through any service discovery available
 
     if flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY) is None:
-        if flink_config.get("hdfs_service_discovery", False):
+        if _is_hdfs_service_discovery(flink_config):
             hdfs_namenode_uri = discover_hdfs(
                 flink_config, FLINK_HDFS_SERVICE_SELECTOR_KEY,
                 cluster_config=cluster_config,
@@ -149,14 +154,42 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
                 flink_config, FLINK_METASTORE_SERVICE_SELECTOR_KEY,
                 cluster_config=cluster_config,
                 discovery_type=DiscoveryType.WORKSPACE)
-            if hive_metastore_uri is not None:
+            if hive_metastore_uri:
                 flink_config[FLINK_HIVE_METASTORE_URI_KEY] = hive_metastore_uri
 
     return cluster_config
 
 
 def _prepare_config_on_head(cluster_config: Dict[str, Any]):
+    cluster_config = _discover_hdfs_on_head(cluster_config)
     cluster_config = _discover_metastore_on_head(cluster_config)
+
+    # call validate config to fail earlier
+    _validate_config(cluster_config, final=True)
+
+    return cluster_config
+
+
+def _discover_hdfs_on_head(cluster_config: Dict[str, Any]):
+    runtime_config = get_runtime_config(cluster_config)
+    flink_config = _get_config(runtime_config)
+    if not _is_hdfs_service_discovery(flink_config):
+        return cluster_config
+
+    hdfs_namenode_uri = flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY)
+    if hdfs_namenode_uri:
+        # HDFS already configured
+        return cluster_config
+
+    # There is service discovery to come here
+    hdfs_namenode_uri = discover_hdfs(
+        flink_config, FLINK_HDFS_SERVICE_SELECTOR_KEY,
+        cluster_config=cluster_config,
+        discovery_type=DiscoveryType.CLUSTER)
+    if hdfs_namenode_uri:
+        flink_config = get_config_for_update(
+            runtime_config, BUILT_IN_RUNTIME_FLINK)
+        flink_config[FLINK_HDFS_NAMENODE_URI_KEY] = hdfs_namenode_uri
     return cluster_config
 
 
@@ -248,15 +281,12 @@ def _get_runnable_command(target):
 
 
 def _get_flink_config(config: Dict[str, Any]):
-    runtime = config.get(RUNTIME_CONFIG_KEY)
-    if not runtime:
+    runtime_config = get_runtime_config(config)
+    if not runtime_config:
         return None
 
-    flink = runtime.get(BUILT_IN_RUNTIME_FLINK)
-    if not flink:
-        return None
-
-    return flink.get("config")
+    flink_config = _get_config(runtime_config)
+    return flink_config.get("config")
 
 
 def update_flink_configurations():
@@ -278,12 +308,6 @@ def update_flink_configurations():
     save_properties_file(flink_conf_file, flink_conf, separator=': ', comments=comments)
 
 
-def _with_hadoop_default(flink_config, runtime_envs):
-    hadoop_default_cluster = flink_config.get("hadoop_default_cluster", False)
-    if hadoop_default_cluster:
-        runtime_envs["HADOOP_DEFAULT_CLUSTER"] = hadoop_default_cluster
-
-
 def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
     runtime_envs = {}
     flink_config = _get_config(runtime_config)
@@ -299,16 +323,10 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     if yarn_scheduler:
         runtime_envs["YARN_SCHEDULER"] = yarn_scheduler
 
-    _with_hadoop_default(flink_config, runtime_envs)
-
     # We now support co-existence of local HDFS and remote HDFS, and cloud storage
-    # 1) Try to use local hdfs first;
-    # 2) Try to use defined hdfs_namenode_uri;
-    # 3) Try to use provider storage;
-    if has_runtime_in_cluster(cluster_runtime_config, BUILT_IN_RUNTIME_HDFS):
+    if has_runtime_in_cluster(
+            cluster_runtime_config, BUILT_IN_RUNTIME_HDFS):
         runtime_envs["HDFS_ENABLED"] = True
-    if flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY) is not None:
-        runtime_envs["HDFS_NAMENODE_URI"] = flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY)
 
     # We always export the cloud storage even for HDFS case
     node_type_config = get_node_type_config(config, provider, node_id)
@@ -324,9 +342,20 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
 def _configure(runtime_config, head: bool):
     # TODO: move more runtime specific environment_variables to here
     flink_config = _get_config(runtime_config)
+
+    hadoop_default_cluster = flink_config.get(
+        "hadoop_default_cluster", False)
+    if hadoop_default_cluster:
+        os.environ["HADOOP_DEFAULT_CLUSTER"] = get_string_value_for_env(
+            hadoop_default_cluster)
+
+    hdfs_namenode_uri = flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY)
+    if hdfs_namenode_uri:
+        os.environ["HDFS_NAMENODE_URI"] = hdfs_namenode_uri
+
     hive_metastore_uri = flink_config.get(FLINK_HIVE_METASTORE_URI_KEY)
     if hive_metastore_uri:
-        os.environ["FLINK_HIVE_METASTORE_URI"] = hive_metastore_uri
+        os.environ["HIVE_METASTORE_URI"] = hive_metastore_uri
 
 
 def get_runtime_logs():
@@ -340,21 +369,32 @@ def get_runtime_logs():
     return all_logs
 
 
-def _validate_config(config: Dict[str, Any]):
-    runtime_config = config.get(RUNTIME_CONFIG_KEY)
+def _is_valid_storage_config(config: Dict[str, Any], final=False):
+    runtime_config = get_runtime_config(config)
 
     # if HDFS enabled, we ignore the cloud storage configurations
     if has_runtime_in_cluster(runtime_config, BUILT_IN_RUNTIME_HDFS):
-        return
+        return True
     # check if there is remote HDFS configured
     flink_config = _get_config(runtime_config)
     if flink_config.get(FLINK_HDFS_NAMENODE_URI_KEY) is not None:
-        return
+        return True
 
     # Check any cloud storage is configured
     provider_config = config["provider"]
-    if ("storage" not in provider_config) and \
-            not is_use_managed_cloud_storage(config):
+    if ("storage" in provider_config) or is_use_managed_cloud_storage(config):
+        return True
+
+    # if there is service discovery mechanism, assume we can get from service discovery
+    if (not final and _is_hdfs_service_discovery(flink_config) and
+            get_service_discovery_runtime(runtime_config)):
+        return True
+
+    return False
+
+
+def _validate_config(config: Dict[str, Any], final=False):
+    if not _is_valid_storage_config(config, final=final):
         raise ValueError("No storage configuration found for Flink.")
 
 

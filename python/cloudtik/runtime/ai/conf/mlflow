@@ -1,0 +1,8 @@
+# MLflow configuration variables. The file will be sourced before starting
+# Mlflow service and the variables will be used as configuration.
+
+# The --backend-store-uri parameter for MLflow server
+BACKEND_STORE_URI={%backend.store.uri%}
+
+# The --default-artifact-root parameter for MLflow server
+DEFAULT_ARTIFACT_ROOT={%default.artifact.root%}

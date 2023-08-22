@@ -71,6 +71,11 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _prepare_config_on_head(cluster_config: Dict[str, Any]):
+    cluster_config = _discover_metastore_on_head(cluster_config)
+    return cluster_config
+
+
+def _discover_metastore_on_head(cluster_config: Dict[str, Any]):
     runtime_config = get_runtime_config(cluster_config)
     trino_config = _get_config(runtime_config)
     if not _is_metastore_service_discovery(trino_config):
@@ -141,7 +146,7 @@ def _configure(runtime_config, head: bool):
     trino_config = _get_config(runtime_config)
     hive_metastore_uri = trino_config.get(TRINO_HIVE_METASTORE_URI_KEY)
     if hive_metastore_uri:
-        os.environ["TRINO_HIVE_METASTORE_URI"] = hive_metastore_uri
+        os.environ["HIVE_METASTORE_URI"] = hive_metastore_uri
 
 
 def _get_runtime_logs():

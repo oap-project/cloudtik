@@ -6,7 +6,7 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE, B
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_ANALYTICS
 from cloudtik.core._private.utils import \
-    get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_node_type_config, get_config_for_update, \
+    get_node_type, get_resource_of_node_type, RUNTIME_CONFIG_KEY, get_config_for_update, \
     get_runtime_config
 from cloudtik.runtime.common.service_discovery.cluster import has_runtime_in_cluster
 from cloudtik.runtime.common.service_discovery.discovery import DiscoveryType
@@ -126,11 +126,6 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     _with_memory_configurations(
         runtime_envs, trino_config=trino_config,
         config=config, provider=provider, node_id=node_id)
-
-    # We need export the cloud storage
-    node_type_config = get_node_type_config(config, provider, node_id)
-    provider_envs = provider.with_environment_variables(node_type_config, node_id)
-    runtime_envs.update(provider_envs)
 
     return runtime_envs
 

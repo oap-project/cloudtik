@@ -12,7 +12,7 @@ from cloudtik.core._private.service_discovery.utils import get_canonical_service
     get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_SCHEDULER
 from cloudtik.core._private.utils import \
     round_memory_size_to_gb, load_head_cluster_config, \
-    RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, get_node_type_config, \
+    RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, \
     print_json_formatted, get_config_for_update, get_runtime_config
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.common.service_discovery.cluster import has_runtime_in_cluster
@@ -325,7 +325,8 @@ def _with_hadoop_default(spark_config, runtime_envs):
         runtime_envs["HADOOP_DEFAULT_CLUSTER"] = hadoop_default_cluster
 
 
-def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
+def _with_runtime_environment_variables(
+        runtime_config, config, provider, node_id: str):
     runtime_envs = {}
     spark_config = _get_config(runtime_config)
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
@@ -353,11 +354,6 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     if spark_config.get(SPARK_HDFS_NAMENODE_URI_KEY) is not None:
         runtime_envs["HDFS_NAMENODE_URI"] = spark_config.get(SPARK_HDFS_NAMENODE_URI_KEY)
         _with_hdfs_mount_method(spark_config, runtime_envs)
-
-    # We always export the cloud storage even for HDFS case
-    node_type_config = get_node_type_config(config, provider, node_id)
-    provider_envs = provider.with_environment_variables(node_type_config, node_id)
-    runtime_envs.update(provider_envs)
 
     if has_runtime_in_cluster(
             cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):

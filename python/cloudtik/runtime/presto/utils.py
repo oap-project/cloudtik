@@ -76,6 +76,11 @@ def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _prepare_config_on_head(cluster_config: Dict[str, Any]):
+    cluster_config = _discover_metastore_on_head(cluster_config)
+    return cluster_config
+
+
+def _discover_metastore_on_head(cluster_config: Dict[str, Any]):
     runtime_config = get_runtime_config(cluster_config)
     presto_config = _get_config(runtime_config)
     if not _is_metastore_service_discovery(presto_config):

@@ -904,3 +904,9 @@ def remove_files(path):
     file_names = os.listdir(path)
     for file_name in file_names:
         os.remove(os.path.join(path, file_name))
+
+
+def get_string_value_for_env(val):
+    if isinstance(val, str):
+        return val
+    return json.dumps(val, separators=(",", ":"))

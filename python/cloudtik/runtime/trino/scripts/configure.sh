@@ -186,9 +186,9 @@ function update_hive_metastore_config() {
     # To be improved for external metastore cluster
     catalog_dir=$output_dir/trino/catalog
     hive_properties=${catalog_dir}/hive.properties
-    if [ ! -z "$TRINO_HIVE_METASTORE_URI" ] || [ "$METASTORE_ENABLED" == "true" ]; then
-        if [ ! -z "$TRINO_HIVE_METASTORE_URI" ]; then
-            hive_metastore_uri="$TRINO_HIVE_METASTORE_URI"
+    if [ ! -z "$HIVE_METASTORE_URI" ] || [ "$METASTORE_ENABLED" == "true" ]; then
+        if [ ! -z "$HIVE_METASTORE_URI" ]; then
+            hive_metastore_uri="$HIVE_METASTORE_URI"
         else
             METASTORE_IP=${HEAD_ADDRESS}
             hive_metastore_uri="thrift://${METASTORE_IP}:9083"

@@ -2176,6 +2176,12 @@ def with_runtime_environment_variables(runtime_config, config, provider, node_id
         config=config, node_type=node_type)
     all_runtime_envs.update(static_runtime_envs)
 
+    # We always export the cloud storage
+    node_type_config = get_node_type_config(config, provider, node_id)
+    provider_envs = provider.with_environment_variables(node_type_config, node_id)
+    if provider_envs:
+        all_runtime_envs.update(provider_envs)
+
     runtime_types = runtime_config.get(RUNTIME_TYPES_CONFIG_KEY, [])
 
     if len(runtime_types) > 0:

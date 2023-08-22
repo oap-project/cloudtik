@@ -29,7 +29,8 @@ def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
-def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
+def _with_runtime_environment_variables(
+        runtime_config, config, provider, node_id: str):
     runtime_envs = {"METASTORE_ENABLED": True}
 
     metastore_config = _get_config(runtime_config)

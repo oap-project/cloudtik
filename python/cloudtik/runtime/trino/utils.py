@@ -119,7 +119,8 @@ def _get_runnable_command(target):
     return command_parts
 
 
-def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
+def _with_runtime_environment_variables(
+        runtime_config, config, provider, node_id: str):
     runtime_envs = {"TRINO_ENABLED": True}
     trino_config = _get_config(runtime_config)
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
@@ -131,11 +132,6 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
     _with_memory_configurations(
         runtime_envs, trino_config=trino_config,
         config=config, provider=provider, node_id=node_id)
-
-    # We need export the cloud storage
-    node_type_config = get_node_type_config(config, provider, node_id)
-    provider_envs = provider.with_environment_variables(node_type_config, node_id)
-    runtime_envs.update(provider_envs)
 
     return runtime_envs
 

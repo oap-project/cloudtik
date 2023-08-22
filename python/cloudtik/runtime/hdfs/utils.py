@@ -5,7 +5,6 @@ from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_STORAGE
-from cloudtik.core._private.utils import get_node_type_config
 from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
 
 RUNTIME_PROCESSES = [
@@ -41,14 +40,9 @@ def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
-def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
+def _with_runtime_environment_variables(
+        runtime_config, config, provider, node_id: str):
     runtime_envs = {"HDFS_ENABLED": True}
-
-    # We always export the cloud storage even for local HDFS case
-    node_type_config = get_node_type_config(config, provider, node_id)
-    provider_envs = provider.with_environment_variables(node_type_config, node_id)
-    runtime_envs.update(provider_envs)
-
     return runtime_envs
 
 

@@ -42,11 +42,6 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
         runtime_envs, ray_config=ray_config,
         config=config, provider=provider, node_id=node_id)
 
-    # We need export the cloud storage
-    node_type_config = get_node_type_config(config, provider, node_id)
-    provider_envs = provider.with_environment_variables(node_type_config, node_id)
-    runtime_envs.update(provider_envs)
-
     return runtime_envs
 
 

@@ -345,7 +345,9 @@ def _with_hdfs_mount_method(spark_config, runtime_envs):
     if mount_method:
         runtime_envs["HDFS_MOUNT_METHOD"] = mount_method
 
-def _with_runtime_environment_variables(runtime_config, config, provider, node_id: str):
+
+def _with_runtime_environment_variables(
+        runtime_config, config, provider, node_id: str):
     runtime_envs = {}
     spark_config = _get_config(runtime_config)
     cluster_runtime_config = config.get(RUNTIME_CONFIG_KEY)
@@ -366,11 +368,6 @@ def _with_runtime_environment_variables(runtime_config, config, provider, node_i
         runtime_envs["HDFS_ENABLED"] = True
 
     _with_hdfs_mount_method(spark_config, runtime_envs)
-
-    # We always export the cloud storage even for HDFS case
-    node_type_config = get_node_type_config(config, provider, node_id)
-    provider_envs = provider.with_environment_variables(node_type_config, node_id)
-    runtime_envs.update(provider_envs)
 
     if has_runtime_in_cluster(
             cluster_runtime_config, BUILT_IN_RUNTIME_METASTORE):

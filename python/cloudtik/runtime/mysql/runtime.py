@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class MySQLRuntime(RuntimeBase):
-    """Implementation for MySQL Runtime for a high available replicated MySQL database cluster."""
+    """Implementation for MySQL Runtime for a high available replicated
+    MySQL database cluster."""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
         super().__init__(runtime_config)

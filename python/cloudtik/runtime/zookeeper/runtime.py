@@ -43,7 +43,8 @@ class ZooKeeperRuntime(RuntimeBase):
             head_info: Dict[str, Any], nodes_info: Dict[str, Any],
             quorum_id: Optional[str] = None):
         """If the get_node_constraints method returns True and runtime will be notified on head
-        When the minimal nodes are reached. Please note this may call multiple times (for example server down and up)
+        When the minimal nodes are reached. Please note this may call multiple times (
+        for example server down and up)
         """
         _handle_node_constraints_reached(
             self.runtime_config, cluster_config,
@@ -63,6 +64,7 @@ class ZooKeeperRuntime(RuntimeBase):
         #1 Keyword to filter,
         #2 filter by command (True)/filter by args (False)
         #3 The third element is the process name.
-        #4 The forth element, if node, the process should on all nodes, if head, the process should on head node.
+        #4 The forth element, if node, the process should on all nodes,
+        if head, the process should on head node.
         """
         return _get_runtime_processes()

@@ -109,10 +109,10 @@ def _run_runtime_configure(runtime_type, head: bool):
     _runtime.configure(head)
 
 
-def _run_runtime_services(runtime_type, command, head: bool):
+def _run_runtime_services(runtime_type, head: bool):
     runtime_config = get_runtime_config_from_node(head)
     _runtime = _get_runtime(runtime_type, runtime_config)
-    _runtime.services(command, head)
+    _runtime.services(head)
 
 
 @click.group(cls=NaturalOrderGroup)
@@ -303,8 +303,12 @@ def configure(runtime, head, reverse, script_args):
          "This flag reverse the order.")
 @click.argument("script_args", nargs=-1)
 def services(runtime, command, head, reverse, script_args):
-    _run_runtime_services(
-        runtime, command, head)
+    if command == "start":
+        # Call for only start command. When cluster stop, the head controller stops first
+        # The redis state service is not available any longer and the runtime configuration
+        # cannot be got for workers.
+        _run_runtime_services(runtime, head)
+
     _run_runtime_script(
         runtime, command, head, reverse,
         script_args, RUNTIME_SERVICES_SCRIPT_NAME)

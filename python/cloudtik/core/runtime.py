@@ -74,10 +74,10 @@ class Runtime:
         pass
 
     def services(
-            self, command: str, head: bool):
+            self, head: bool):
         """ This method is called on every node as the first step of executing runtime
         services command. This method can be used either to do some real service start
-        or stop work, or be used to prepare some environments for the following services
+        work, or be used to prepare some environments for the following services
         scripts.
         """
         pass

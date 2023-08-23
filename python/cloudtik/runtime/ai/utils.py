@@ -96,10 +96,9 @@ def _configure(runtime_config, head: bool):
     _export_database_configurations(runtime_config)
 
 
-def _services(runtime_config, command: str, head: bool):
-    if command == "start":
-        # We put the database schema init right before the start of metastore service
-        _export_database_configurations(runtime_config)
+def _services(runtime_config, head: bool):
+    # We put the database schema init right before the start of metastore service
+    _export_database_configurations(runtime_config)
 
 
 def register_service(cluster_config: Dict[str, Any], head_node_id: str) -> None:

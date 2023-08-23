@@ -87,7 +87,7 @@ def register_service_to_workspace(
             "Failed to register service: {}".format(str(e)))
 
 
-def query_one_service_from_workspace(
+def query_services_from_workspace(
         cluster_config: Dict[str, Any], service_selector):
     workspace_name = cluster_config.get("workspace_name")
     if workspace_name is None:
@@ -101,19 +101,30 @@ def query_one_service_from_workspace(
         return None
 
     # match through the clusters, runtimes, and services if they are provided
-    service = _query_one_service_registry(
+    services = _query_service_registry(
         global_variables, service_selector)
-    return service
+    return services
 
 
-def _query_one_service_registry(
-        service_registries, service_selector):
-    matched_services = _query_service_registry(
-        service_registries, service_selector, first_match=True)
-    if not matched_services:
+def query_one_service_from_workspace(
+        cluster_config: Dict[str, Any], service_selector):
+    workspace_name = cluster_config.get("workspace_name")
+    if workspace_name is None:
         return None
 
-    return next(iter(matched_services.values()))
+    workspace_provider = _get_workspace_provider(
+        cluster_config["provider"], workspace_name)
+    global_variables = workspace_provider.subscribe_global_variables(
+        cluster_config)
+    if not global_variables:
+        return None
+
+    services = _query_service_registry(
+        global_variables, service_selector, first_match=True)
+    if not services:
+        return None
+
+    return next(iter(services.values()))
 
 
 def _query_service_registry(

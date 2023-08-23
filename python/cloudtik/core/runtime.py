@@ -66,11 +66,19 @@ class Runtime:
 
     def configure(
             self, head: bool):
-        """ This method is called on every node as the first step of
-        executing runtime configure command.
-        After this configure method complete successfully, configure scripts are executed
-        within the context of this configure method such that the environment variables are
-        set in this method will be available in configure scripts
+        """ This method is called on every node as the first step of executing runtime
+        configure command. After this configure method complete successfully, configure
+        scripts are executed within the context of this configure method such that the
+        environment variables are set in this method will be available in configure scripts
+        """
+        pass
+
+    def services(
+            self, command: str, head: bool):
+        """ This method is called on every node as the first step of executing runtime
+        services command. This method can be used either to do some real service start
+        or stop work, or be used to prepare some environments for the following services
+        scripts.
         """
         pass
 

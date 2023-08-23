@@ -48,8 +48,8 @@ class FlinkRuntime(RuntimeBase):
             self.runtime_config, config=config, provider=provider, node_id=node_id)
 
     def configure(self, head: bool):
-        """ This method is called on every node as the first step of
-        executing runtime configure command.
+        """ This method is called on every node as the first step of executing runtime
+        configure command.
         """
         _configure(self.runtime_config, head)
 

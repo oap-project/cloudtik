@@ -10,6 +10,7 @@ eval set -- "${args}"
 # import util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
+# schema initialization functions
 . "$BIN_DIR"/schema-init.sh
 
 if [ ! -n "${METASTORE_HOME}" ]; then

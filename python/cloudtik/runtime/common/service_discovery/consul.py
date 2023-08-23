@@ -310,6 +310,7 @@ def query_services_from_consul(
             service_name, service_tags, service_selector,
             address_type=address_type, address=address
         )
-        services_to_return[service_name] = service_instance
+        if service_instance:
+            services_to_return[service_name] = service_instance
 
     return services_to_return

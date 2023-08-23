@@ -180,7 +180,7 @@ def _get_existing_port_mapping():
         cmd
     ).decode().strip()
     if not output:
-        return 0
+        return {}
     existing_port_mappings = {}
     lines = output.splitlines()
     for line in lines:

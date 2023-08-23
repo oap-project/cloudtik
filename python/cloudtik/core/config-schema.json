@@ -76,6 +76,33 @@
                     }
                 }
             }
+        },
+        "database_connect": {
+            "type": "object",
+            "description": "Database parameters for connect to an existing database.",
+            "additionalProperties": true,
+            "properties": {
+                "engine": {
+                    "type": "string",
+                    "description": "Database engine: mysql or postgres."
+                },
+                "address": {
+                    "type": "string",
+                    "description": "Database server address"
+                },
+                "port": {
+                    "type": "number",
+                    "description": "Database server port. default: mysql=3306, postgres=5432"
+                },
+                "username": {
+                    "type": "string",
+                    "description": "Database administrator login name. default: cloudtik"
+                },
+                "password": {
+                    "type": "string",
+                    "description": "Database administrator login password."
+                }
+            }
         }
     },
     "required": [
@@ -507,13 +534,13 @@
                             "description": "AWS RDS for MySQL options",
                             "additionalProperties": true,
                             "properties": {
-                                "server_address": {
-                                    "type": "string",
-                                    "description": "AWS RDS server address"
-                                },
                                 "engine": {
                                     "type": "string",
                                     "description": "AWS RDS engine: mysql or postgres. default: mysql"
+                                },
+                                "address": {
+                                    "type": "string",
+                                    "description": "AWS RDS server address"
                                 },
                                 "port": {
                                     "type": "number",
@@ -534,13 +561,13 @@
                             "description": "Azure Database for MySQL options",
                             "additionalProperties": true,
                             "properties": {
-                                "server_address": {
-                                    "type": "string",
-                                    "description": "Azure Database server address"
-                                },
                                 "engine": {
                                     "type": "string",
                                     "description": "Azure Database engine: mysql or postgres. default: mysql"
+                                },
+                                "address": {
+                                    "type": "string",
+                                    "description": "Azure Database server address"
                                 },
                                 "port": {
                                     "type": "number",
@@ -561,13 +588,13 @@
                             "description": "GCP Cloud SQL for MySQL options",
                             "additionalProperties": true,
                             "properties": {
-                                "server_address": {
-                                    "type": "string",
-                                    "description": "GCP Cloud SQL server address"
-                                },
                                 "engine": {
                                     "type": "string",
                                     "description": "GCP Cloud SQL engine: mysql or postgres. default: mysql"
+                                },
+                                "address": {
+                                    "type": "string",
+                                    "description": "GCP Cloud SQL server address"
                                 },
                                 "port": {
                                     "type": "number",
@@ -1136,6 +1163,19 @@
                         "with_gpu": {
                             "type": "boolean",
                             "description": "Whether to use GPU frameworks and libraries for AI"
+                        },
+                        "database": {
+                            "$ref": "#/definitions/database_connect",
+                            "description": "The database parameters. Engine, address, port are optional if using service discovery."
+                        },
+                        "database_service_discovery": {
+                            "type": "boolean",
+                            "description": "Whether to discover and use database service in the same workspace.",
+                            "default": true
+                        },
+                        "database_service_selector": {
+                            "$ref": "#/definitions/service_selector",
+                            "description": "The selector for database service if service discovery is enabled."
                         }
                     }
                 },
@@ -1238,6 +1278,26 @@
                         "yarn_scheduler": {
                             "type": "string",
                             "description": "The yarn scheduler to use: capacity or fair"
+                        }
+                    }
+                },
+                "metastore": {
+                    "type": "object",
+                    "description": "Metastore runtime configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "database": {
+                            "$ref": "#/definitions/database_connect",
+                            "description": "The database parameters. Engine, address, port are optional if using service discovery."
+                        },
+                        "database_service_discovery": {
+                            "type": "boolean",
+                            "description": "Whether to discover and use database service in the same workspace.",
+                            "default": true
+                        },
+                        "database_service_selector": {
+                            "$ref": "#/definitions/service_selector",
+                            "description": "The selector for database service if service discovery is enabled."
                         }
                     }
                 },

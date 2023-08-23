@@ -3,7 +3,7 @@ from shlex import quote
 from typing import Any, Dict
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_CLUSTER
-from cloudtik.core._private.core_utils import exec_with_call, exec_with_output, remove_files
+from cloudtik.core._private.core_utils import exec_with_call, exec_with_output, remove_files, get_address_string
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_NGINX
 from cloudtik.core._private.runtime_utils import get_runtime_value, get_runtime_config_from_node
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
@@ -416,7 +416,7 @@ def stop_pull_server():
 def update_load_balancer_configuration(
         backend_servers, balance_method):
     # write load balancer upstream config file
-    servers = ["{}:{}".format(
+    servers = [get_address_string(
         server_address[0], server_address[1]
     ) for _, server_address in backend_servers.items()]
 
@@ -451,7 +451,7 @@ def _update_api_gateway_dynamic_upstreams(
     for backend_name, backend_servers in sorted_api_gateway_backends:
         upstream_config_file = os.path.join(
             upstreams_dir, "{}.conf".format(backend_name))
-        servers = ["{}:{}".format(
+        servers = [get_address_string(
             server_address[0], server_address[1]
         ) for _, server_address in backend_servers.items()]
         _save_upstream_config(

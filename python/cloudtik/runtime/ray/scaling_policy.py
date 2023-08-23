@@ -3,6 +3,7 @@ import os
 import time
 from typing import Any, Dict, Optional
 
+from cloudtik.core._private.core_utils import get_address_string
 from cloudtik.core._private.services import address_to_ip
 from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_ID, NODE_STATE_NODE_IP, NODE_STATE_TIME
 from cloudtik.core._private.utils import make_node_id, RUNTIME_CONFIG_KEY
@@ -179,7 +180,7 @@ class RayScalingPolicy(ScalingPolicy):
         import ray._private.ray_constants as ray_constants
         from ray.core.generated import gcs_pb2, gcs_service_pb2, gcs_service_pb2_grpc
 
-        gcs_address = "{}:{}".format(self.head_ip, self.ray_port)
+        gcs_address = get_address_string(self.head_ip, self.ray_port)
         options = ray_constants.GLOBAL_GRPC_OPTIONS
         gcs_channel = ray._private.utils.init_grpc_channel(gcs_address, options)
         self.gcs_node_resources_stub = (

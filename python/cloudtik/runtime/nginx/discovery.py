@@ -1,6 +1,6 @@
 import logging
 
-from cloudtik.core._private.core_utils import get_json_object_hash
+from cloudtik.core._private.core_utils import get_json_object_hash, get_address_string
 from cloudtik.core._private.service_discovery.utils import deserialize_service_selector
 from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.runtime.common.service_discovery.consul \
@@ -49,7 +49,7 @@ class DiscoverBackendServers(DiscoverJob):
             # it should be filtered by service selector using service name ,tags or labels
             for service_node in service_nodes:
                 server_address = get_service_address_of_node(service_node)
-                server_key = "{}:{}".format(server_address[0], server_address[1])
+                server_key = get_address_string(server_address[0], server_address[1])
                 backend_servers[server_key] = server_address
         if not backend_servers:
             logger.warning("No live servers return from the service selector.")
@@ -90,7 +90,7 @@ class DiscoverAPIGatewayBackendServers(DiscoverJob):
             backend_servers = {}
             for service_node in service_nodes:
                 server_address = get_service_address_of_node(service_node)
-                server_key = "{}:{}".format(server_address[0], server_address[1])
+                server_key = get_address_string(server_address[0], server_address[1])
                 backend_servers[server_key] = server_address
 
             # TODO: currently use service_name as backend_name and path prefix for simplicity

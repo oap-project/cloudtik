@@ -1,6 +1,6 @@
 import copy
 from enum import Enum, auto
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 
 from cloudtik.core._private.core_utils import deserialize_config, serialize_config, \
     get_list_for_update
@@ -244,9 +244,28 @@ def get_service_selector_for_update(config, config_key):
     return service_selector
 
 
-def include_runtime_for_selector(service_selector, runtime):
+def include_runtime_for_selector(
+        service_selector, runtime: Union[str, List[str]], override=False):
     runtimes = get_list_for_update(
         service_selector, SERVICE_SELECTOR_RUNTIMES)
-    if runtime not in runtimes:
+    if runtimes:
+        if not override:
+            return service_selector
+        runtimes.clear()
+
+    if isinstance(runtime, str):
         runtimes.append(runtime)
+    else:
+        # list of runtime types
+        for runtime_type in runtime:
+            runtimes.append(runtime_type)
+    return service_selector
+
+
+def include_feature_for_selector(service_selector, feature):
+    tags = get_list_for_update(
+        service_selector, SERVICE_SELECTOR_TAGS)
+    feature_tag = SERVICE_DISCOVERY_TAG_FEATURE_PREFIX + feature
+    if feature_tag not in tags:
+        tags.append(feature_tag)
     return service_selector

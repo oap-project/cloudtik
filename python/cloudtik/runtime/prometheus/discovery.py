@@ -5,7 +5,7 @@ import time
 from typing import Dict, Any
 
 from cloudtik.core._private.constants import CLOUDTIK_HEARTBEAT_TIMEOUT_S
-from cloudtik.core._private.core_utils import get_json_object_hash
+from cloudtik.core._private.core_utils import get_json_object_hash, get_address_string
 from cloudtik.core._private.runtime_utils import save_yaml
 from cloudtik.core._private.state.control_state import ControlState
 from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_IP, \
@@ -43,7 +43,7 @@ def _get_service_targets(
     if not nodes_of_service:
         return None
 
-    targets = ["{}:{}".format(
+    targets = [get_address_string(
         node, service_port) for node in nodes_of_service]
     service_targets = {
         "labels": {

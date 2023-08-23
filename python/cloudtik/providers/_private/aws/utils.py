@@ -8,10 +8,11 @@ import boto3
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.constants import env_integer, CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
+from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port
 
 # Max number of retries to AWS (default is 5, time increases exponentially)
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
-    get_database_engine, get_database_port, get_config_for_update
+    get_config_for_update
 
 BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 
@@ -19,7 +20,7 @@ BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 BOTO_CREATE_MAX_RETRIES = env_integer("BOTO_CREATE_MAX_RETRIES", 5)
 
 AWS_S3_BUCKET = "s3.bucket"
-AWS_DATABASE_ENDPOINT = "server_address"
+AWS_DATABASE_ENDPOINT = "address"
 
 
 class LazyDefaultDict(defaultdict):

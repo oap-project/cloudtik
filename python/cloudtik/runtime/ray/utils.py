@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_RAY
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
     get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_SCHEDULER
-from cloudtik.core._private.utils import get_node_type_config
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.ray.scaling_policy import RayScalingPolicy
 

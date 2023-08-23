@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class PostgresRuntime(RuntimeBase):
-    """Implementation for Postgres Runtime for a high available replicated Postgres database cluster."""
+    """Implementation for Postgres Runtime for a high available replicated
+    Postgres database cluster."""
 
     def __init__(self, runtime_config: Dict[str, Any]) -> None:
         super().__init__(runtime_config)

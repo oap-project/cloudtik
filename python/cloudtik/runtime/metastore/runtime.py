@@ -82,7 +82,8 @@ class MetastoreRuntime(RuntimeBase):
         #1 Keyword to filter,
         #2 filter by command (True)/filter by args (False)
         #3 The third element is the process name.
-        #4 The forth element, if node, the process should on all nodes, if head, the process should on head node.
+        #4 The forth element, if node, the process should on all nodes,
+        if head, the process should on head node.
         """
         return _get_runtime_processes()
 

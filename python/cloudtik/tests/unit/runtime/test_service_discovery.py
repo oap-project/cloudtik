@@ -25,8 +25,8 @@ class TestServiceDiscovery(unittest.TestCase):
             service_selector,
         )
         assert len(services) == 1
-        service_addresses = next(iter(services.values()))
-        assert service_addresses[0][0] == "127.0.0.1"
+        service_instance = next(iter(services.values()))
+        assert service_instance.service_addresses[0][0] == "127.0.0.1"
 
         service_selector = {
             SERVICE_SELECTOR_CLUSTERS: ["cluster-2"],
@@ -38,8 +38,8 @@ class TestServiceDiscovery(unittest.TestCase):
             service_selector,
         )
         assert len(services) == 1
-        service_addresses = next(iter(services.values()))
-        assert service_addresses[0][0] == "127.0.0.3"
+        service_instance = next(iter(services.values()))
+        assert service_instance.service_addresses[0][0] == "127.0.0.3"
 
         service_selector = {
             SERVICE_SELECTOR_CLUSTERS: ["cluster-1"],
@@ -49,8 +49,8 @@ class TestServiceDiscovery(unittest.TestCase):
             service_selector,
         )
         assert len(services) == 2
-        assert services["cluster-1.runtime-1"][0][0] == "127.0.0.1"
-        assert services["cluster-1.runtime-2"][0][0] == "127.0.0.2"
+        assert services["cluster-1.runtime-1"].service_addresses[0][0] == "127.0.0.1"
+        assert services["cluster-1.runtime-2"].service_addresses[0][0] == "127.0.0.2"
 
         service_selector = {
             SERVICE_SELECTOR_TAGS: ["cloudtik-c-cluster-2"],
@@ -60,8 +60,8 @@ class TestServiceDiscovery(unittest.TestCase):
             service_selector,
         )
         assert len(services) == 2
-        assert services["cluster-2.runtime-1.service-1"][0][0] == "127.0.0.3"
-        assert services["cluster-2.runtime-3.service-1"][0][0] == "127.0.0.4"
+        assert services["cluster-2.runtime-1.service-1"].service_addresses[0][0] == "127.0.0.3"
+        assert services["cluster-2.runtime-3.service-1"].service_addresses[0][0] == "127.0.0.4"
 
         service_selector = {
             SERVICE_SELECTOR_LABELS: {SERVICE_DISCOVERY_LABEL_RUNTIME: "runtime-1"},
@@ -71,8 +71,8 @@ class TestServiceDiscovery(unittest.TestCase):
             service_selector,
         )
         assert len(services) == 2
-        assert services["cluster-1.runtime-1"][0][0] == "127.0.0.1"
-        assert services["cluster-2.runtime-1.service-1"][0][0] == "127.0.0.3"
+        assert services["cluster-1.runtime-1"].service_addresses[0][0] == "127.0.0.1"
+        assert services["cluster-2.runtime-1.service-1"].service_addresses[0][0] == "127.0.0.3"
 
         service_selector = {
             SERVICE_SELECTOR_EXCLUDE_LABELS: {SERVICE_DISCOVERY_LABEL_RUNTIME: "runtime-1"},
@@ -82,8 +82,8 @@ class TestServiceDiscovery(unittest.TestCase):
             service_selector,
         )
         assert len(services) == 2
-        assert services["cluster-1.runtime-2"][0][0] == "127.0.0.2"
-        assert services["cluster-2.runtime-3.service-1"][0][0] == "127.0.0.4"
+        assert services["cluster-1.runtime-2"].service_addresses[0][0] == "127.0.0.2"
+        assert services["cluster-2.runtime-3.service-1"].service_addresses[0][0] == "127.0.0.4"
 
         service_selector = {
             SERVICE_SELECTOR_CLUSTERS: ["cluster-2"],
@@ -98,7 +98,7 @@ class TestServiceDiscovery(unittest.TestCase):
             service_selector,
         )
         assert len(services) == 1
-        assert services["cluster-2.runtime-3.service-1"][0][0] == "127.0.0.4"
+        assert services["cluster-2.runtime-3.service-1"].service_addresses[0][0] == "127.0.0.4"
 
 
 if __name__ == "__main__":

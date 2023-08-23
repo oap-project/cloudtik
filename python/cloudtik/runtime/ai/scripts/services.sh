@@ -10,6 +10,9 @@ eval set -- "${args}"
 # import util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
+# schema initialization functions
+. "$BIN_DIR"/schema-init.sh
+
 USER_HOME=/home/$(whoami)
 RUNTIME_PATH=$USER_HOME/runtime
 MLFLOW_HOME=$RUNTIME_PATH/mlflow
@@ -24,6 +27,9 @@ start)
 
         # Will set BACKEND_STORE_URI and DEFAULT_ARTIFACT_ROOT
         . $MLFLOW_HOME/conf/mlflow
+
+         # do schema check and init
+        init_schema
 
         # Start MLflow service
         nohup mlflow server \

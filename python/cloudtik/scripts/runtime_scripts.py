@@ -109,6 +109,12 @@ def _run_runtime_configure(runtime_type, head: bool):
     _runtime.configure(head)
 
 
+def _run_runtime_services(runtime_type, command, head: bool):
+    runtime_config = get_runtime_config_from_node(head)
+    _runtime = _get_runtime(runtime_type, runtime_config)
+    _runtime.services(command, head)
+
+
 @click.group(cls=NaturalOrderGroup)
 def runtime():
     """
@@ -297,6 +303,8 @@ def configure(runtime, head, reverse, script_args):
          "This flag reverse the order.")
 @click.argument("script_args", nargs=-1)
 def services(runtime, command, head, reverse, script_args):
+    _run_runtime_services(
+        runtime, command, head)
     _run_runtime_script(
         runtime, command, head, reverse,
         script_args, RUNTIME_SERVICES_SCRIPT_NAME)

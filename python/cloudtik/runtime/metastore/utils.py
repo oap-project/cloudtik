@@ -60,7 +60,7 @@ def _with_runtime_environment_variables(
     return runtime_envs
 
 
-def _configure(runtime_config, head: bool):
+def _export_database_configurations(runtime_config):
     metastore_config = _get_config(runtime_config)
     database_config = _get_database_config(metastore_config)
     if is_database_configured(database_config):
@@ -73,6 +73,16 @@ def _configure(runtime_config, head: bool):
         if database_runtime:
             export_database_runtime_environment_variables(
                 runtime_config, database_runtime)
+
+
+def _configure(runtime_config, head: bool):
+    _export_database_configurations(runtime_config)
+
+
+def _services(runtime_config, command: str, head: bool):
+    if command == "start":
+        # We put the database schema init right before the start of metastore service
+        _export_database_configurations(runtime_config)
 
 
 def register_service(cluster_config: Dict[str, Any], head_node_id: str) -> None:

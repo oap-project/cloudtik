@@ -10,7 +10,7 @@ from cloudtik.core._private.util.database_utils import is_database_configured, e
 from cloudtik.core._private.utils import export_runtime_flags
 from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_hdfs_on_head, \
     discover_hdfs_from_workspace, HDFS_URI_KEY, discover_database_from_workspace, discover_database_on_head, \
-    DATABASE_CONNECT_KEY
+    DATABASE_CONNECT_KEY, get_database_runtime_in_cluster, export_database_runtime_environment_variables
 from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
 from cloudtik.runtime.common.utils import get_runtime_endpoints_of
 
@@ -65,6 +65,21 @@ def _with_runtime_environment_variables(
     return runtime_envs
 
 
+def _export_database_configurations(runtime_config):
+    ai_config = _get_config(runtime_config)
+    database_config = _get_database_config(ai_config)
+    if is_database_configured(database_config):
+        # set the database environments from database config
+        # This may override the environments from provider
+        export_database_environment_variables(database_config)
+    else:
+        database_runtime = get_database_runtime_in_cluster(
+            runtime_config)
+        if database_runtime:
+            export_database_runtime_environment_variables(
+                runtime_config, database_runtime)
+
+
 def _configure(runtime_config, head: bool):
     ai_config = _get_config(runtime_config)
 
@@ -78,11 +93,13 @@ def _configure(runtime_config, head: bool):
     if hdfs_uri:
         os.environ["HDFS_NAMENODE_URI"] = hdfs_uri
 
-    database_config = _get_database_config(ai_config)
-    if is_database_configured(database_config):
-        # set the database environments from database config
-        # This may override the environments from provider
-        export_database_environment_variables(database_config)
+    _export_database_configurations(runtime_config)
+
+
+def _services(runtime_config, command: str, head: bool):
+    if command == "start":
+        # We put the database schema init right before the start of metastore service
+        _export_database_configurations(runtime_config)
 
 
 def register_service(cluster_config: Dict[str, Any], head_node_id: str) -> None:

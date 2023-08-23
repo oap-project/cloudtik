@@ -31,7 +31,6 @@ function init_schema() {
     if [ "${SQL_DATABASE}" == "true" ] \
       && [ "$METASTORE_WITH_SQL_DATABASE" != "false" ]; then
         DATABASE_ENGINE=${SQL_DATABASE_ENGINE}
-        DATABASE_ADDRESS=${SQL_DATABASE_HOST}:${SQL_DATABASE_PORT}
         DATABASE_USER=${SQL_DATABASE_USERNAME}
         DATABASE_PASSWORD=${SQL_DATABASE_PASSWORD}
 
@@ -46,18 +45,21 @@ function init_schema() {
     else
         # local mariadb
         DATABASE_ENGINE="mysql"
-        DATABASE_ADDRESS=localhost
         DATABASE_USER=hive
         DATABASE_PASSWORD=hive
 
         # Do we need wait a few seconds for mysql to startup?
         # We may not need to create database as hive can create if it not exist
         # create user (this is done only once)
-        sudo mysql -u root -e "
-            CREATE DATABASE IF NOT EXISTS ${DATABASE_NAME};
-            CREATE USER '${DATABASE_USER}'@localhost IDENTIFIED BY '${DATABASE_PASSWORD}';
-            GRANT ALL PRIVILEGES ON *.* TO '${DATABASE_USER}'@'localhost';
-            FLUSH PRIVILEGES;" > ${METASTORE_HOME}/logs/configure.log
+        DB_INIT_DIR=${METASTORE_HOME}/conf/db.init
+        if [ ! -d "${DB_INIT_DIR}" ]; then
+            sudo mysql -u root -e "
+                CREATE DATABASE IF NOT EXISTS ${DATABASE_NAME};
+                CREATE USER '${DATABASE_USER}'@localhost IDENTIFIED BY '${DATABASE_PASSWORD}';
+                GRANT ALL PRIVILEGES ON *.* TO '${DATABASE_USER}'@'localhost';
+                FLUSH PRIVILEGES;" > ${METASTORE_HOME}/logs/configure.log
+            mkdir -p ${DB_INIT_DIR}
+        fi
     fi
 
     # validate and initialize the metastore database schema (can be done multiple times)

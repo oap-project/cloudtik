@@ -96,6 +96,8 @@ function configure_hive_metastore() {
 
     cp -r ${config_template_file}  ${METASTORE_HOME}/conf/metastore-site.xml
 
+    # How about move this step to service start step
+    # so that the depended service already started when running this initialization
     if [ "${CLOUD_DATABASE}" != "true" ] || [ "$METASTORE_WITH_CLOUD_DATABASE" == "false" ]; then
         # Start mariadb
         sudo service mysql start

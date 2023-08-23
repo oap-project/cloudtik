@@ -14,11 +14,12 @@ from azure.mgmt.rdbms.postgresql_flexibleservers import PostgreSQLManagementClie
 from azure.mgmt.privatedns import PrivateDnsManagementClient
 
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
+from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
-    get_database_engine, get_database_port, get_config_for_update
+    get_config_for_update
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
-AZURE_DATABASE_ENDPOINT = "server_address"
+AZURE_DATABASE_ENDPOINT = "address"
 
 
 def get_azure_sdk_function(client: Any, function_name: str) -> Callable:

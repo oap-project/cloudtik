@@ -10,8 +10,9 @@ from google.oauth2.credentials import Credentials as OAuthCredentials
 
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
+from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
-    get_database_engine, get_database_port, get_config_for_update
+    get_config_for_update
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
                                                   POLL_INTERVAL)
 from cloudtik.providers._private.gcp.node import GCPNode
@@ -28,7 +29,7 @@ SERVICE_ACCOUNT_EMAIL_TEMPLATE = (
     "{account_id}@{project_id}.iam.gserviceaccount.com")
 
 GCP_GCS_BUCKET = "gcs.bucket"
-GCP_DATABASE_ENDPOINT = "server_address"
+GCP_DATABASE_ENDPOINT = "address"
 
 
 def _create_crm(gcp_credentials=None):

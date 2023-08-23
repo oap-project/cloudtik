@@ -906,7 +906,11 @@ def remove_files(path):
         os.remove(os.path.join(path, file_name))
 
 
-def get_string_value_for_env(val):
+def get_env_string_value(val):
     if isinstance(val, str):
         return val
     return json.dumps(val, separators=(",", ":"))
+
+
+def get_address_string(host, port):
+    return "{}:{}".format(host, port)

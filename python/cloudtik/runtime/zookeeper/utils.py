@@ -5,6 +5,7 @@ from shlex import quote
 from typing import Any, Dict, List
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID
+from cloudtik.core._private.core_utils import get_address_string
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_ZOOKEEPER
 from cloudtik.core._private.runtime_utils import subscribe_runtime_config, RUNTIME_NODE_SEQ_ID, RUNTIME_NODE_IP, \
     sort_nodes_by_seq_id
@@ -211,7 +212,7 @@ def _request_member_add(endpoints, node_ip, seq_id):
 def _try_member_add(endpoint, zk_cli, server_to_add):
     # zkCli.sh -server existing_server_ip:2181 reconfig -add server.id=node_ip:2888:3888;2181
     cmd = ["bash", zk_cli]
-    endpoints_str = "{}:{}".format(
+    endpoints_str = get_address_string(
         endpoint[RUNTIME_NODE_IP], ZOOKEEPER_SERVICE_PORT)
     cmd += ["-server", endpoints_str]
     cmd += ["reconfig", "-add"]

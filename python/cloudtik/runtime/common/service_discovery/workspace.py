@@ -11,7 +11,7 @@ from cloudtik.core._private.service_discovery.utils import ServiceRegisterExcept
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 from cloudtik.core._private.workspace.workspace_operator import _get_workspace_provider
 from cloudtik.runtime.common.service_discovery.utils import get_service_addresses_string, \
-    get_service_addresses_from_string
+    get_service_addresses_from_string, ServiceInstance
 
 
 def get_service_registry_name(
@@ -101,18 +101,19 @@ def query_one_service_from_workspace(
         return None
 
     # match through the clusters, runtimes, and services if they are provided
-    services = _query_one_service_registry(
+    service = _query_one_service_registry(
         global_variables, service_selector)
-    if not services:
-        return None
-    # return one of them
-    return next(iter(services.items()))
+    return service
 
 
 def _query_one_service_registry(
         service_registries, service_selector):
-    return _query_service_registry(
+    matched_services = _query_service_registry(
         service_registries, service_selector, first_match=True)
+    if not matched_services:
+        return None
+
+    return next(iter(matched_services.values()))
 
 
 def _query_service_registry(
@@ -131,8 +132,13 @@ def _query_service_registry(
         if _match_service_registry(
                 registry_name, clusters, runtimes, services,
                 tags=tags, labels=labels, exclude_labels=exclude_labels):
-            matched_services[registry_name] = get_service_addresses_from_string(
+            cluster_name, runtime_type, service_name = parse_service_registry_name(
+                registry_name)
+            service_addresses = get_service_addresses_from_string(
                 registry_addresses)
+            matched_services[registry_name] = ServiceInstance(
+                service_name, service_addresses,
+                runtime_type=runtime_type, cluster_name=cluster_name)
             if first_match:
                 return matched_services
     return matched_services

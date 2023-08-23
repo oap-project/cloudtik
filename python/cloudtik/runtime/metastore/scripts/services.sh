@@ -10,6 +10,8 @@ eval set -- "${args}"
 # import util functions
 . "$ROOT_DIR"/common/scripts/util-functions.sh
 
+. "$BIN_DIR"/schema-init.sh
+
 if [ ! -n "${METASTORE_HOME}" ]; then
     echo "Hive Metastore is not installed."
     exit 1
@@ -21,15 +23,22 @@ set_service_command "$@"
 case "$SERVICE_COMMAND" in
 start)
     if [ $IS_HEAD_NODE == "true" ]; then
-        if [ "${CLOUD_DATABASE}" != "true" ] || [ "$METASTORE_WITH_CLOUD_DATABASE" == "false" ]; then
+        if [ "${SQL_DATABASE}" != "true" ] \
+          || [ "$METASTORE_WITH_SQL_DATABASE" == "false" ]; then
             sudo service mysql start
         fi
-        nohup $METASTORE_HOME/bin/start-metastore >${METASTORE_HOME}/logs/start-metastore.log 2>&1 &
+
+        # do schema check and init
+        init_schema
+
+        nohup $METASTORE_HOME/bin/start-metastore \
+          >${METASTORE_HOME}/logs/start-metastore.log 2>&1 &
     fi
     ;;
 stop)
     if [ $IS_HEAD_NODE == "true" ]; then
-        if [ "${CLOUD_DATABASE}" != "true" ] || [ "$METASTORE_WITH_CLOUD_DATABASE" == "false" ]; then
+        if [ "${SQL_DATABASE}" != "true" ] \
+          || [ "$METASTORE_WITH_SQL_DATABASE" == "false" ]; then
             sudo service mysql stop
         fi
         pkill -f 'HiveMetaStore'

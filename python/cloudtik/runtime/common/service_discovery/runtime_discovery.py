@@ -1,17 +1,27 @@
+import os
 from typing import Dict, Any, Union, List
 
-from cloudtik.core._private.core_utils import get_config_for_update
+from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_HEAD_IP
+from cloudtik.core._private.core_utils import get_config_for_update, get_env_string_value
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
     BUILT_IN_RUNTIME_CONSUL, BUILT_IN_RUNTIME_ZOOKEEPER, BUILT_IN_RUNTIME_MYSQL, BUILT_IN_RUNTIME_POSTGRES
+from cloudtik.core._private.runtime_utils import get_runtime_value
 from cloudtik.core._private.service_discovery.utils import get_service_selector_for_update, \
     include_runtime_for_selector, include_feature_for_selector
-from cloudtik.core._private.util.database_utils import is_database_configured, set_database_config
+from cloudtik.core._private.util.database_utils import is_database_configured, set_database_config, \
+    DATABASE_ENV_ENABLED, DATABASE_ENV_ENGINE, DATABASE_ENV_HOST, DATABASE_ENV_PORT, DATABASE_ENV_USERNAME, \
+    DATABASE_ENV_PASSWORD, get_database_default_port, get_database_default_username, get_database_default_password, \
+    DATABASE_ENGINE_MYSQL
 from cloudtik.core._private.utils import get_runtime_config
 from cloudtik.runtime.common.service_discovery.cluster import has_runtime_in_cluster
 from cloudtik.runtime.common.service_discovery.discovery import query_one_service, DiscoveryType
 from cloudtik.runtime.common.service_discovery.utils import get_service_addresses_string
 
 BUILT_IN_DATABASE_RUNTIMES = [BUILT_IN_RUNTIME_MYSQL, BUILT_IN_RUNTIME_POSTGRES]
+DATABASE_SERVICE_PORT_CONFIG_KEY = "port"
+MYSQL_ROOT_PASSWORD_CONFIG_KEY = "root_password"
+POSTGRES_ADMIN_USER_CONFIG_KEY = "admin_user"
+POSTGRES_ADMIN_PASSWORD_CONFIG_KEY = "admin_password"
 
 HDFS_URI_KEY = "hdfs_namenode_uri"
 HDFS_SERVICE_DISCOVERY_KEY = "hdfs_service_discovery"
@@ -30,11 +40,16 @@ DATABASE_SERVICE_DISCOVERY_KEY = "database_service_discovery"
 DATABASE_SERVICE_SELECTOR_KEY = "database_service_selector"
 
 
-def has_database_runtime_in_cluster(runtime_config):
+def get_database_runtime_in_cluster(runtime_config):
     for runtime_type in BUILT_IN_DATABASE_RUNTIMES:
         if has_runtime_in_cluster(runtime_config, runtime_type):
-            return True
-    return False
+            return runtime_type
+    return None
+
+
+def get_database_engine_for_runtime(runtime_type):
+    # The engine and runtime type is the same
+    return runtime_type
 
 
 def discover_runtime_service(
@@ -171,7 +186,8 @@ def discover_database(
     )
     if not service_instance:
         return None
-    engine = service_instance.runtime_type
+    engine = get_database_engine_for_runtime(
+        service_instance.runtime_type)
     return engine, service_instance.service_addresses
 
 
@@ -389,7 +405,7 @@ def discover_database_from_workspace(
     # 4. if there is database can be discovered
 
     if (is_database_configured(database_config) or
-            has_database_runtime_in_cluster(runtime_config) or
+            get_database_runtime_in_cluster(runtime_config) or
             not is_database_service_discovery(runtime_type_config)):
         return cluster_config
 
@@ -415,7 +431,8 @@ def discover_database_on_head(
         return cluster_config
 
     database_config = runtime_type_config.get(DATABASE_CONNECT_KEY, {})
-    if is_database_configured(database_config):
+    if (is_database_configured(database_config) or
+            get_database_runtime_in_cluster(runtime_config)):
         # Database already configured
         return cluster_config
 
@@ -431,3 +448,41 @@ def discover_database_on_head(
             runtime_type_config, DATABASE_CONNECT_KEY)
         set_database_config(database_config, database_service)
     return cluster_config
+
+
+def export_database_runtime_environment_variables(
+        runtime_config, runtime_type):
+    # WARNING: This is helper function to get database parameters from a runtime configuration
+    # if there are changes in the runtime configuration side, this needs to be changed too.
+    # if it is called at the node configure context, the head ip will be set as host
+
+    runtime_type_config = runtime_config.get(runtime_type, {})
+    engine = get_database_engine_for_runtime(
+        runtime_type)
+    head_ip = get_runtime_value(CLOUDTIK_RUNTIME_ENV_HEAD_IP)
+    port = runtime_type_config.get(DATABASE_SERVICE_PORT_CONFIG_KEY)
+    if not port:
+        port = get_database_default_port(engine)
+
+    if engine == DATABASE_ENGINE_MYSQL:
+        username = None
+        password = runtime_type_config.get(
+            MYSQL_ROOT_PASSWORD_CONFIG_KEY)
+    else:
+        username = runtime_type_config.get(
+            POSTGRES_ADMIN_USER_CONFIG_KEY)
+        password = runtime_type_config.get(
+            POSTGRES_ADMIN_PASSWORD_CONFIG_KEY)
+    if not username:
+        username = get_database_default_username(engine)
+    if not password:
+        password = get_database_default_password(engine)
+
+    os.environ[DATABASE_ENV_ENABLED] = get_env_string_value(True)
+    os.environ[DATABASE_ENV_ENGINE] = engine
+    os.environ[DATABASE_ENV_HOST] = head_ip
+    os.environ[DATABASE_ENV_PORT] = str(port)
+
+    # The defaults apply to built-in Database runtime.
+    os.environ[DATABASE_ENV_USERNAME] = username
+    os.environ[DATABASE_ENV_PASSWORD] = password

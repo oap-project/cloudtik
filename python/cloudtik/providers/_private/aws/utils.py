@@ -8,7 +8,8 @@ import boto3
 
 from cloudtik.core._private.cli_logger import cli_logger, cf
 from cloudtik.core._private.constants import env_integer, CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
-from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port
+from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port, DATABASE_ENV_ENGINE, \
+    DATABASE_ENV_ENABLED, DATABASE_ENV_HOST, DATABASE_ENV_PORT, DATABASE_ENV_USERNAME, DATABASE_ENV_PASSWORD
 
 # Max number of retries to AWS (default is 5, time increases exponentially)
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
@@ -232,16 +233,16 @@ def export_aws_database_config(provider_config, config_dict: Dict[str, Any]):
     if database_config is None:
         return
 
-    database_hostname = database_config.get(AWS_DATABASE_ENDPOINT)
-    if database_hostname:
+    database_host = database_config.get(AWS_DATABASE_ENDPOINT)
+    if database_host:
         engine = get_aws_database_engine(database_config)
         port = get_aws_database_port(database_config)
-        config_dict["CLOUD_DATABASE"] = True
-        config_dict["CLOUD_DATABASE_ENGINE"] = engine
-        config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
-        config_dict["CLOUD_DATABASE_PORT"] = port
-        config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "cloudtik")
-        config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
+        config_dict[DATABASE_ENV_ENABLED] = True
+        config_dict[DATABASE_ENV_ENGINE] = engine
+        config_dict[DATABASE_ENV_HOST] = database_host
+        config_dict[DATABASE_ENV_PORT] = port
+        config_dict[DATABASE_ENV_USERNAME] = database_config.get("username", "cloudtik")
+        config_dict[DATABASE_ENV_PASSWORD] = database_config.get("password", "cloudtik")
 
 
 def get_default_aws_cloud_database(provider_config):

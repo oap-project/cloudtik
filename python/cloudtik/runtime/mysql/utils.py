@@ -5,6 +5,7 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_MYSQL
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
     get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_DATABASE
+from cloudtik.core._private.util.database_utils import DATABASE_PORT_MYSQL_DEFAULT, DATABASE_PASSWORD_MYSQL_DEFAULT
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
@@ -26,9 +27,9 @@ MYSQL_DATABASE_USER_CONFIG_KEY = "user"
 MYSQL_DATABASE_PASSWORD_CONFIG_KEY = "password"
 
 MYSQL_SERVICE_NAME = BUILT_IN_RUNTIME_MYSQL
-MYSQL_SERVICE_PORT_DEFAULT = 3306
+MYSQL_SERVICE_PORT_DEFAULT = DATABASE_PORT_MYSQL_DEFAULT
 
-MYSQL_ROOT_PASSWORD_DEFAULT = "cloudtik"
+MYSQL_ROOT_PASSWORD_DEFAULT = DATABASE_PASSWORD_MYSQL_DEFAULT
 
 
 def _get_config(runtime_config: Dict[str, Any]):

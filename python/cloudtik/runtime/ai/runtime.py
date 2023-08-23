@@ -47,12 +47,11 @@ class AIRuntime(RuntimeBase):
         """
         _configure(self.runtime_config, head)
 
-    def services(
-            self, command: str, head: bool):
+    def services(self, head: bool):
         """ This method is called on every node as the first step of executing runtime
         services command.
         """
-        _services(self.runtime_config, command, head)
+        _services(self.runtime_config, head)
 
     def cluster_booting_completed(
             self, cluster_config: Dict[str, Any], head_node_id: str) -> None:

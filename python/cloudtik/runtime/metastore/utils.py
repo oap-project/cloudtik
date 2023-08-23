@@ -9,7 +9,8 @@ from cloudtik.core._private.util.database_utils import is_database_configured, \
     export_database_environment_variables
 from cloudtik.core._private.utils import export_runtime_flags
 from cloudtik.runtime.common.service_discovery.runtime_discovery import \
-    discover_database_from_workspace, discover_database_on_head, DATABASE_CONNECT_KEY
+    discover_database_from_workspace, discover_database_on_head, DATABASE_CONNECT_KEY, get_database_runtime_in_cluster, \
+    export_database_runtime_environment_variables
 from cloudtik.runtime.common.service_discovery.workspace import register_service_to_workspace
 
 RUNTIME_PROCESSES = [
@@ -66,6 +67,12 @@ def _configure(runtime_config, head: bool):
         # set the database environments from database config
         # This may override the environments from provider
         export_database_environment_variables(database_config)
+    else:
+        database_runtime = get_database_runtime_in_cluster(
+            runtime_config)
+        if database_runtime:
+            export_database_runtime_environment_variables(
+                runtime_config, database_runtime)
 
 
 def register_service(cluster_config: Dict[str, Any], head_node_id: str) -> None:

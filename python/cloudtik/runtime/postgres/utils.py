@@ -5,6 +5,8 @@ from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_POSTGRES
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
     get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_DATABASE
+from cloudtik.core._private.util.database_utils import DATABASE_PORT_POSTGRES_DEFAULT, \
+    DATABASE_USERNAME_POSTGRES_DEFAULT, DATABASE_PASSWORD_POSTGRES_DEFAULT
 from cloudtik.core._private.utils import RUNTIME_CONFIG_KEY
 
 RUNTIME_PROCESSES = [
@@ -27,10 +29,10 @@ POSTGRES_DATABASE_USER_CONFIG_KEY = "user"
 POSTGRES_DATABASE_PASSWORD_CONFIG_KEY = "password"
 
 POSTGRES_SERVICE_NAME = BUILT_IN_RUNTIME_POSTGRES
-POSTGRES_SERVICE_PORT_DEFAULT = 5432
+POSTGRES_SERVICE_PORT_DEFAULT = DATABASE_PORT_POSTGRES_DEFAULT
 
-POSTGRES_ADMIN_USER_DEFAULT = "cloudtik"
-POSTGRES_ADMIN_PASSWORD_DEFAULT = "cloudtik"
+POSTGRES_ADMIN_USER_DEFAULT = DATABASE_USERNAME_POSTGRES_DEFAULT
+POSTGRES_ADMIN_PASSWORD_DEFAULT = DATABASE_PASSWORD_POSTGRES_DEFAULT
 
 
 def _get_config(runtime_config: Dict[str, Any]):

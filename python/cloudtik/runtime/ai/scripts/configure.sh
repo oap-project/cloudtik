@@ -90,10 +90,10 @@ function set_artifact_config_for_cloud_storage() {
 }
 
 function update_mlflow_server_config() {
-    if [ "${CLOUD_DATABASE}" == "true" ] && [ "$AI_WITH_CLOUD_DATABASE" != "false" ]; then
+    if [ "${SQL_DATABASE}" == "true" ] && [ "$AI_WITH_SQL_DATABASE" != "false" ]; then
         DATABASE_NAME=mlflow
-        CONNECTION_INFO=${CLOUD_DATABASE_USERNAME}:${CLOUD_DATABASE_PASSWORD}@${CLOUD_DATABASE_HOSTNAME}:${CLOUD_DATABASE_PORT}/${DATABASE_NAME}
-        if [ "${CLOUD_DATABASE_ENGINE}" == "mysql" ]; then
+        CONNECTION_INFO=${SQL_DATABASE_USERNAME}:${SQL_DATABASE_PASSWORD}@${SQL_DATABASE_HOST}:${SQL_DATABASE_PORT}/${DATABASE_NAME}
+        if [ "${SQL_DATABASE_ENGINE}" == "mysql" ]; then
             BACKEND_STORE_URI=mysql+pymysql://${CONNECTION_INFO}
         else
             BACKEND_STORE_URI=postgresql+psycopg2://${CONNECTION_INFO}
@@ -229,16 +229,16 @@ function patch_libraries() {
 
 function prepare_database_schema() {
     DATABASE_NAME=mlflow
-    if [ "${CLOUD_DATABASE_ENGINE}" == "mysql" ]; then
-        mysql --host=${CLOUD_DATABASE_HOSTNAME} --port=${CLOUD_DATABASE_PORT} --user=${CLOUD_DATABASE_USERNAME} --password=${CLOUD_DATABASE_PASSWORD}  -e "
+    if [ "${SQL_DATABASE_ENGINE}" == "mysql" ]; then
+        mysql --host=${SQL_DATABASE_HOST} --port=${SQL_DATABASE_PORT} --user=${SQL_DATABASE_USERNAME} --password=${SQL_DATABASE_PASSWORD}  -e "
                 CREATE DATABASE IF NOT EXISTS ${DATABASE_NAME};" > ${MLFLOW_HOME}/logs/configure.log
     else
         # Use psql to create the database
-        echo "SELECT 'CREATE DATABASE ${DATABASE_NAME}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DATABASE_NAME}')\gexec" | PGPASSWORD=${CLOUD_DATABASE_PASSWORD} \
+        echo "SELECT 'CREATE DATABASE ${DATABASE_NAME}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DATABASE_NAME}')\gexec" | PGPASSWORD=${SQL_DATABASE_PASSWORD} \
             psql \
-            --host=${CLOUD_DATABASE_HOSTNAME} \
-            --port=${CLOUD_DATABASE_PORT} \
-            --username=${CLOUD_DATABASE_USERNAME} > ${MLFLOW_HOME}/logs/configure.log
+            --host=${SQL_DATABASE_HOST} \
+            --port=${SQL_DATABASE_PORT} \
+            --username=${SQL_DATABASE_USERNAME} > ${MLFLOW_HOME}/logs/configure.log
     fi
     # Future improvement: mlflow db upgrade [db_uri]
 }
@@ -258,7 +258,7 @@ function configure_ai() {
 
     if [ "$IS_HEAD_NODE" == "true" ]; then
         # Preparing database if external database used
-        if [ "${CLOUD_DATABASE}" == "true" ] && [ "$AI_WITH_CLOUD_DATABASE" != "false" ]; then
+        if [ "${SQL_DATABASE}" == "true" ] && [ "$AI_WITH_SQL_DATABASE" != "false" ]; then
             prepare_database_schema
         fi
     fi

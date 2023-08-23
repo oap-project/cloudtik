@@ -10,7 +10,8 @@ from google.oauth2.credentials import Credentials as OAuthCredentials
 
 from cloudtik.core._private.cli_logger import cli_logger
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
-from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port
+from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port, DATABASE_ENV_ENABLED, \
+    DATABASE_ENV_ENGINE, DATABASE_ENV_HOST, DATABASE_ENV_PORT, DATABASE_ENV_USERNAME, DATABASE_ENV_PASSWORD
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
     get_config_for_update
 from cloudtik.providers._private.gcp.node import (GCPNodeType, MAX_POLLS,
@@ -447,12 +448,12 @@ def export_gcp_cloud_database_config(provider_config, config_dict: Dict[str, Any
         engine = get_gcp_database_engine(database_config)
         port = get_gcp_database_port(database_config)
         default_username = "root" if engine == "mysql" else "postgres"
-        config_dict["CLOUD_DATABASE"] = True
-        config_dict["CLOUD_DATABASE_ENGINE"] = engine
-        config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
-        config_dict["CLOUD_DATABASE_PORT"] = port
-        config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", default_username)
-        config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "cloudtik")
+        config_dict[DATABASE_ENV_ENABLED] = True
+        config_dict[DATABASE_ENV_ENGINE] = engine
+        config_dict[DATABASE_ENV_HOST] = database_hostname
+        config_dict[DATABASE_ENV_PORT] = port
+        config_dict[DATABASE_ENV_USERNAME] = database_config.get("username", default_username)
+        config_dict[DATABASE_ENV_PASSWORD] = database_config.get("password", "cloudtik")
 
 
 def get_default_gcp_cloud_database(provider_config):

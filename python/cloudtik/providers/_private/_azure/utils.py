@@ -14,7 +14,8 @@ from azure.mgmt.rdbms.postgresql_flexibleservers import PostgreSQLManagementClie
 from azure.mgmt.privatedns import PrivateDnsManagementClient
 
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
-from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port
+from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port, DATABASE_ENV_ENGINE, \
+    DATABASE_ENV_ENABLED, DATABASE_ENV_PASSWORD, DATABASE_ENV_USERNAME, DATABASE_ENV_PORT, DATABASE_ENV_HOST
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
     get_config_for_update
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
@@ -297,12 +298,12 @@ def export_azure_cloud_database_config(provider_config, config_dict: Dict[str, A
     if database_hostname:
         engine = get_azure_database_engine(database_config)
         port = get_azure_database_port(database_config)
-        config_dict["CLOUD_DATABASE"] = True
-        config_dict["CLOUD_DATABASE_ENGINE"] = engine
-        config_dict["CLOUD_DATABASE_HOSTNAME"] = database_hostname
-        config_dict["CLOUD_DATABASE_PORT"] = port
-        config_dict["CLOUD_DATABASE_USERNAME"] = database_config.get("username", "cloudtik")
-        config_dict["CLOUD_DATABASE_PASSWORD"] = database_config.get("password", "1kiTdUoLc!")
+        config_dict[DATABASE_ENV_ENABLED] = True
+        config_dict[DATABASE_ENV_ENGINE] = engine
+        config_dict[DATABASE_ENV_HOST] = database_hostname
+        config_dict[DATABASE_ENV_PORT] = port
+        config_dict[DATABASE_ENV_USERNAME] = database_config.get("username", "cloudtik")
+        config_dict[DATABASE_ENV_PASSWORD] = database_config.get("password", "1kiTdUoLc!")
 
 
 def get_default_azure_cloud_database(provider_config):

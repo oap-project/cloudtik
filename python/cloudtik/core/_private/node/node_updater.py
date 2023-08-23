@@ -7,7 +7,8 @@ from typing import Dict
 from threading import Thread
 
 from cloudtik.core._private.utils import with_runtime_environment_variables, with_node_ip_environment_variables, \
-    _get_cluster_uri, _is_use_internal_ip, get_node_type, get_runtime_shared_memory_ratio
+    _get_cluster_uri, _is_use_internal_ip, get_node_type, get_runtime_shared_memory_ratio, \
+    with_head_node_ip_environment_variables
 from cloudtik.core.command_executor import get_cmd_to_print
 from cloudtik.core.tags import CLOUDTIK_TAG_NODE_STATUS, CLOUDTIK_TAG_RUNTIME_CONFIG, \
     CLOUDTIK_TAG_FILE_MOUNTS_CONTENTS, \
@@ -21,7 +22,8 @@ import cloudtik.core._private.subprocess_output_util as cmd_output_util
 from cloudtik.core._private.constants import CLOUDTIK_RESOURCES_ENV, CLOUDTIK_RUNTIME_ENV_NODE_SEQ_ID, \
     CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_PROVIDER_TYPE, CLOUDTIK_RUNTIME_ENV_PYTHON_VERSION, \
     CLOUDTIK_CLUSTER_PYTHON_VERSION, CLOUDTIK_NODE_START_WAIT_S, CLOUDTIK_RUNTIME_ENV_QUORUM_JOIN, \
-    CLOUDTIK_RUNTIME_ENV_CLUSTER, CLOUDTIK_RUNTIME_ENV_NODE_ID, CLOUDTIK_RUNTIME_ENV_WORKSPACE
+    CLOUDTIK_RUNTIME_ENV_CLUSTER, CLOUDTIK_RUNTIME_ENV_NODE_ID, CLOUDTIK_RUNTIME_ENV_WORKSPACE, \
+    CLOUDTIK_RUNTIME_ENV_NODE_IP
 from cloudtik.core._private.event_system import (CreateClusterEvent, global_event_system)
 
 logger = logging.getLogger(__name__)
@@ -337,6 +339,10 @@ class NodeUpdater:
         # Add node ip address environment variables
         ip_envs = with_node_ip_environment_variables(
             self.call_context, None, self.provider, self.node_id)
+        if self.is_head_node:
+            # set the node_ip as head ip for head node
+            head_ip = ip_envs.get(CLOUDTIK_RUNTIME_ENV_NODE_IP)
+            ip_envs = with_head_node_ip_environment_variables(head_ip, ip_envs)
         node_envs.update(ip_envs)
 
         if self.environment_variables is not None:

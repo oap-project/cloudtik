@@ -58,7 +58,9 @@ function init_schema() {
                 CREATE USER '${DATABASE_USER}'@localhost IDENTIFIED BY '${DATABASE_PASSWORD}';
                 GRANT ALL PRIVILEGES ON *.* TO '${DATABASE_USER}'@'localhost';
                 FLUSH PRIVILEGES;" > ${METASTORE_HOME}/logs/configure.log
-            mkdir -p ${DB_INIT_DIR}
+            if [ $? -eq 0 ]; then
+                mkdir -p ${DB_INIT_DIR}
+            fi
         fi
     fi
 

@@ -92,12 +92,18 @@ function configure_hdfs() {
     cp -r ${output_dir}/hadoop/hdfs-site.xml  ${HDFS_CONF_DIR}/
 
     if [ $IS_HEAD_NODE == "true" ];then
-        # TODO: format only once if there is no force format flag
-        export HADOOP_CONF_DIR=${HDFS_CONF_DIR}
-        # Stop namenode in case it was running left from last try
-        ${HADOOP_HOME}/bin/hdfs --daemon stop namenode > /dev/null 2>&1
-        # Format hdfs once
-        ${HADOOP_HOME}/bin/hdfs --loglevel WARN namenode -format -force
+        # format only once if there is no force format flag
+        HDFS_INIT_DIR=${HDFS_CONF_DIR}/hdfs.init
+        if [ ! -d "${HDFS_INIT_DIR}" ]; then
+            export HADOOP_CONF_DIR=${HDFS_CONF_DIR}
+            # Stop namenode in case it was running left from last try
+            ${HADOOP_HOME}/bin/hdfs --daemon stop namenode > /dev/null 2>&1
+            # Format hdfs once
+            ${HADOOP_HOME}/bin/hdfs --loglevel WARN namenode -format -force
+            if [ $? -eq 0 ]; then
+                mkdir -p ${HDFS_INIT_DIR}
+            fi
+        fi
     fi
 }
 

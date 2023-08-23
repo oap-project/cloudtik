@@ -116,7 +116,12 @@ class FileStateStore:
     def _load(self):
         if os.path.exists(self.state_path):
             with open(self.state_path) as f:
-                state = json.loads(f.read())
+                try:
+                    state = json.loads(f.read())
+                except Exception as e:
+                    logger.error("Error load state file {}: {}".format(
+                        self.state_path, str(e)))
+                    state = {}
         else:
             state = {}
 

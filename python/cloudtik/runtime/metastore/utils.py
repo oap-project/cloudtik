@@ -63,7 +63,7 @@ def _configure(runtime_config, head: bool):
     metastore_config = _get_config(runtime_config)
     database_config = _get_database_config(metastore_config)
     if is_database_configured(database_config):
-        # TODO: set the database environments from database config
+        # set the database environments from database config
         # This may override the environments from provider
         export_database_environment_variables(database_config)
 

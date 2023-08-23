@@ -217,7 +217,7 @@ def discover_hdfs_on_head(
         cluster_config: Dict[str, Any], runtime_type):
     runtime_config = get_runtime_config(cluster_config)
     runtime_type_config = runtime_config.get(runtime_type, {})
-    if is_hdfs_service_discovery(runtime_type_config):
+    if not is_hdfs_service_discovery(runtime_type_config):
         return cluster_config
 
     hdfs_uri = runtime_type_config.get(HDFS_URI_KEY)
@@ -275,7 +275,7 @@ def discover_metastore_on_head(
         cluster_config: Dict[str, Any], runtime_type):
     runtime_config = get_runtime_config(cluster_config)
     runtime_type_config = runtime_config.get(runtime_type, {})
-    if is_metastore_service_discovery(runtime_type_config):
+    if not is_metastore_service_discovery(runtime_type_config):
         return cluster_config
 
     metastore_uri = runtime_type_config.get(METASTORE_URI_KEY)
@@ -339,6 +339,8 @@ def discover_zookeeper_on_head(
         cluster_config: Dict[str, Any], runtime_type):
     runtime_config = get_runtime_config(cluster_config)
     runtime_type_config = runtime_config.get(runtime_type, {})
+    if not is_zookeeper_service_discovery(runtime_type_config):
+        return cluster_config
 
     zookeeper_uri = runtime_type_config.get(ZOOKEEPER_CONNECT_KEY)
     if zookeeper_uri:

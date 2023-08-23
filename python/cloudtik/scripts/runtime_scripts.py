@@ -110,9 +110,6 @@ def _run_runtime_configure(runtime_type, head: bool):
 
 
 def _run_runtime_services(runtime_type, head: bool):
-    # When cluster shutdown, the head controller stops first
-    # The redis state service is not available any longer and
-    # the runtime configuration cannot be got for workers.
     runtime_config = get_runtime_config_from_node(head)
     _runtime = _get_runtime(runtime_type, runtime_config)
     _runtime.services(head)
@@ -307,8 +304,11 @@ def configure(runtime, head, reverse, script_args):
 @click.argument("script_args", nargs=-1)
 def services(runtime, command, head, reverse, script_args):
     if command == "start":
-        _run_runtime_services(
-            runtime, head)
+        # Call for only start command. When cluster stop, the head controller stops first
+        # The redis state service is not available any longer and the runtime configuration
+        # cannot be got for workers.
+        _run_runtime_services(runtime, head)
+
     _run_runtime_script(
         runtime, command, head, reverse,
         script_args, RUNTIME_SERVICES_SCRIPT_NAME)

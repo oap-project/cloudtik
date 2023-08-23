@@ -294,13 +294,13 @@ def export_azure_cloud_database_config(provider_config, config_dict: Dict[str, A
     if database_config is None:
         return
 
-    database_hostname = database_config.get(AZURE_DATABASE_ENDPOINT)
-    if database_hostname:
+    database_host = database_config.get(AZURE_DATABASE_ENDPOINT)
+    if database_host:
         engine = get_azure_database_engine(database_config)
         port = get_azure_database_port(database_config)
         config_dict[DATABASE_ENV_ENABLED] = True
         config_dict[DATABASE_ENV_ENGINE] = engine
-        config_dict[DATABASE_ENV_HOST] = database_hostname
+        config_dict[DATABASE_ENV_HOST] = database_host
         config_dict[DATABASE_ENV_PORT] = port
         config_dict[DATABASE_ENV_USERNAME] = database_config.get("username", "cloudtik")
         config_dict[DATABASE_ENV_PASSWORD] = database_config.get("password", "1kiTdUoLc!")

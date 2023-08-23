@@ -443,14 +443,14 @@ def export_gcp_cloud_database_config(provider_config, config_dict: Dict[str, Any
     if database_config is None:
         return
 
-    database_hostname = database_config.get(GCP_DATABASE_ENDPOINT)
-    if database_hostname:
+    database_host = database_config.get(GCP_DATABASE_ENDPOINT)
+    if database_host:
         engine = get_gcp_database_engine(database_config)
         port = get_gcp_database_port(database_config)
         default_username = "root" if engine == "mysql" else "postgres"
         config_dict[DATABASE_ENV_ENABLED] = True
         config_dict[DATABASE_ENV_ENGINE] = engine
-        config_dict[DATABASE_ENV_HOST] = database_hostname
+        config_dict[DATABASE_ENV_HOST] = database_host
         config_dict[DATABASE_ENV_PORT] = port
         config_dict[DATABASE_ENV_USERNAME] = database_config.get("username", default_username)
         config_dict[DATABASE_ENV_PASSWORD] = database_config.get("password", "cloudtik")

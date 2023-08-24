@@ -191,7 +191,7 @@ def _get_existing_port_mapping():
         for mapping in mappings:
             mapping_pair = _get_mapping(mapping)
             if mapping_pair is not None:
-                host_port, container_port= mapping_pair
+                host_port, container_port = mapping_pair
                 existing_port_mappings[host_port] = container_port
     return existing_port_mappings
 

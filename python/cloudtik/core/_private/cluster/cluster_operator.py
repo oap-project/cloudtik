@@ -13,6 +13,7 @@ import time
 import urllib
 import urllib.parse
 import uuid
+from shlex import quote
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -33,6 +34,7 @@ from cloudtik.core._private.cluster.resource_demand_scheduler import ResourceDic
     get_node_type_counts, get_unfulfilled_for_bundles
 from cloudtik.core._private.core_utils import stop_process_tree, double_quote, get_cloudtik_temp_dir, get_free_port, \
     memory_to_gb, memory_to_gb_string
+from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.job_waiter.job_waiter_factory import create_job_waiter
 from cloudtik.core._private.runtime_factory import _get_runtime_cls
 from cloudtik.core._private.service_discovery.utils import ServiceRegisterException
@@ -41,11 +43,6 @@ from cloudtik.core._private.state import kv_store
 from cloudtik.core._private.state.state_utils import NODE_STATE_NODE_IP, NODE_STATE_NODE_ID, NODE_STATE_NODE_KIND, \
     NODE_STATE_HEARTBEAT_TIME, NODE_STATE_TIME
 from cloudtik.core.job_waiter import JobWaiter
-
-try:  # py3
-    from shlex import quote
-except ImportError:  # py2
-    from pipes import quote
 
 from cloudtik.core._private.state.kv_store import kv_put, kv_initialize_with_address, kv_get
 
@@ -59,9 +56,8 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     hash_launch_conf, get_proxy_process_file, get_safe_proxy_process, \
     get_head_working_ip, get_node_cluster_ip, is_use_internal_ip, \
     get_attach_command, is_alive_time, is_docker_enabled, get_proxy_bind_address_to_show, \
-    with_runtime_environment_variables, get_nodes_info, \
+    get_nodes_info, run_in_parallel_on_nodes, get_commands_to_run, \
     sum_worker_cpus, sum_worker_memory, get_runtime_endpoints, get_enabled_runtimes, \
-    with_node_ip_environment_variables, run_in_parallel_on_nodes, get_commands_to_run, \
     cluster_booting_completed, load_head_cluster_config, get_runnable_command, get_cluster_uri, \
     with_head_node_ip_environment_variables, get_verified_runtime_list, get_commands_of_runtimes, \
     is_node_in_completed_status, check_for_single_worker_type, \
@@ -73,7 +69,8 @@ from cloudtik.core._private.utils import hash_runtime_conf, \
     NODE_INFO_NODE_IP, get_cpus_of_node_info, _sum_min_workers, get_memory_of_node_info, sum_worker_gpus, \
     sum_nodes_resource, get_gpus_of_node_info, get_resource_of_node_info, get_resource_info_of_node_type, \
     get_worker_node_type, save_server_process, get_resource_requests_for, _get_head_resource_requests, \
-    get_resource_list_str, with_verbose_option, run_script, NODE_INFO_NODE_ID, is_alive_time_at
+    get_resource_list_str, with_verbose_option, run_script, NODE_INFO_NODE_ID, is_alive_time_at, \
+    ENCRYPTION_KEY_CONFIG_KEY, encode_cluster_secrets, get_runtime_encryption_key, with_runtime_encryption_key
 
 from cloudtik.core._private.providers import _get_node_provider, _NODE_PROVIDERS
 from cloudtik.core.tags import (
@@ -1068,6 +1065,11 @@ def _set_up_config_for_head_node(config: Dict[str, Any],
 
     # Set bootstrapped mark
     remote_config["bootstrapped"] = True
+
+    # Generate encryption secrets
+    encryption_key = AESCipher.generate_key()
+    remote_config[ENCRYPTION_KEY_CONFIG_KEY] = encode_cluster_secrets(
+        encryption_key)
 
     # drop proxy options if they exist, otherwise
     # head node won't be able to connect to workers
@@ -3048,26 +3050,24 @@ def _do_start_node_on_head(
 
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
-        node_envs = with_runtime_environment_variables(
-            runtime_config, config=config, provider=provider, node_id=node_id)
 
         is_head_node = False
         if node_id == head_node:
             is_head_node = True
 
+        environment_variables = {}
         if is_head_node:
-            start_commands = get_commands_of_runtimes(config, "head_start_commands",
-                                                      runtimes=runtimes)
-            node_runtime_envs = with_node_ip_environment_variables(
-                call_context, head_node_ip, provider, node_id)
+            start_commands = get_commands_of_runtimes(
+                config, "head_start_commands", runtimes=runtimes)
         else:
             start_commands = get_node_specific_commands_of_runtimes(
                 config, provider, node_id=node_id,
                 command_key="worker_start_commands", runtimes=runtimes)
-            node_runtime_envs = with_node_ip_environment_variables(
-                call_context, None, provider, node_id)
-            node_runtime_envs = with_head_node_ip_environment_variables(
-                head_node_ip, node_runtime_envs)
+            environment_variables = with_head_node_ip_environment_variables(
+                head_node_ip, environment_variables)
+            encryption_key = get_runtime_encryption_key(config)
+            environment_variables = with_runtime_encryption_key(
+                encryption_key, environment_variables)
 
         updater = create_node_updater_for_exec(
             config=config,
@@ -3077,10 +3077,11 @@ def _do_start_node_on_head(
             start_commands=[],
             is_head_node=is_head_node,
             use_internal_ip=True,
-            runtime_config=runtime_config)
+            runtime_config=runtime_config,
+            environment_variables=environment_variables)
 
-        node_envs.update(node_runtime_envs)
-        updater.exec_commands("Starting", start_commands, node_envs)
+        updater_envs = updater.get_update_environment_variables()
+        updater.exec_commands("Starting", start_commands, updater_envs)
 
     _cli_logger = call_context.cli_logger
 
@@ -3327,26 +3328,24 @@ def _do_stop_node_on_head(
 
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
-        node_envs = with_runtime_environment_variables(
-            runtime_config, config=config, provider=provider, node_id=node_id)
 
         is_head_node = False
         if node_id == head_node:
             is_head_node = True
 
+        environment_variables = {}
         if is_head_node:
-            stop_commands = get_commands_of_runtimes(config, "head_stop_commands",
-                                                     runtimes=runtimes)
-            node_runtime_envs = with_node_ip_environment_variables(
-                call_context, head_node_ip, provider, node_id)
+            stop_commands = get_commands_of_runtimes(
+                config, "head_stop_commands", runtimes=runtimes)
         else:
             stop_commands = get_node_specific_commands_of_runtimes(
                 config, provider, node_id=node_id,
                 command_key="worker_stop_commands", runtimes=runtimes)
-            node_runtime_envs = with_node_ip_environment_variables(
-                call_context, None, provider, node_id)
-            node_runtime_envs = with_head_node_ip_environment_variables(
-                head_node_ip, node_runtime_envs)
+            environment_variables = with_head_node_ip_environment_variables(
+                head_node_ip, environment_variables)
+            encryption_key = get_runtime_encryption_key(config)
+            environment_variables = with_runtime_encryption_key(
+                encryption_key, environment_variables)
 
         if not stop_commands:
             return
@@ -3359,10 +3358,11 @@ def _do_stop_node_on_head(
             start_commands=[],
             is_head_node=is_head_node,
             use_internal_ip=True,
-            runtime_config=runtime_config)
+            runtime_config=runtime_config,
+            environment_variables=environment_variables)
 
-        node_envs.update(node_runtime_envs)
-        updater.exec_commands("Stopping", stop_commands, node_envs)
+        updater_envs = updater.get_update_environment_variables()
+        updater.exec_commands("Stopping", stop_commands, updater_envs)
 
     _cli_logger = call_context.cli_logger
 

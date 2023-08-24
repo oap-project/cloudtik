@@ -15,18 +15,24 @@ export RUNTIME_PATH=$USER_HOME/runtime
 
 function install_tools() {
     # Install necessary tools
-    which numactl > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install numactl -y > /dev/null)
-    which cmake > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install cmake -y > /dev/null)
-    which g++-9 > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install g++-9 -y > /dev/null)
+    which numactl > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
+      sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install numactl -y > /dev/null)
+    which cmake > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
+      sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install cmake -y > /dev/null)
+    which g++-9 > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
+      sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install g++-9 -y > /dev/null)
     if [ "$IS_HEAD_NODE" == "true" ]; then
-        which mysql > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install mysql-client -y > /dev/null)
+        which mysql > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install mysql-client -y > /dev/null)
 
         POSTGRES_DRIVER=$(pip freeze | grep psycopg2)
         if [ "${POSTGRES_DRIVER}" == "" ]; then
-            sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install libpq-dev -y > /dev/null
+            sudo apt-get -qq update -y > /dev/null; \
+              sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install libpq-dev -y > /dev/null
         fi
 
-        which psql > /dev/null || (sudo apt-get -qq update -y > /dev/null; sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install postgresql-client -y > /dev/null)
+        which psql > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install postgresql-client -y > /dev/null)
     fi
 }
 
@@ -109,7 +115,8 @@ function install_ai() {
         echo "Installing Intel MPI..."
         ONEAPI_MPI_HOME=/opt/intel/oneapi/mpi
         if [ ! -d "${ONEAPI_MPI_HOME}" ]; then
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y intel-oneapi-mpi-2021.8.0 intel-oneapi-mpi-devel-2021.8.0 > /dev/null
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y \
+              intel-oneapi-mpi-2021.8.0 intel-oneapi-mpi-devel-2021.8.0 > /dev/null
             echo "if [ -f '/opt/intel/oneapi/mpi/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/mpi/latest/env/vars.sh'; fi" >> ~/.bashrc
         fi
         source ${ONEAPI_MPI_HOME}/latest/env/vars.sh
@@ -119,7 +126,8 @@ function install_ai() {
         || (mkdir -p /tmp/openmpi \
         && PREV_CUR_DIR=$(pwd) \
         && cd /tmp/openmpi \
-        && wget -q --show-progress https://www.open-mpi.org/software/ompi/v4.1/downloads/openmpi-4.1.4.tar.gz -O openmpi.tar.gz  \
+        && wget -q --show-progress \
+          https://www.open-mpi.org/software/ompi/v4.1/downloads/openmpi-4.1.4.tar.gz -O openmpi.tar.gz  \
         && tar --extract --file openmpi.tar.gz --directory /tmp/openmpi --strip-components 1 --no-same-owner \
         && echo "Open MPI: configure..." \
         && sudo ./configure --enable-orterun-prefix-by-default CC=gcc-9 CXX=g++-9 > /dev/null 2>&1 \
@@ -138,7 +146,9 @@ function install_ai() {
         ONEAPI_COMPILER_HOME=/opt/intel/oneapi/compiler
         ONEAPI_TBB_HOME=/opt/intel/oneapi/tbb
         if [ ! -d "${ONEAPI_COMPILER_HOME}" ]; then
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y intel-oneapi-compiler-dpcpp-cpp-runtime-2023.0.0 intel-oneapi-compiler-shared-runtime-2023.0.0 > /dev/null
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y \
+              intel-oneapi-compiler-dpcpp-cpp-runtime-2023.0.0 \
+              intel-oneapi-compiler-shared-runtime-2023.0.0 > /dev/null
             echo "if [ -f '/opt/intel/oneapi/tbb/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/tbb/latest/env/vars.sh'; fi" >> ~/.bashrc
             echo "if [ -f '/opt/intel/oneapi/compiler/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/compiler/latest/env/vars.sh'; fi" >> ~/.bashrc
         fi
@@ -147,14 +157,16 @@ function install_ai() {
 
         ONEAPI_MKL_HOME=/opt/intel/oneapi/mkl
         if [ ! -d "${ONEAPI_MKL_HOME}" ]; then
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y intel-oneapi-mkl-2023.0.0 > /dev/null
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y \
+              intel-oneapi-mkl-2023.0.0 > /dev/null
             echo "if [ -f '/opt/intel/oneapi/mkl/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/mkl/latest/env/vars.sh'; fi" >> ~/.bashrc
         fi
         source ${ONEAPI_MKL_HOME}/latest/env/vars.sh
 
         ONEAPI_CCL_HOME=/opt/intel/oneapi/ccl
         if [ ! -d "${ONEAPI_CCL_HOME}" ]; then
-            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y intel-oneapi-ccl-2021.8.0 intel-oneapi-ccl-devel-2021.8.0 > /dev/null
+            sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y \
+              intel-oneapi-ccl-2021.8.0 intel-oneapi-ccl-devel-2021.8.0 > /dev/null
             echo "if [ -f '/opt/intel/oneapi/ccl/latest/env/vars.sh' ]; then . '/opt/intel/oneapi/ccl/latest/env/vars.sh'; fi" >> ~/.bashrc
         fi
         source ${ONEAPI_CCL_HOME}/latest/env/vars.sh
@@ -163,7 +175,9 @@ function install_ai() {
     fi
 
     echo "Installing Horovod..."
-    export CXX=/usr/bin/g++-9 && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 pip --no-cache-dir -qq install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.27.0
+    export CXX=/usr/bin/g++-9 && HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 \
+      HOROVOD_WITHOUT_MXNET=1 HOROVOD_WITH_GLOO=1 HOROVOD_WITH_MPI=1 \
+      pip --no-cache-dir -qq install horovod[tensorflow,keras,pytorch,spark,pytorch-spark]==0.27.0
 
     cleanup_oneapi_repository
 }

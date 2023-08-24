@@ -49,7 +49,7 @@ function install_postgres() {
             --no-install-recommends postgresql-common >/dev/null \
           && sudo sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf \
           && sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq -y \
-              --no-install-recommends "postgresql-$PG_MAJOR" "postgresql-client-$PG_MAJOR" >/dev/null \
+              --no-install-recommends "postgresql-$PG_MAJOR" "postgresql-client-$PG_MAJOR" libpq-dev >/dev/null \
           && sudo rm -f /etc/apt/sources.list.d/postgres.list \
           && echo "export PATH=/usr/lib/postgresql/$PG_MAJOR/bin:\$PATH" >> ${USER_HOME}/.bashrc
     fi

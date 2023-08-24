@@ -1251,8 +1251,9 @@ def with_node_ip_environment_variables(
 
 def with_runtime_encryption_key(
         encryption_key, environment_variables: Dict[str, Any]):
-    encoded_secrets = encode_cluster_secrets(encryption_key)
-    environment_variables[CLOUDTIK_RUNTIME_ENV_SECRETS] = encoded_secrets
+    if encryption_key:
+        encoded_secrets = encode_cluster_secrets(encryption_key)
+        environment_variables[CLOUDTIK_RUNTIME_ENV_SECRETS] = encoded_secrets
     return environment_variables
 
 
@@ -2947,6 +2948,8 @@ def get_runtime_encryption_key(config):
     # The encryption key is the key to encrypt the runtime configuration
     # shared among head and worker nodes.
     encryption_key = config.get(ENCRYPTION_KEY_CONFIG_KEY)
+    if not encryption_key:
+        return None
     return decode_cluster_secrets(encryption_key)
 
 

@@ -1065,11 +1065,9 @@ class ClusterScaler:
         kv_del(runtime_config_key)
         self.published_runtime_config_hashes.pop(node_type, None)
 
-    def _with_cluster_secrets(self, environment_variables: Dict[str, Any]):
-        if self.secrets:
-            environment_variables = with_runtime_encryption_key(
+    def _with_runtime_encryption_key(self, environment_variables: Dict[str, Any]):
+        return with_runtime_encryption_key(
                 self.secrets, environment_variables)
-        return environment_variables
 
     def launch_config_ok(self, node_id):
         if self.disable_launch_config_check:
@@ -1187,7 +1185,8 @@ class ClusterScaler:
                 node_id, "worker_start_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)
-        environment_variables = self._with_cluster_secrets(environment_variables)
+        environment_variables = self._with_runtime_encryption_key(
+            environment_variables)
 
         call_context = self.call_context.new_call_context()
         updater = NodeUpdaterThread(
@@ -1289,7 +1288,8 @@ class ClusterScaler:
             node_id, "worker_initialization_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)
-        environment_variables = self._with_cluster_secrets(environment_variables)
+        environment_variables = self._with_runtime_encryption_key(
+            environment_variables)
 
         updater = NodeUpdaterThread(
             config=self.config,

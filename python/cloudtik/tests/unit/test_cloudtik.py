@@ -377,7 +377,8 @@ class MockClusterScaler(ClusterScaler):
             node_id, "worker_initialization_commands")
         environment_variables = with_head_node_ip_environment_variables(
             head_node_ip)
-        environment_variables = self._with_cluster_secrets(environment_variables)
+        environment_variables = self._with_runtime_encryption_key(
+            environment_variables)
 
         updater = MockNodeUpdaterThread(
             config=self.config,

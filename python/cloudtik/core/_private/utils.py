@@ -2950,6 +2950,12 @@ def get_runtime_encryption_key(config):
     return decode_cluster_secrets(encryption_key)
 
 
+def set_runtime_encryption_key(config):
+    encryption_key = AESCipher.generate_key()
+    config[ENCRYPTION_KEY_CONFIG_KEY] = encode_cluster_secrets(
+        encryption_key)
+
+
 def _get_runtime_scaling_policy(config, head_ip):
     runtime_config = config.get(RUNTIME_CONFIG_KEY)
     if runtime_config is None:

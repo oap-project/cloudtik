@@ -4,7 +4,7 @@ from cloudtik.core._private.core_utils import get_json_object_hash, get_address_
 from cloudtik.core._private.service_discovery.utils import deserialize_service_selector
 from cloudtik.core._private.util.pull.pull_job import PullJob
 from cloudtik.runtime.common.service_discovery.consul \
-    import query_services, query_service_nodes, get_service_address_of_node
+    import query_services, query_service_nodes, get_service_address_of_node, get_tags_of_service_nodes
 from cloudtik.runtime.nginx.utils import update_load_balancer_configuration, \
     update_api_gateway_dynamic_backends, update_api_gateway_dns_backends
 
@@ -147,14 +147,11 @@ class DiscoverAPIGatewayBackends(DiscoverJob):
         server_address = get_service_address_of_node(service_node)
 
         # get a common set of tags
-        tags = set(service_node.get("ServiceTags", []))
-        if tags:
-            for service_node in service_nodes[1:]:
-                service_tags = set(service_node.get("ServiceTags", []))
-                tags = tags.intersection(service_tags)
+        tags = get_tags_of_service_nodes(
+            service_nodes)
 
         backend_service = {
             "service_port": server_address[1],
-            "tags": list(tags),
+            "tags": tags,
         }
         return backend_service

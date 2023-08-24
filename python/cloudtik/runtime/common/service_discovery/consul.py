@@ -260,6 +260,24 @@ def _get_runtime_of_service_nodes(service_nodes):
     return next(iter(runtime_types))
 
 
+def get_tags_of_service_nodes(service_nodes):
+    if not service_nodes:
+        return []
+
+    service_node = service_nodes[0]
+    # get a common set of tags
+    tags = set(service_node.get("ServiceTags", []))
+    if not tags:
+        return []
+
+    for service_node in service_nodes[1:]:
+        service_tags = set(service_node.get("ServiceTags", []))
+        tags = tags.intersection(service_tags)
+        if not tags:
+            return []
+    return list(tags)
+
+
 def query_one_service_from_consul(
         service_selector,
         address_type: ServiceAddressType = ServiceAddressType.NODE_IP,
@@ -270,14 +288,14 @@ def query_one_service_from_consul(
 
     service_name, service_tags = next(iter(services.items()))
     service_instance = query_service_from_consul(
-        service_name, service_tags, service_selector,
+        service_name, service_selector,
         address_type=address_type, address=address
     )
     return service_instance
 
 
 def query_service_from_consul(
-        service_name, service_tags, service_selector,
+        service_name, service_selector,
         address_type: ServiceAddressType = ServiceAddressType.NODE_IP,
         address: Optional[Tuple[str, int]] = None):
     service_nodes = query_service_nodes(
@@ -293,9 +311,14 @@ def query_service_from_consul(
 
     if address_type == ServiceAddressType.SERVICE_FQDN:
         # return service FQDN
-        # TODO: the service tags include tags from all nodes?
+        # the service tags include tags filtered by service selector
+        # But it doesn't guarantee every service node has all the service tags
+        # Here we find the common tags among all the nodes.
+        # If there is no common tags, it implies user doesn't get correctly on
+        # tags and service selectors. Or it is just what user really want.
+        tags = get_tags_of_service_nodes(service_nodes)
         service_addresses = [get_service_fqdn_address(
-            service_name, service_tags)]
+            service_name, tags)]
     else:
         # return service nodes IP or nodes FQDN
         service_addresses = [get_service_address_of_node(
@@ -317,7 +340,7 @@ def query_services_from_consul(
     services_to_return = {}
     for service_name, service_tags in services.items():
         service_instance = query_service_from_consul(
-            service_name, service_tags, service_selector,
+            service_name, service_selector,
             address_type=address_type, address=address
         )
         if service_instance:

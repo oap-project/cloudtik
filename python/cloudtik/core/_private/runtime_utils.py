@@ -59,15 +59,18 @@ def get_runtime_head_ip(head):
 def retrieve_runtime_config(node_type: str = None):
     # Retrieve the runtime config
     runtime_config_key = get_runtime_config_key(node_type)
-    encrypted_runtime_config = _get_key_from_kv(runtime_config_key)
-    if encrypted_runtime_config is None:
+    runtime_config_data = _get_key_from_kv(runtime_config_key)
+    if runtime_config_data is None:
         return None
 
-    # Decrypt
     encoded_secrets = get_runtime_value(CLOUDTIK_RUNTIME_ENV_SECRETS)
-    secrets = decode_cluster_secrets(encoded_secrets)
-    cipher = AESCipher(secrets)
-    runtime_config_str = cipher.decrypt(encrypted_runtime_config)
+    if encoded_secrets:
+        # Decrypt
+        secrets = decode_cluster_secrets(encoded_secrets)
+        cipher = AESCipher(secrets)
+        runtime_config_str = cipher.decrypt(runtime_config_data)
+    else:
+        runtime_config_str = runtime_config_data.decode("utf-8")
 
     # To json object
     if runtime_config_str == "":
@@ -77,9 +80,6 @@ def retrieve_runtime_config(node_type: str = None):
 
 
 def subscribe_runtime_config():
-    if CLOUDTIK_RUNTIME_ENV_SECRETS not in os.environ:
-        raise RuntimeError("Not able to subscribe runtime config in lack of secrets.")
-
     node_type = get_runtime_value(CLOUDTIK_RUNTIME_ENV_NODE_TYPE)
     if node_type:
         # Try getting node type specific runtime config

@@ -52,7 +52,8 @@ from cloudtik.core._private.utils import validate_config, \
     encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \
     _get_node_specific_docker_config, _get_node_specific_runtime_config, \
     _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY, \
-    process_config_with_privacy, decrypt_config, CLOUDTIK_CLUSTER_SCALING_STATUS
+    process_config_with_privacy, decrypt_config, CLOUDTIK_CLUSTER_SCALING_STATUS, get_runtime_encryption_key, \
+    with_runtime_encryption_key
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
     CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS, \
@@ -211,8 +212,8 @@ class ClusterScaler:
 
         # These are records of publish for performance
         # If the controller restarted, it will republish (with new secrets)
-        # The secrets shared between the workers and the head
-        self.secrets = AESCipher.generate_key()
+        # The secrets is read from config and shared between the workers and the head
+        self.secrets = None
         self.published_runtime_config_hashes = {}
 
         # These are initialized for each config change
@@ -936,7 +937,7 @@ class ClusterScaler:
                     exc_info=e)
 
         self.config = new_config
-
+        self.secrets = get_runtime_encryption_key(self.config)
         self._update_runtime_hashes(self.config)
 
         if not self.provider:
@@ -1042,12 +1043,16 @@ class ClusterScaler:
             return
         self.published_runtime_config_hashes[node_type] = new_runtime_config_hash
 
-        # Encrypt and put
-        cipher = AESCipher(self.secrets)
-        encrypted_runtime_config = cipher.encrypt(runtime_config_str)
+        if self.secrets:
+            # Encrypt and put
+            cipher = AESCipher(self.secrets)
+            runtime_config_data = cipher.encrypt(runtime_config_str)
+        else:
+            # no encryption key
+            runtime_config_data = runtime_config_str.encode("utf-8")
         runtime_config_key = get_runtime_config_key(node_type)
         kv_put(runtime_config_key,
-               encrypted_runtime_config, overwrite=True)
+               runtime_config_data, overwrite=True)
 
         logger.debug(
             f"Runtime config updated with hash digest: {new_runtime_config_hash}")
@@ -1061,8 +1066,9 @@ class ClusterScaler:
         self.published_runtime_config_hashes.pop(node_type, None)
 
     def _with_cluster_secrets(self, environment_variables: Dict[str, Any]):
-        encoded_secrets = encode_cluster_secrets(self.secrets)
-        environment_variables[CLOUDTIK_RUNTIME_ENV_SECRETS] = encoded_secrets
+        if self.secrets:
+            environment_variables = with_runtime_encryption_key(
+                self.secrets, environment_variables)
         return environment_variables
 
     def launch_config_ok(self, node_id):

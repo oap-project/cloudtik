@@ -249,6 +249,17 @@ def _get_cluster_of_service_nodes(service_nodes):
     return next(iter(cluster_names))
 
 
+def _get_runtime_of_service_nodes(service_nodes):
+    runtime_types = set()
+    for service_node in service_nodes:
+        runtime_type = get_service_runtime_of_node(service_node)
+        if runtime_type:
+            runtime_types.add(runtime_type)
+    if len(runtime_types) > 1:
+        return None
+    return next(iter(runtime_types))
+
+
 def query_one_service_from_consul(
         service_selector,
         address_type: ServiceAddressType = ServiceAddressType.NODE_IP,
@@ -275,8 +286,7 @@ def query_service_from_consul(
         return None
 
     # the runtime of the service nodes should be the same
-    service_node = service_nodes[0]
-    runtime_type = get_service_runtime_of_node(service_node)
+    runtime_type = _get_runtime_of_service_nodes(service_nodes)
 
     # WARNING: the cluster of the service nodes may not be the same. None if not the same
     cluster_name = _get_cluster_of_service_nodes(service_nodes)

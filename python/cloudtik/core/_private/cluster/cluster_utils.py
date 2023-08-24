@@ -17,7 +17,8 @@ def create_node_updater_for_exec(config,
                                  is_head_node: bool = False,
                                  use_internal_ip: bool = False,
                                  runtime_config: Dict[str, Any] = None,
-                                 process_runner: ModuleType = subprocess):
+                                 process_runner: ModuleType = subprocess,
+                                 environment_variables=None):
     if runtime_config is None:
         runtime_config = _get_node_specific_runtime_config(
             config, provider, node_id)
@@ -45,7 +46,8 @@ def create_node_updater_for_exec(config,
             "rsync_filter": config.get("rsync_filter")
         },
         docker_config=docker_config,
-        runtime_config=runtime_config)
+        runtime_config=runtime_config,
+        environment_variables=environment_variables)
     return updater
 
 

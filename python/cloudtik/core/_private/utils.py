@@ -34,7 +34,7 @@ from cloudtik.core._private.constants import CLOUDTIK_WHEELS, CLOUDTIK_CLUSTER_P
     CLOUDTIK_CLUSTER_URI_TEMPLATE, CLOUDTIK_RUNTIME_NAME, CLOUDTIK_RUNTIME_ENV_NODE_IP, CLOUDTIK_RUNTIME_ENV_HEAD_IP, \
     CLOUDTIK_DEFAULT_PORT, CLOUDTIK_REDIS_DEFAULT_PASSWORD, \
     PRIVACY_REPLACEMENT_TEMPLATE, PRIVACY_REPLACEMENT, CLOUDTIK_CONFIG_SECRET, \
-    CLOUDTIK_ENCRYPTION_PREFIX
+    CLOUDTIK_ENCRYPTION_PREFIX, CLOUDTIK_RUNTIME_ENV_SECRETS
 from cloudtik.core._private.core_utils import load_class, double_quote, check_process_exists, get_cloudtik_temp_dir, \
     get_config_for_update, get_json_object_md5
 from cloudtik.core._private.crypto import AESCipher
@@ -110,8 +110,9 @@ DOCKER_CONFIG_KEY = "docker"
 AUTH_CONFIG_KEY = "auth"
 FILE_MOUNTS_CONFIG_KEY = "file_mounts"
 RUNTIME_TYPES_CONFIG_KEY = "types"
+ENCRYPTION_KEY_CONFIG_KEY = "encryption.key"
 
-PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key"]
+PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key", "encryption.key"]
 
 NODE_INFO_NODE_ID = "node_id"
 NODE_INFO_NODE_IP = "private_ip"
@@ -1222,7 +1223,8 @@ def set_node_type_resources(config):
         resources[node_type_name] = 1
 
 
-def with_head_node_ip_environment_variables(head_ip, envs: Dict[str, Any] = None) -> Dict[str, Any]:
+def with_head_node_ip_environment_variables(
+        head_ip, envs: Dict[str, Any] = None) -> Dict[str, Any]:
     if head_ip is None:
         head_ip = services.get_node_ip_address()
     if envs is None:
@@ -1245,6 +1247,13 @@ def with_node_ip_environment_variables(
 
     ip_envs = {CLOUDTIK_RUNTIME_ENV_NODE_IP: node_ip}
     return ip_envs
+
+
+def with_runtime_encryption_key(
+        encryption_key, environment_variables: Dict[str, Any]):
+    encoded_secrets = encode_cluster_secrets(encryption_key)
+    environment_variables[CLOUDTIK_RUNTIME_ENV_SECRETS] = encoded_secrets
+    return environment_variables
 
 
 def hash_launch_conf(node_conf, auth):
@@ -2932,6 +2941,19 @@ def decrypt_config_value(v, cipher):
 
     target_bytes = v[len(CLOUDTIK_ENCRYPTION_PREFIX):].encode("utf-8")
     return cipher.decrypt(target_bytes)
+
+
+def get_runtime_encryption_key(config):
+    # The encryption key is the key to encrypt the runtime configuration
+    # shared among head and worker nodes.
+    encryption_key = config.get(ENCRYPTION_KEY_CONFIG_KEY)
+    return decode_cluster_secrets(encryption_key)
+
+
+def set_runtime_encryption_key(config):
+    encryption_key = AESCipher.generate_key()
+    config[ENCRYPTION_KEY_CONFIG_KEY] = encode_cluster_secrets(
+        encryption_key)
 
 
 def _get_runtime_scaling_policy(config, head_ip):

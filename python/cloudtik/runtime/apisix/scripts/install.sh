@@ -27,7 +27,7 @@ function install_apisix() {
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq -y \
           apisix=${APISIX_VERSION}.\* > /dev/null && \
         sudo rm -f /etc/apt/sources.list.d/openresty.list && \
-        sudo rm -f /etc/apt/sources.list.d/apisix.list && \
+        sudo rm -f /etc/apt/sources.list.d/apisix.list
     fi
 }
 

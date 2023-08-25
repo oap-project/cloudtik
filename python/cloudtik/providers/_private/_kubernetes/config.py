@@ -15,7 +15,8 @@ from cloudtik.core._private.core_utils import parse_memory_resource, generate_pu
 from cloudtik.core._private.docker import get_versioned_image
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.utils import is_use_internal_ip, get_running_head_node, binary_to_hex, hex_to_binary, \
-    get_head_service_ports, _is_use_managed_cloud_storage, _is_use_internal_ip, is_gpu_runtime
+    get_head_service_ports, _is_use_managed_cloud_storage, _is_use_internal_ip, is_gpu_runtime, \
+    PROVIDER_DATABASE_CONFIG_KEY, PROVIDER_STORAGE_CONFIG_KEY
 from cloudtik.core.tags import CLOUDTIK_TAG_CLUSTER_NAME, CLOUDTIK_TAG_NODE_KIND, NODE_KIND_HEAD, \
     CLOUDTIK_GLOBAL_VARIABLE_KEY, CLOUDTIK_GLOBAL_VARIABLE_KEY_PREFIX
 from cloudtik.core.workspace_provider import Existence
@@ -1255,7 +1256,7 @@ def _parse_cpu_or_gpu_resource(resource):
 
 
 def get_default_kubernetes_cloud_storage(provider_config):
-    storage_config = provider_config.get("storage", {})
+    storage_config = provider_config.get(PROVIDER_STORAGE_CONFIG_KEY, {})
 
     if "aws_s3_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.aws_eks.config import get_default_kubernetes_cloud_storage_for_aws
@@ -1272,7 +1273,7 @@ def get_default_kubernetes_cloud_storage(provider_config):
 
 
 def get_default_kubernetes_cloud_database(provider_config):
-    database_config = provider_config.get("database", {})
+    database_config = provider_config.get(PROVIDER_DATABASE_CONFIG_KEY, {})
 
     if "aws.database" in database_config:
         from cloudtik.providers._private._kubernetes.aws_eks.config import \
@@ -1293,7 +1294,7 @@ def get_default_kubernetes_cloud_database(provider_config):
 def with_kubernetes_environment_variables(provider_config, node_type_config: Dict[str, Any], node_id: str):
     config_dict = {}
 
-    storage_config = provider_config.get("storage", {})
+    storage_config = provider_config.get(PROVIDER_STORAGE_CONFIG_KEY, {})
 
     if "aws_s3_storage" in storage_config:
         from cloudtik.providers._private._kubernetes.aws_eks.config import with_aws_environment_variables

@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from cloudtik.core._private.runtime_utils import get_runtime_value
+from cloudtik.core._private.runtime_utils import get_runtime_bool
 from cloudtik.runtime.prometheus.utils import start_pull_server, stop_pull_server, _get_home_dir
 
 
@@ -39,8 +39,8 @@ def main():
     )
     args = parser.parse_args()
 
-    high_availability = get_runtime_value("PROMETHEUS_HIGH_AVAILABILITY")
-    if high_availability == "true" or args.head:
+    high_availability = get_runtime_bool("PROMETHEUS_HIGH_AVAILABILITY")
+    if high_availability or args.head:
         if args.command == "start":
             start_service(args.head)
         elif args.command == "stop":

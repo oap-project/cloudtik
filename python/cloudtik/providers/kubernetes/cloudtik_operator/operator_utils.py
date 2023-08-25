@@ -7,10 +7,11 @@ from typing import Any, Dict, List
 from kubernetes.client.rest import ApiException
 
 from cloudtik.core._private import constants
+from cloudtik.core._private.core_utils import get_config_for_update
 from cloudtik.providers._private._kubernetes import custom_objects_api
 from cloudtik.providers._private._kubernetes.config import _get_cluster_selector
 from cloudtik.providers._private._kubernetes.node_provider import head_service_selector
-from cloudtik.core._private.utils import _get_default_config
+from cloudtik.core._private.utils import _get_default_config, PROVIDER_STORAGE_CONFIG_KEY
 
 CLOUDTIK_API_GROUP = "cloudtik.io"
 CLOUDTIK_API_VERSION = "v1"
@@ -230,9 +231,8 @@ def configure_cloud_storage(
     if "cloudStorage" not in cloud_config:
         return
 
-    if "storage" not in provider_config:
-        provider_config["storage"] = {}
-    storage_config = provider_config["storage"]
+    storage_config = get_config_for_update(
+        provider_config, PROVIDER_STORAGE_CONFIG_KEY)
 
     cloud_storage = cloud_config["cloudStorage"]
     for field in cloud_storage:

@@ -5,7 +5,8 @@ import math
 from typing import Any, Dict, List
 
 from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
-from cloudtik.core._private.utils import get_storage_config_for_update, get_config_for_update
+from cloudtik.core._private.utils import get_storage_config_for_update, get_config_for_update, \
+    PROVIDER_STORAGE_CONFIG_KEY
 
 from cloudtik.core._private.cli_logger import cli_logger
 
@@ -31,10 +32,11 @@ CLIENT_MAX_RETRY_ATTEMPTS = 5
 
 
 def get_aliyun_oss_storage_config(provider_config: Dict[str, Any]):
-    if "storage" in provider_config and "aliyun_oss_storage" in provider_config["storage"]:
-        return provider_config["storage"]["aliyun_oss_storage"]
+    storage_config = provider_config.get(PROVIDER_STORAGE_CONFIG_KEY)
+    if not storage_config:
+        return None
 
-    return None
+    return storage_config.get("aliyun_oss_storage")
 
 
 def get_aliyun_oss_storage_config_for_update(provider_config: Dict[str, Any]):

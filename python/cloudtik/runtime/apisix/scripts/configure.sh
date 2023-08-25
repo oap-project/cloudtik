@@ -32,6 +32,7 @@ function check_apisix_installed() {
 
 function configure_apisix() {
     prepare_base_conf
+    mkdir -p ${APISIX_HOME}/logs
 
     APISIX_CONF_DIR=${APISIX_HOME}/conf
     mkdir -p ${APISIX_CONF_DIR}
@@ -42,7 +43,7 @@ function configure_apisix() {
     sed -i "s#{%admin.port%}#${APISIX_ADMIN_PORT}#g" ${config_template_file}
     sed -i "s#{%cluster.name%}#${CLOUDTIK_CLUSTER}#g" ${config_template_file}
 
-    cp ${config_template_file} ${APISIX_CONF_INCLUDE_DIR}/config.yaml
+    cp ${config_template_file} ${APISIX_CONF_DIR}/config.yaml
 }
 
 set_head_option "$@"

@@ -1822,6 +1822,36 @@
                             "description": "Explicit set ETCD service to use."
                         }
                     }
+                },
+                "kong": {
+                    "type": "object",
+                    "description": "Kong runtime configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 8000,
+                            "description": "Kong service port."
+                        },
+                        "ssl_port": {
+                            "type": "integer",
+                            "default": 8443,
+                            "description": "Kong service SSL port."
+                        },
+                        "database": {
+                            "$ref": "#/definitions/database_connect",
+                            "description": "The database parameters. Engine, address, port are optional if using service discovery."
+                        },
+                        "database_service_discovery": {
+                            "type": "boolean",
+                            "description": "Whether to discover and use database service in the same workspace.",
+                            "default": true
+                        },
+                        "database_service_selector": {
+                            "$ref": "#/definitions/service_selector",
+                            "description": "The selector for database service if service discovery is enabled."
+                        }
+                    }
                 }
             }
         }

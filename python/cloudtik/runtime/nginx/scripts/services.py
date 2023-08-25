@@ -1,6 +1,6 @@
 import argparse
 
-from cloudtik.core._private.runtime_utils import get_runtime_value
+from cloudtik.core._private.runtime_utils import get_runtime_value, get_runtime_bool
 from cloudtik.runtime.nginx.utils \
     import start_pull_server, stop_pull_server, NGINX_APP_MODE_API_GATEWAY, \
     NGINX_CONFIG_MODE_DNS, NGINX_APP_MODE_LOAD_BALANCER, NGINX_CONFIG_MODE_DYNAMIC
@@ -46,8 +46,8 @@ def main():
     )
     args = parser.parse_args()
 
-    high_availability = get_runtime_value("NGINX_HIGH_AVAILABILITY")
-    if high_availability == "true" or args.head:
+    high_availability = get_runtime_bool("NGINX_HIGH_AVAILABILITY")
+    if high_availability or args.head:
         if args.command == "start":
             start_service(args.head)
         elif args.command == "stop":

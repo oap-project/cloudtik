@@ -5,7 +5,7 @@ from typing import Dict, Any
 import yaml
 
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_NODE_TYPE, CLOUDTIK_RUNTIME_ENV_NODE_IP, \
-    CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_RUNTIME_ENV_HEAD_IP
+    CLOUDTIK_RUNTIME_ENV_SECRETS, CLOUDTIK_RUNTIME_ENV_HEAD_IP, env_bool
 from cloudtik.core._private.crypto import AESCipher
 from cloudtik.core._private.utils import load_head_cluster_config, _get_node_type_specific_runtime_config, \
     get_runtime_config_key, _get_key_from_kv, decode_cluster_secrets, CLOUDTIK_CLUSTER_NODES_INFO_NODE_TYPE
@@ -20,6 +20,10 @@ RUNTIME_NODE_QUORUM_JOIN = "quorum_join"
 
 def get_runtime_value(name):
     return os.environ.get(name)
+
+
+def get_runtime_bool(name, default=False):
+    return env_bool(name, default)
 
 
 def get_runtime_node_type():

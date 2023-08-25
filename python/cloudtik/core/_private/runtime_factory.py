@@ -44,6 +44,7 @@ BUILT_IN_RUNTIME_POSTGRES = "postgres"
 BUILT_IN_RUNTIME_DNSMASQ = "dnsmasq"
 BUILT_IN_RUNTIME_BIND = "bind"
 BUILT_IN_RUNTIME_COREDNS = "coredns"
+BUILT_IN_RUNTIME_KONG = "kong"
 BUILT_IN_RUNTIME_APISIX = "apisix"
 
 DEFAULT_RUNTIMES = [BUILT_IN_RUNTIME_PROMETHEUS, BUILT_IN_RUNTIME_NODE_EXPORTER, BUILT_IN_RUNTIME_SPARK]
@@ -164,6 +165,11 @@ def _import_coredns():
     return CoreDNSRuntime
 
 
+def _import_kong():
+    from cloudtik.runtime.kong.runtime import KongRuntime
+    return KongRuntime
+
+
 def _import_apisix():
     from cloudtik.runtime.apisix.runtime import APISIXRuntime
     return APISIXRuntime
@@ -193,6 +199,7 @@ _RUNTIMES = {
     BUILT_IN_RUNTIME_DNSMASQ: _import_dnsmasq,
     BUILT_IN_RUNTIME_BIND: _import_bind,
     BUILT_IN_RUNTIME_COREDNS: _import_coredns,
+    BUILT_IN_RUNTIME_KONG: _import_kong,
     BUILT_IN_RUNTIME_APISIX: _import_apisix,
 }
 

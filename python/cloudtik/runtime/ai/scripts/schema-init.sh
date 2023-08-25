@@ -16,7 +16,6 @@ function create_database_schema() {
 }
 
 function init_schema() {
-    DATABASE_NAME=hive_metastore
     if [ "${SQL_DATABASE}" == "true" ] \
       && [ "$AI_WITH_SQL_DATABASE" != "false" ]; then
         create_database_schema

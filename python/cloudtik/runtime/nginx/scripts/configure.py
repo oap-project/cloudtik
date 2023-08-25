@@ -1,6 +1,6 @@
 import argparse
-import os
 
+from cloudtik.core._private.runtime_utils import get_runtime_bool
 from cloudtik.runtime.nginx.utils import configure_backend
 
 
@@ -11,8 +11,8 @@ def main():
                         help='Configuring for head node.')
     args = parser.parse_args()
 
-    high_availability = os.environ.get("NGINX_HIGH_AVAILABILITY")
-    if high_availability == "true" or args.head:
+    high_availability = get_runtime_bool("NGINX_HIGH_AVAILABILITY")
+    if high_availability or args.head:
         configure_backend(args.head)
 
 

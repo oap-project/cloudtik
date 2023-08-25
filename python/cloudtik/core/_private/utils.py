@@ -112,6 +112,9 @@ FILE_MOUNTS_CONFIG_KEY = "file_mounts"
 RUNTIME_TYPES_CONFIG_KEY = "types"
 ENCRYPTION_KEY_CONFIG_KEY = "encryption.key"
 
+PROVIDER_STORAGE_CONFIG_KEY = "storage"
+PROVIDER_DATABASE_CONFIG_KEY = "database"
+
 PRIVACY_CONFIG_KEYS = ["credentials", "account.key", "secret", "access.key", "private.key", "encryption.key"]
 
 NODE_INFO_NODE_ID = "node_id"
@@ -3065,11 +3068,13 @@ def convert_nodes_to_resource(
 
 
 def get_storage_config_for_update(provider_config):
-    return get_config_for_update(provider_config, "storage")
+    return get_config_for_update(
+        provider_config, PROVIDER_STORAGE_CONFIG_KEY)
 
 
 def get_database_config_for_update(provider_config):
-    return get_config_for_update(provider_config, "database")
+    return get_config_for_update(
+        provider_config, PROVIDER_DATABASE_CONFIG_KEY)
 
 
 def print_json_formatted(json_bytes):

@@ -13,7 +13,7 @@ from cloudtik.core._private.util.database_utils import get_database_engine, get_
 
 # Max number of retries to AWS (default is 5, time increases exponentially)
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
-    get_config_for_update
+    get_config_for_update, PROVIDER_DATABASE_CONFIG_KEY, PROVIDER_STORAGE_CONFIG_KEY
 
 BOTO_MAX_RETRIES = env_integer("BOTO_MAX_RETRIES", 12)
 
@@ -155,10 +155,11 @@ def boto_exception_handler(msg, *args, **kwargs):
 
 
 def get_aws_s3_storage_config(provider_config: Dict[str, Any]):
-    if "storage" in provider_config and "aws_s3_storage" in provider_config["storage"]:
-        return provider_config["storage"]["aws_s3_storage"]
+    storage_config = provider_config.get(PROVIDER_STORAGE_CONFIG_KEY)
+    if not storage_config:
+        return None
 
-    return None
+    return storage_config.get("aws_s3_storage")
 
 
 def get_aws_s3_storage_config_for_update(provider_config: Dict[str, Any]):
@@ -209,10 +210,11 @@ def get_default_aws_cloud_storage(provider_config):
 
 
 def get_aws_database_config(provider_config: Dict[str, Any], default=None):
-    if "database" in provider_config and "aws.database" in provider_config["database"]:
-        return provider_config["database"]["aws.database"]
+    database_config = provider_config.get(PROVIDER_DATABASE_CONFIG_KEY)
+    if not database_config:
+        return default
 
-    return default
+    return database_config.get("aws.database", default)
 
 
 def get_aws_database_engine(database_config):

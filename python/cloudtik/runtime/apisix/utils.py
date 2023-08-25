@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.core_utils import get_config_for_update, get_list_for_update, get_address_string
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_APISIX, BUILT_IN_RUNTIME_ETCD
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_APISIX
 from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, load_and_save_yaml
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import \
@@ -18,7 +18,7 @@ RUNTIME_PROCESSES = [
         # The second element, if True, is to filter ps results by command name.
         # The third element is the process name.
         # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-        ["apisix", True, "APISIX", "node"],
+        ["/usr/local/apisix", False, "APISIX", "node"],
     ]
 
 APISIX_SERVICE_PORT_CONFIG_KEY = "port"
@@ -52,15 +52,21 @@ def _get_runtime_processes():
     return RUNTIME_PROCESSES
 
 
+def _get_runtime_logs():
+    home_dir = _get_home_dir()
+    logs_dir = os.path.join(home_dir, "logs")
+    return {BUILT_IN_RUNTIME_APISIX: logs_dir}
+
+
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
     cluster_config = discover_etcd_from_workspace(
-        cluster_config, BUILT_IN_RUNTIME_ETCD)
+        cluster_config, BUILT_IN_RUNTIME_APISIX)
     return cluster_config
 
 
 def _prepare_config_on_head(cluster_config: Dict[str, Any]):
     cluster_config = discover_etcd_on_head(
-        cluster_config, BUILT_IN_RUNTIME_ETCD)
+        cluster_config, BUILT_IN_RUNTIME_APISIX)
 
     _validate_config(cluster_config, final=True)
     return cluster_config

@@ -14,7 +14,7 @@ from cloudtik.core._private.service_discovery.utils import get_canonical_service
 from cloudtik.core._private.utils import \
     round_memory_size_to_gb, load_head_cluster_config, \
     RUNTIME_CONFIG_KEY, load_properties_file, save_properties_file, is_use_managed_cloud_storage, \
-    print_json_formatted, get_config_for_update, get_runtime_config
+    print_json_formatted, get_config_for_update, get_runtime_config, PROVIDER_STORAGE_CONFIG_KEY
 from cloudtik.core.scaling_policy import ScalingPolicy
 from cloudtik.runtime.common.service_discovery.cluster import has_runtime_in_cluster
 from cloudtik.runtime.common.service_discovery.runtime_discovery import \
@@ -332,8 +332,8 @@ def _is_valid_storage_config(config: Dict[str, Any], final=False):
 
     # Check any cloud storage is configured
     provider_config = config["provider"]
-    if ("storage" in provider_config or
-            is_use_managed_cloud_storage(config)):
+    if (PROVIDER_STORAGE_CONFIG_KEY in provider_config or
+            (not final and is_use_managed_cloud_storage(config))):
         return True
 
     # if there is service discovery mechanism, assume we can get from service discovery

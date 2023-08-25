@@ -17,7 +17,7 @@ from cloudtik.core._private.constants import CLOUDTIK_DEFAULT_CLOUD_STORAGE_URI
 from cloudtik.core._private.util.database_utils import get_database_engine, get_database_port, DATABASE_ENV_ENGINE, \
     DATABASE_ENV_ENABLED, DATABASE_ENV_PASSWORD, DATABASE_ENV_USERNAME, DATABASE_ENV_PORT, DATABASE_ENV_HOST
 from cloudtik.core._private.utils import get_storage_config_for_update, get_database_config_for_update, \
-    get_config_for_update
+    get_config_for_update, PROVIDER_DATABASE_CONFIG_KEY, PROVIDER_STORAGE_CONFIG_KEY
 from cloudtik.providers._private._azure.azure_identity_credential_adapter import AzureIdentityCredentialAdapter
 
 AZURE_DATABASE_ENDPOINT = "address"
@@ -196,10 +196,11 @@ def _construct_private_dns_client(provider_config):
 
 
 def get_azure_cloud_storage_config(provider_config: Dict[str, Any]):
-    if "storage" in provider_config and "azure_cloud_storage" in provider_config["storage"]:
-        return provider_config["storage"]["azure_cloud_storage"]
+    storage_config = provider_config.get(PROVIDER_STORAGE_CONFIG_KEY)
+    if not storage_config:
+        return None
 
-    return None
+    return storage_config.get("azure_cloud_storage")
 
 
 def get_azure_cloud_storage_config_for_update(provider_config: Dict[str, Any]):
@@ -270,10 +271,11 @@ def get_default_azure_cloud_storage(provider_config):
 
 
 def get_azure_database_config(provider_config: Dict[str, Any], default=None):
-    if "database" in provider_config and "azure.database" in provider_config["database"]:
-        return provider_config["database"]["azure.database"]
+    database_config = provider_config.get(PROVIDER_DATABASE_CONFIG_KEY)
+    if not database_config:
+        return default
 
-    return default
+    return database_config.get("azure.database", default)
 
 
 def get_azure_database_engine(database_config):

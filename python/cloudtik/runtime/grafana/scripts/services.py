@@ -1,6 +1,6 @@
 import argparse
 
-from cloudtik.core._private.runtime_utils import get_runtime_value
+from cloudtik.core._private.runtime_utils import get_runtime_value, get_runtime_bool
 from cloudtik.runtime.grafana.utils import start_pull_server, stop_pull_server, \
     GRAFANA_DATA_SOURCES_SCOPE_WORKSPACE
 
@@ -34,8 +34,8 @@ def main():
     )
     args = parser.parse_args()
 
-    high_availability = get_runtime_value("GRAFANA_HIGH_AVAILABILITY")
-    if high_availability == "true" or args.head:
+    high_availability = get_runtime_bool("GRAFANA_HIGH_AVAILABILITY")
+    if high_availability or args.head:
         if args.command == "start":
             start_service(args.head)
         elif args.command == "stop":

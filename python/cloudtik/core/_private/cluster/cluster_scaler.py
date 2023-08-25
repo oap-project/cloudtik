@@ -49,14 +49,14 @@ from cloudtik.core._private.cluster.resource_demand_scheduler import \
 from cloudtik.core._private.utils import validate_config, \
     hash_launch_conf, hash_runtime_conf, \
     format_info_string, get_commands_to_run, with_head_node_ip_environment_variables, \
-    encode_cluster_secrets, _get_node_specific_commands, _get_node_specific_config, \
+    _get_node_specific_commands, _get_node_specific_config, \
     _get_node_specific_docker_config, _get_node_specific_runtime_config, \
     _has_node_type_specific_runtime_config, get_runtime_config_key, RUNTIME_CONFIG_KEY, \
     process_config_with_privacy, decrypt_config, CLOUDTIK_CLUSTER_SCALING_STATUS, get_runtime_encryption_key, \
-    with_runtime_encryption_key
+    with_runtime_encryption_key, PROVIDER_STORAGE_CONFIG_KEY, PROVIDER_DATABASE_CONFIG_KEY
 from cloudtik.core._private.constants import CLOUDTIK_MAX_NUM_FAILURES, \
     CLOUDTIK_MAX_LAUNCH_BATCH, CLOUDTIK_MAX_CONCURRENT_LAUNCHES, \
-    CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, CLOUDTIK_RUNTIME_ENV_SECRETS, \
+    CLOUDTIK_UPDATE_INTERVAL_S, CLOUDTIK_HEARTBEAT_TIMEOUT_S, \
     CLOUDTIK_SCALER_PERIODIC_STATUS_LOG
 
 logger = logging.getLogger(__name__)
@@ -981,7 +981,8 @@ class ClusterScaler:
             "worker_setup_commands": get_commands_to_run(new_config, "worker_setup_commands"),
             "worker_start_commands": get_commands_to_run(new_config, "worker_start_commands"),
             "runtime": new_config.get(RUNTIME_CONFIG_KEY, {}),
-            "storage": new_config["provider"].get("storage", {})
+            "storage": new_config["provider"].get(PROVIDER_STORAGE_CONFIG_KEY, {}),
+            "database": new_config["provider"].get(PROVIDER_DATABASE_CONFIG_KEY, {})
         }
         (new_runtime_hash,
          new_file_mounts_contents_hash,

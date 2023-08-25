@@ -112,7 +112,7 @@ def discover_consul(
         config: Dict[str, Any],
         service_selector_key: str,
         cluster_config: Dict[str, Any],
-        discovery_type):
+        discovery_type: DiscoveryType,):
     return discover_runtime_service_addresses(
         config, service_selector_key,
         runtime_type=BUILT_IN_RUNTIME_CONSUL,
@@ -125,7 +125,7 @@ def discover_zookeeper(
         config: Dict[str, Any],
         service_selector_key: str,
         cluster_config: Dict[str, Any],
-        discovery_type):
+        discovery_type: DiscoveryType,):
     service_addresses = discover_runtime_service_addresses(
         config, service_selector_key,
         runtime_type=BUILT_IN_RUNTIME_ZOOKEEPER,
@@ -141,7 +141,7 @@ def discover_hdfs(
         config: Dict[str, Any],
         service_selector_key: str,
         cluster_config: Dict[str, Any],
-        discovery_type):
+        discovery_type: DiscoveryType,):
     service_addresses = discover_runtime_service_addresses(
         config, service_selector_key,
         runtime_type=BUILT_IN_RUNTIME_HDFS,
@@ -160,7 +160,7 @@ def discover_metastore(
         config: Dict[str, Any],
         service_selector_key: str,
         cluster_config: Dict[str, Any],
-        discovery_type):
+        discovery_type: DiscoveryType,):
     service_addresses = discover_runtime_service_addresses(
         config, service_selector_key,
         runtime_type=BUILT_IN_RUNTIME_METASTORE,
@@ -180,12 +180,16 @@ def discover_database(
         config: Dict[str, Any],
         service_selector_key: str,
         cluster_config: Dict[str, Any],
-        discovery_type):
+        discovery_type: DiscoveryType,
+        database_runtime_type=None):
     # TODO: because feature tag is not supported for workspace based discovery
     #   Use a list of database runtimes here.
+    if not database_runtime_type:
+        # if no specific database type, default to all known types
+        database_runtime_type = BUILT_IN_DATABASE_RUNTIMES
     service_instance = discover_runtime_service(
         config, service_selector_key,
-        runtime_type=BUILT_IN_DATABASE_RUNTIMES,
+        runtime_type=database_runtime_type,
         cluster_config=cluster_config,
         discovery_type=discovery_type,
     )
@@ -200,7 +204,7 @@ def discover_etcd(
         config: Dict[str, Any],
         service_selector_key: str,
         cluster_config: Dict[str, Any],
-        discovery_type):
+        discovery_type: DiscoveryType,):
     service_addresses = discover_runtime_service_addresses(
         config, service_selector_key,
         runtime_type=BUILT_IN_RUNTIME_ETCD,
@@ -410,11 +414,14 @@ Database service discovery conventions:
 
 
 def is_database_service_discovery(runtime_type_config):
-    return runtime_type_config.get(DATABASE_SERVICE_DISCOVERY_KEY, True)
+    return runtime_type_config.get(
+        DATABASE_SERVICE_DISCOVERY_KEY, True)
 
 
 def discover_database_from_workspace(
-        cluster_config: Dict[str, Any], runtime_type):
+        cluster_config: Dict[str, Any], runtime_type,
+        database_runtime_type=None,
+        allow_local=True):
     runtime_config = get_runtime_config(cluster_config)
     runtime_type_config = runtime_config.get(runtime_type, {})
     database_config = runtime_type_config.get(DATABASE_CONNECT_KEY, {})
@@ -426,14 +433,15 @@ def discover_database_from_workspace(
     # 4. if there is database can be discovered
 
     if (is_database_configured(database_config) or
-            get_database_runtime_in_cluster(runtime_config) or
+            (allow_local and get_database_runtime_in_cluster(runtime_config)) or
             not is_database_service_discovery(runtime_type_config)):
         return cluster_config
 
     database_service = discover_database(
         runtime_type_config, DATABASE_SERVICE_SELECTOR_KEY,
         cluster_config=cluster_config,
-        discovery_type=DiscoveryType.WORKSPACE)
+        discovery_type=DiscoveryType.WORKSPACE,
+        database_runtime_type=database_runtime_type)
     if database_service:
         runtime_type_config = get_config_for_update(
             runtime_config, runtime_type)
@@ -445,7 +453,9 @@ def discover_database_from_workspace(
 
 
 def discover_database_on_head(
-        cluster_config: Dict[str, Any], runtime_type):
+        cluster_config: Dict[str, Any], runtime_type,
+        database_runtime_type=None,
+        allow_local=True):
     runtime_config = get_runtime_config(cluster_config)
     runtime_type_config = runtime_config.get(runtime_type, {})
     if not is_database_service_discovery(runtime_type_config):
@@ -453,7 +463,7 @@ def discover_database_on_head(
 
     database_config = runtime_type_config.get(DATABASE_CONNECT_KEY, {})
     if (is_database_configured(database_config) or
-            get_database_runtime_in_cluster(runtime_config)):
+            (allow_local and get_database_runtime_in_cluster(runtime_config))):
         # Database already configured
         return cluster_config
 
@@ -461,7 +471,8 @@ def discover_database_on_head(
     database_service = discover_database(
         runtime_type_config, DATABASE_SERVICE_SELECTOR_KEY,
         cluster_config=cluster_config,
-        discovery_type=DiscoveryType.CLUSTER)
+        discovery_type=DiscoveryType.CLUSTER,
+        database_runtime_type=database_runtime_type)
     if database_service:
         runtime_type_config = get_config_for_update(
             runtime_config, runtime_type)

@@ -5,7 +5,7 @@ from cloudtik.core._private.core_utils import get_env_string_value
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_AI
 from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
-    get_service_discovery_config, SERVICE_DISCOVERY_PROTOCOL_HTTP
+    get_service_discovery_config, SERVICE_DISCOVERY_PROTOCOL_HTTP, define_runtime_service_on_head_or_all
 from cloudtik.core._private.util.database_utils import is_database_configured, export_database_environment_variables
 from cloudtik.core._private.utils import export_runtime_flags
 from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_hdfs_on_head, \
@@ -22,6 +22,8 @@ RUNTIME_PROCESSES = [
     ["mlflow.server:app", False, "MLflow", "head"],
 ]
 
+MLFLOW_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
+
 MLFLOW_SERVICE_NAME = "mlflow"
 MLFLOW_SERVICE_PORT = 5001
 
@@ -30,8 +32,13 @@ def _get_config(runtime_config: Dict[str, Any]):
     return runtime_config.get(BUILT_IN_RUNTIME_AI, {})
 
 
-def _get_database_config(metastore_config):
-    return metastore_config.get(DATABASE_CONNECT_KEY, {})
+def _get_database_config(ai_config):
+    return ai_config.get(DATABASE_CONNECT_KEY, {})
+
+
+def _is_high_availability(ai_config: Dict[str, Any]):
+    return ai_config.get(
+        MLFLOW_HIGH_AVAILABILITY_CONFIG_KEY, False)
 
 
 def _get_runtime_processes():
@@ -59,6 +66,11 @@ def _with_runtime_environment_variables(
     runtime_envs = {"AI_ENABLED": True}
 
     ai_config = _get_config(runtime_config)
+
+    high_availability = _is_high_availability(ai_config)
+    if high_availability:
+        runtime_envs["MLFLOW_HIGH_AVAILABILITY"] = high_availability
+
     export_runtime_flags(
         ai_config, BUILT_IN_RUNTIME_AI, runtime_envs)
 
@@ -149,8 +161,9 @@ def _get_runtime_services(
     service_name = get_canonical_service_name(
         service_discovery_config, cluster_name, MLFLOW_SERVICE_NAME)
     services = {
-        service_name: define_runtime_service_on_head(
+        service_name: define_runtime_service_on_head_or_all(
             service_discovery_config, MLFLOW_SERVICE_PORT,
+            _is_high_availability(ai_config),
             protocol=SERVICE_DISCOVERY_PROTOCOL_HTTP),
     }
     return services

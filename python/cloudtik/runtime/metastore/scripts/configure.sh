@@ -72,12 +72,8 @@ function configure_hive_metastore() {
 }
 
 set_head_option "$@"
-
-if [ $IS_HEAD_NODE == "true" ]; then
-    # Do nothing for workers
-    check_hive_metastore_installed
-    set_head_address
-    configure_hive_metastore
-fi
+check_hive_metastore_installed
+set_head_address
+configure_hive_metastore
 
 exit 0

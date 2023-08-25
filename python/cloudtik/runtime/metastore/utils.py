@@ -3,8 +3,8 @@ from typing import Any, Dict
 
 from cloudtik.core._private.providers import _get_node_provider
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_METASTORE
-from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, define_runtime_service_on_head, \
-    get_service_discovery_config
+from cloudtik.core._private.service_discovery.utils import get_canonical_service_name, \
+    get_service_discovery_config, define_runtime_service_on_head_or_all
 from cloudtik.core._private.util.database_utils import is_database_configured, \
     export_database_environment_variables
 from cloudtik.core._private.utils import export_runtime_flags
@@ -18,9 +18,11 @@ RUNTIME_PROCESSES = [
     # The second element, if True, is to filter ps results by command name.
     # The third element is the process name.
     # The forth element, if node, the process should on all nodes,if head, the process should on head node.
-    ["proc_metastore", False, "Metastore", "head"],
-    ["mysql", False, "MySQL", "head"],
+    ["proc_metastore", False, "Metastore", "node"],
+    ["mysqld", False, "MariaDB", "node"],
 ]
+
+METASTORE_HIGH_AVAILABILITY_CONFIG_KEY = "high_availability"
 
 METASTORE_SERVICE_NAME = BUILT_IN_RUNTIME_METASTORE
 METASTORE_SERVICE_PORT = 9083
@@ -32,6 +34,11 @@ def _get_config(runtime_config: Dict[str, Any]):
 
 def _get_database_config(metastore_config):
     return metastore_config.get(DATABASE_CONNECT_KEY, {})
+
+
+def _is_high_availability(metastore_config: Dict[str, Any]):
+    return metastore_config.get(
+        METASTORE_HIGH_AVAILABILITY_CONFIG_KEY, False)
 
 
 def _get_runtime_processes():
@@ -55,6 +62,11 @@ def _with_runtime_environment_variables(
     runtime_envs = {"METASTORE_ENABLED": True}
 
     metastore_config = _get_config(runtime_config)
+
+    high_availability = _is_high_availability(metastore_config)
+    if high_availability:
+        runtime_envs["METASTORE_HIGH_AVAILABILITY"] = high_availability
+
     export_runtime_flags(
         metastore_config, BUILT_IN_RUNTIME_METASTORE, runtime_envs)
     return runtime_envs
@@ -126,7 +138,9 @@ def _get_runtime_services(
     service_name = get_canonical_service_name(
         service_discovery_config, cluster_name, METASTORE_SERVICE_NAME)
     services = {
-        service_name: define_runtime_service_on_head(
-            service_discovery_config, METASTORE_SERVICE_PORT),
+        service_name: define_runtime_service_on_head_or_all(
+            service_discovery_config, METASTORE_SERVICE_PORT,
+            _is_high_availability(metastore_config),
+        )
     }
     return services

@@ -21,19 +21,19 @@ function install_tools() {
       sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install cmake -y > /dev/null)
     which g++-9 > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
       sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install g++-9 -y > /dev/null)
-    if [ "$IS_HEAD_NODE" == "true" ]; then
-        which mysql > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install mysql-client -y > /dev/null)
 
-        POSTGRES_DRIVER=$(pip freeze | grep psycopg2)
-        if [ "${POSTGRES_DRIVER}" == "" ]; then
-            sudo apt-get -qq update -y > /dev/null; \
-              sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install libpq-dev -y > /dev/null
-        fi
+    # SQL client tools
+    which mysql > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
+      sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install mysql-client -y > /dev/null)
 
-        which psql > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install postgresql-client -y > /dev/null)
+    POSTGRES_DRIVER=$(pip freeze | grep psycopg2)
+    if [ "${POSTGRES_DRIVER}" == "" ]; then
+        sudo apt-get -qq update -y > /dev/null; \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install libpq-dev -y > /dev/null
     fi
+
+    which psql > /dev/null || (sudo apt-get -qq update -y > /dev/null; \
+      sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install postgresql-client -y > /dev/null)
 }
 
 function setup_oneapi_repository() {

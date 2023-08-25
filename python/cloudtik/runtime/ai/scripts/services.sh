@@ -22,14 +22,17 @@ set_service_command "$@"
 
 case "$SERVICE_COMMAND" in
 start)
-    if [ $IS_HEAD_NODE == "true" ]; then
+    if [ "${MLFLOW_HIGH_AVAILABILITY}" == "true" ] \
+      || [ "${IS_HEAD_NODE}" == "true" ]; then
         set_head_address
 
         # Will set BACKEND_STORE_URI and DEFAULT_ARTIFACT_ROOT
         . $MLFLOW_HOME/conf/mlflow
 
-         # do schema check and init
-        init_schema
+        if [ "${IS_HEAD_NODE}" == "true" ]; then
+            # do schema check and init only on head
+            init_schema
+        fi
 
         # Start MLflow service
         nohup mlflow server \
@@ -39,7 +42,8 @@ start)
     fi
     ;;
 stop)
-    if [ $IS_HEAD_NODE == "true" ]; then
+    if [ "${MLFLOW_HIGH_AVAILABILITY}" == "true" ] \
+      || [ "${IS_HEAD_NODE}" == "true" ]; then
         # Stop MLflow service
         ps aux | grep 'mlflow.server:app' | grep -v grep | awk '{print $2}' | xargs -r kill -9
     fi

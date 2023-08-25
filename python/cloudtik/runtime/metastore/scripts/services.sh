@@ -23,21 +23,29 @@ set_service_command "$@"
 
 case "$SERVICE_COMMAND" in
 start)
-    if [ $IS_HEAD_NODE == "true" ]; then
+    if [ "${METASTORE_HIGH_AVAILABILITY}" == "true" ] \
+      || [ "${IS_HEAD_NODE}" == "true" ]; then
         if [ "${SQL_DATABASE}" != "true" ] \
           || [ "$METASTORE_WITH_SQL_DATABASE" == "false" ]; then
+            # local database
             sudo service mysql start
-        fi
 
-        # do schema check and init
-        init_schema
+            # do schema check and init
+            init_schema
+        else
+            if [ "${IS_HEAD_NODE}" == "true" ]; then
+                # do schema check and init only on head
+                init_schema
+            fi
+        fi
 
         nohup $METASTORE_HOME/bin/start-metastore \
           >${METASTORE_HOME}/logs/start-metastore.log 2>&1 &
     fi
     ;;
 stop)
-    if [ $IS_HEAD_NODE == "true" ]; then
+    if [ "${METASTORE_HIGH_AVAILABILITY}" == "true" ] \
+      || [ "${IS_HEAD_NODE}" == "true" ]; then
         if [ "${SQL_DATABASE}" != "true" ] \
           || [ "$METASTORE_WITH_SQL_DATABASE" == "false" ]; then
             sudo service mysql stop

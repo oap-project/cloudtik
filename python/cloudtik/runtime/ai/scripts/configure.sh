@@ -88,8 +88,7 @@ function set_artifact_config_for_cloud_storage() {
         set_artifact_config_for_local_hdfs
     fi
 }
-
-function update_mlflow_server_config() {
+function set_backend_store_uri() {
     if [ "${SQL_DATABASE}" == "true" ] \
       && [ "$AI_WITH_SQL_DATABASE" != "false" ]; then
         DATABASE_NAME=mlflow
@@ -102,7 +101,9 @@ function update_mlflow_server_config() {
     else
         BACKEND_STORE_URI=sqlite:///${MLFLOW_HOME}/mlflow.db
     fi
+}
 
+function set_default_artifact_root() {
     if [ "$AI_WITH_CLOUD_STORAGE" != "false" ]; then
         set_artifact_config_for_cloud_storage
     fi
@@ -110,6 +111,11 @@ function update_mlflow_server_config() {
     if [ -z "${DEFAULT_ARTIFACT_ROOT}" ]; then
         DEFAULT_ARTIFACT_ROOT=${MLFLOW_HOME}/mlruns
     fi
+}
+
+function update_mlflow_server_config() {
+    set_backend_store_uri
+    set_default_artifact_root
 
     sed -i "s#{%backend.store.uri%}#${BACKEND_STORE_URI}#g" ${output_dir}/mlflow
     sed -i "s#{%default.artifact.root%}#${DEFAULT_ARTIFACT_ROOT}#g" ${output_dir}/mlflow

@@ -1747,11 +1747,6 @@
                             "default": 53,
                             "description": "DNS server port."
                         },
-                        "high_availability": {
-                            "type": "boolean",
-                            "default": false,
-                            "description": "Whether to run a server on each node for high availability."
-                        },
                         "default_resolver": {
                             "type": "boolean",
                             "default": false,
@@ -1768,11 +1763,6 @@
                             "type": "integer",
                             "default": 53,
                             "description": "DNS server port."
-                        },
-                        "high_availability": {
-                            "type": "boolean",
-                            "default": false,
-                            "description": "Whether to run a server on each node for high availability."
                         },
                         "default_resolver": {
                             "type": "boolean",
@@ -1791,11 +1781,6 @@
                             "default": 53,
                             "description": "DNS server port."
                         },
-                        "high_availability": {
-                            "type": "boolean",
-                            "default": false,
-                            "description": "Whether to run a server on each node for high availability."
-                        },
                         "dnssec_validation": {
                             "type": "string",
                             "default": "yes",
@@ -1805,6 +1790,36 @@
                             "type": "boolean",
                             "default": false,
                             "description": "Whether to set this DNS server as the system default resolver in /etc/resolv.conf."
+                        }
+                    }
+                },
+                "apisix": {
+                    "type": "object",
+                    "description": "APISIX runtime configurations",
+                    "additionalProperties": true,
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "default": 9080,
+                            "description": "APISIX server port."
+                        },
+                        "admin_port": {
+                            "type": "integer",
+                            "default": 9180,
+                            "description": "APISIX admin port."
+                        },
+                        "etcd_service_discovery": {
+                            "type": "boolean",
+                            "description": "Whether to discover and use ETCD service in the same workspace.",
+                            "default": true
+                        },
+                        "etcd_service_selector": {
+                            "$ref": "#/definitions/service_selector",
+                            "description": "The selector for Metastore service if service discovery is enabled."
+                        },
+                        "etcd_uri": {
+                            "type": "string",
+                            "description": "Explicit set ETCD service to use."
                         }
                     }
                 }

@@ -7,7 +7,7 @@ from cloudtik.core._private.runtime_utils import get_runtime_config_from_node, l
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
 from cloudtik.core._private.service_discovery.utils import \
     get_canonical_service_name, define_runtime_service, \
-    get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_API_GATEWAY
+    get_service_discovery_config, SERVICE_DISCOVERY_FEATURE_API_GATEWAY, SERVICE_DISCOVERY_PROTOCOL_HTTP
 from cloudtik.core._private.utils import get_runtime_config
 from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_etcd_from_workspace, \
     discover_etcd_on_head, ETCD_URI_KEY, is_etcd_service_discovery
@@ -22,9 +22,11 @@ RUNTIME_PROCESSES = [
     ]
 
 APISIX_SERVICE_PORT_CONFIG_KEY = "port"
+APISIX_ADMIN_PORT_CONFIG_KEY = "admin_port"
 
 APISIX_SERVICE_NAME = BUILT_IN_RUNTIME_APISIX
-APISIX_SERVICE_PORT_DEFAULT = 53
+APISIX_SERVICE_PORT_DEFAULT = 9080
+APISIX_ADMIN_PORT_DEFAULT = 9180
 
 
 def _get_config(runtime_config: Dict[str, Any]):
@@ -34,6 +36,11 @@ def _get_config(runtime_config: Dict[str, Any]):
 def _get_service_port(apisix_config: Dict[str, Any]):
     return apisix_config.get(
         APISIX_SERVICE_PORT_CONFIG_KEY, APISIX_SERVICE_PORT_DEFAULT)
+
+
+def _get_admin_port(apisix_config: Dict[str, Any]):
+    return apisix_config.get(
+        APISIX_ADMIN_PORT_CONFIG_KEY, APISIX_ADMIN_PORT_DEFAULT)
 
 
 def _get_home_dir():
@@ -79,7 +86,35 @@ def _with_runtime_environment_variables(
     service_port = _get_service_port(apisix_config)
     runtime_envs["APISIX_SERVICE_PORT"] = service_port
 
+    admin_port = _get_admin_port(apisix_config)
+    runtime_envs["APISIX_ADMIN_PORT"] = admin_port
+
     return runtime_envs
+
+
+def _get_runtime_endpoints(
+        runtime_config: Dict[str, Any], cluster_head_ip):
+    service_port = _get_service_port(runtime_config)
+    endpoints = {
+        "apisix": {
+            "name": "APISIX",
+            "url": "http://{}".format(
+                get_address_string(cluster_head_ip, service_port))
+        },
+    }
+    return endpoints
+
+
+def _get_head_service_ports(
+        runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+    service_port = _get_service_port(runtime_config)
+    service_ports = {
+        "apisix": {
+            "protocol": "TCP",
+            "port": service_port,
+        },
+    }
+    return service_ports
 
 
 def _get_runtime_services(
@@ -92,6 +127,7 @@ def _get_runtime_services(
     services = {
         service_name: define_runtime_service(
             service_discovery_config, service_port,
+            protocol=SERVICE_DISCOVERY_PROTOCOL_HTTP,
             features=[SERVICE_DISCOVERY_FEATURE_API_GATEWAY]),
     }
     return services

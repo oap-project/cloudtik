@@ -6,7 +6,7 @@ from cloudtik.core.node_provider import NodeProvider
 from cloudtik.runtime.common.runtime_base import RuntimeBase
 from cloudtik.runtime.apisix.utils import _get_runtime_processes, \
     _get_runtime_services, _with_runtime_environment_variables, _config_depended_services, _prepare_config_on_head, \
-    _validate_config
+    _validate_config, _get_runtime_endpoints, _get_head_service_ports
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,12 @@ class APISIXRuntime(RuntimeBase):
         """
         return _with_runtime_environment_variables(
             self.runtime_config, config=config)
+
+    def get_runtime_endpoints(self, cluster_head_ip: str):
+        return _get_runtime_endpoints(self.runtime_config, cluster_head_ip)
+
+    def get_head_service_ports(self) -> Dict[str, Any]:
+        return _get_head_service_ports(self.runtime_config)
 
     def get_runtime_services(self, cluster_name: str):
         return _get_runtime_services(self.runtime_config, cluster_name)

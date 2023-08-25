@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict
 
 from cloudtik.core._private.core_utils import get_address_string
-from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_KONG
+from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_KONG, BUILT_IN_RUNTIME_POSTGRES
 from cloudtik.core._private.runtime_utils import get_runtime_bool, \
     get_runtime_value
 from cloudtik.core._private.service_discovery.runtime_services import get_service_discovery_runtime
@@ -12,8 +12,9 @@ from cloudtik.core._private.service_discovery.utils import \
 from cloudtik.core._private.util.database_utils import is_database_configured, export_database_environment_variables, \
     DATABASE_ENGINE_POSTGRES, get_database_engine, DATABASE_ENV_ENABLED, DATABASE_ENV_ENGINE
 from cloudtik.core._private.utils import get_runtime_config, is_use_managed_cloud_database, PROVIDER_DATABASE_CONFIG_KEY
-from cloudtik.runtime.common.service_discovery.runtime_discovery import discover_etcd_from_workspace, \
-    discover_etcd_on_head, DATABASE_CONNECT_KEY, is_database_service_discovery
+from cloudtik.runtime.common.service_discovery.runtime_discovery import \
+    DATABASE_CONNECT_KEY, is_database_service_discovery, discover_database_on_head, \
+    discover_database_from_workspace
 
 RUNTIME_PROCESSES = [
         # The first element is the substring to filter.
@@ -71,21 +72,26 @@ def _get_runtime_logs():
 
 
 def _config_depended_services(cluster_config: Dict[str, Any]) -> Dict[str, Any]:
-    cluster_config = discover_etcd_from_workspace(
-        cluster_config, BUILT_IN_RUNTIME_KONG)
+    cluster_config = discover_database_from_workspace(
+        cluster_config, BUILT_IN_RUNTIME_KONG,
+        database_runtime_type=BUILT_IN_RUNTIME_POSTGRES,
+        allow_local=False
+    )
     return cluster_config
 
 
 def _prepare_config_on_head(cluster_config: Dict[str, Any]):
-    cluster_config = discover_etcd_on_head(
-        cluster_config, BUILT_IN_RUNTIME_KONG)
+    cluster_config = discover_database_on_head(
+        cluster_config, BUILT_IN_RUNTIME_KONG,
+        database_runtime_type=BUILT_IN_RUNTIME_POSTGRES,
+        allow_local=False)
 
     _validate_config(cluster_config, final=True)
     return cluster_config
 
 
 def _is_valid_database_config(config: Dict[str, Any], final=False):
-    # Check etcd configuration
+    # Check database configuration
     runtime_config = get_runtime_config(config)
     kong_config = _get_config(runtime_config)
     database_config = _get_database_config(kong_config)

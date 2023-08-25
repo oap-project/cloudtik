@@ -4,7 +4,8 @@ from typing import Dict, Any, Union, List
 from cloudtik.core._private.constants import CLOUDTIK_RUNTIME_ENV_HEAD_IP
 from cloudtik.core._private.core_utils import get_config_for_update, get_env_string_value
 from cloudtik.core._private.runtime_factory import BUILT_IN_RUNTIME_HDFS, BUILT_IN_RUNTIME_METASTORE, \
-    BUILT_IN_RUNTIME_CONSUL, BUILT_IN_RUNTIME_ZOOKEEPER, BUILT_IN_RUNTIME_MYSQL, BUILT_IN_RUNTIME_POSTGRES
+    BUILT_IN_RUNTIME_CONSUL, BUILT_IN_RUNTIME_ZOOKEEPER, BUILT_IN_RUNTIME_MYSQL, BUILT_IN_RUNTIME_POSTGRES, \
+    BUILT_IN_RUNTIME_ETCD
 from cloudtik.core._private.runtime_utils import get_runtime_value
 from cloudtik.core._private.service_discovery.utils import get_service_selector_for_update, \
     include_runtime_for_selector, include_feature_for_selector
@@ -38,6 +39,10 @@ ZOOKEEPER_SERVICE_SELECTOR_KEY = "zookeeper_service_selector"
 DATABASE_CONNECT_KEY = "database"
 DATABASE_SERVICE_DISCOVERY_KEY = "database_service_discovery"
 DATABASE_SERVICE_SELECTOR_KEY = "database_service_selector"
+
+ETCD_URI_KEY = "etcd_uri"
+ETCD_SERVICE_DISCOVERY_KEY = "etcd_service_discovery"
+ETCD_SERVICE_SELECTOR_KEY = "etcd_service_selector"
 
 
 def get_database_runtime_in_cluster(runtime_config):
@@ -189,6 +194,22 @@ def discover_database(
     engine = get_database_engine_for_runtime(
         service_instance.runtime_type)
     return engine, service_instance.service_addresses
+
+
+def discover_etcd(
+        config: Dict[str, Any],
+        service_selector_key: str,
+        cluster_config: Dict[str, Any],
+        discovery_type):
+    service_addresses = discover_runtime_service_addresses(
+        config, service_selector_key,
+        runtime_type=BUILT_IN_RUNTIME_ETCD,
+        cluster_config=cluster_config,
+        discovery_type=discovery_type,
+    )
+    if not service_addresses:
+        return None
+    return get_service_addresses_string(service_addresses)
 
 
 """
@@ -447,6 +468,70 @@ def discover_database_on_head(
         database_config = get_config_for_update(
             runtime_type_config, DATABASE_CONNECT_KEY)
         set_database_config(database_config, database_service)
+    return cluster_config
+
+
+"""
+ETCD service discovery conventions:
+    1. The ETCD service discovery flag is stored at ETCD_SERVICE_DISCOVERY_KEY defined above
+    2. The ETCD service selector is stored at ETCD_SERVICE_SELECTOR_KEY defined above
+    3. The ETCD uri is stored at ETCD_URI_KEY defined above
+"""
+
+
+def is_etcd_service_discovery(runtime_type_config):
+    return runtime_type_config.get(ETCD_SERVICE_DISCOVERY_KEY, True)
+
+
+def discover_etcd_from_workspace(
+        cluster_config: Dict[str, Any], runtime_type):
+    runtime_config = get_runtime_config(cluster_config)
+    runtime_type_config = runtime_config.get(runtime_type, {})
+
+    # Discover etcd through workspace
+    if (runtime_type_config.get(ETCD_URI_KEY) or
+            has_runtime_in_cluster(runtime_config, BUILT_IN_RUNTIME_ETCD) or
+            not is_etcd_service_discovery(runtime_type_config)):
+        return cluster_config
+
+    etcd_uri = discover_etcd(
+        runtime_type_config, ETCD_SERVICE_SELECTOR_KEY,
+        cluster_config=cluster_config,
+        discovery_type=DiscoveryType.WORKSPACE)
+    if etcd_uri is not None:
+        runtime_type_config = get_config_for_update(
+            runtime_config, runtime_type)
+        runtime_type_config[ETCD_URI_KEY] = etcd_uri
+
+    return cluster_config
+
+
+def discover_etcd_on_head(
+        cluster_config: Dict[str, Any], runtime_type):
+    runtime_config = get_runtime_config(cluster_config)
+    runtime_type_config = runtime_config.get(runtime_type, {})
+    if not is_etcd_service_discovery(runtime_type_config):
+        return cluster_config
+
+    etcd_uri = runtime_type_config.get(ETCD_URI_KEY)
+    if etcd_uri:
+        # Zookeeper already configured
+        return cluster_config
+
+    if has_runtime_in_cluster(
+            runtime_config, BUILT_IN_RUNTIME_ETCD):
+        # There is a local Zookeeper
+        return cluster_config
+
+    # There is service discovery to come here
+    etcd_uri = discover_etcd(
+                    runtime_type_config, ETCD_SERVICE_SELECTOR_KEY,
+                    cluster_config=cluster_config,
+                    discovery_type=DiscoveryType.CLUSTER)
+    if etcd_uri:
+        runtime_type_config = get_config_for_update(
+            runtime_config, runtime_type)
+        runtime_type_config[ETCD_URI_KEY] = etcd_uri
     return cluster_config
 
 

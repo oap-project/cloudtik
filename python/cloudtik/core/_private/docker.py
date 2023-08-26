@@ -166,17 +166,17 @@ def _docker_start_cmds(user, image, mounts, data_disks, container_name,
     env_flags = " ".join(
         ["-e {name}={val}".format(name=k, val=v) for k, v in env_vars.items()])
 
-    user_options_str = " ".join(user_options)
-
     fuse_flags = "--cap-add SYS_ADMIN --device /dev/fuse --security-opt apparmor:unconfined"
     networking_flag = "--cap-add NET_ADMIN"
     numactl_flag = "--cap-add SYS_NICE"
     network_flag = "--network={}".format(network) if network else "--network=host"
 
+    user_options_str = " ".join(user_options)
+
     docker_run = [
         docker_cmd, "run", "--rm", "--name {}".format(container_name), "-d",
         "-it", mount_flags, env_flags, fuse_flags, networking_flag,
-        numactl_flag, user_options_str, network_flag
+        numactl_flag, network_flag, user_options_str
     ]
 
     # default IPC mode to host

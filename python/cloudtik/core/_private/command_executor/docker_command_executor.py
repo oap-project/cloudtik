@@ -110,7 +110,7 @@ class DockerCommandExecutor(CommandExecutor):
             is_source_dir = os.path.isdir(source)
             if not is_source_dir and (
                     target[-1] == "/" or self._is_directory(target)):
-                # target needs the source name
+                # source is file and target is directory, target needs the source name
                 identical = True
                 identifier_path = source
 

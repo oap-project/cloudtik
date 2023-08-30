@@ -104,14 +104,15 @@ class DockerCommandExecutor(CommandExecutor):
         do_with_rsync = self._check_container_status() and not options.get(
                 "docker_mount_if_possible", False)
         identical = False if do_with_rsync else True
-
-        is_source_dir = os.path.isdir(source)
         identifier_path = None
-        if not is_source_dir and (
-                target[-1] == "/" or self._is_directory(target)):
-            # target needs the source name
-            identical = True
-            identifier_path = source
+        is_source_dir = False
+        if do_with_rsync:
+            is_source_dir = os.path.isdir(source)
+            if not is_source_dir and (
+                    target[-1] == "/" or self._is_directory(target)):
+                # target needs the source name
+                identical = True
+                identifier_path = source
 
         host_destination = get_docker_host_mount_location_for_object(
             self.host_command_executor.cluster_name, target,
@@ -165,13 +166,14 @@ class DockerCommandExecutor(CommandExecutor):
         options = options or {}
         do_with_rsync = not options.get("docker_mount_if_possible", False)
         identical = False if do_with_rsync else True
-
-        # Check the source is a file or a directory
-        is_source_dir = self._is_directory(source)
-        if not is_source_dir and (
-                target[-1] == "/" or os.path.isdir(target)):
-            # target needs the source name
-            identical = True
+        is_source_dir = False
+        if do_with_rsync:
+            # Check the source is a file or a directory
+            is_source_dir = self._is_directory(source)
+            if not is_source_dir and (
+                    target[-1] == "/" or os.path.isdir(target)):
+                # target needs the source name
+                identical = True
 
         host_source = get_docker_host_mount_location_for_object(
             self.host_command_executor.cluster_name, source,

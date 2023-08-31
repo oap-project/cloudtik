@@ -1,6 +1,8 @@
 ARG BASE_IMAGE="nightly"
 FROM cloudtik/cloudtik-deps:"$BASE_IMAGE"
 
+ARG NODE_EXPORTER_VERSION=1.6.1
+ARG PROMETHEUS_VERSION=2.45.0
 ARG TRINO_VERSION=389
 ARG HADOOP_VERSION=3.3.1
 
@@ -8,7 +10,18 @@ ENV RUNTIME_PATH /home/cloudtik/runtime
 RUN mkdir -p $RUNTIME_PATH
 WORKDIR /home/cloudtik/runtime
 
-# TODO: Install prometheus
+# Install prometheus and node exporter
+ENV NODE_EXPORTER_HOME $RUNTIME_PATH/node_exporter
+ENV PROMETHEUS_HOME $RUNTIME_PATH/prometheus
+
+RUN wget https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz -O node_exporter.tar.gz && \
+    mkdir -p "$NODE_EXPORTER_HOME" && \
+    tar --extract --file node_exporter.tar.gz --directory "$NODE_EXPORTER_HOME" --strip-components 1 --no-same-owner && \
+    rm node_exporter.tar.gz && \
+    wget https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz -O prometheus.tar.gz && \
+    mkdir -p "$PROMETHEUS_HOME" && \
+    tar --extract --file prometheus.tar.gz --directory "$PROMETHEUS_HOME" --strip-components 1 --no-same-owner && \
+    rm prometheus.tar.gz
 
 # Install JDK
 ENV JAVA_HOME            $RUNTIME_PATH/jdk

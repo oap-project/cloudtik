@@ -1,4 +1,5 @@
 # CloudTik: Cloud Scale Platform for Distributed Analytics and AI
+Note: The development of CloudTik has been moved to https://github.com/cloudtik/cloudtik.
 
 ## Introduction
 
